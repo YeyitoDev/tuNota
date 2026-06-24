@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Cozy / natural · warm tones */
+    --background: 37 50% 96%;
+    --foreground: 30 14% 20%;
+
+    --card: 44 60% 99%;
+    --card-foreground: 30 14% 20%;
+
+    --popover: 44 60% 99%;
+    --popover-foreground: 30 14% 20%;
+
+    --primary: 12 42% 58%;
+    --primary-foreground: 40 56% 98%;
+
+    --secondary: 37 33% 92%;
+    --secondary-foreground: 30 14% 26%;
+
+    --muted: 37 30% 91%;
+    --muted-foreground: 31 10% 45%;
+
+    --accent: 90 20% 85%;
+    --accent-foreground: 95 22% 25%;
+
+    --destructive: 4 55% 56%;
+    --destructive-foreground: 40 56% 98%;
+
+    --border: 33 26% 86%;
+    --input: 33 26% 86%;
+    --ring: 12 42% 58%;
+
+    /* Natural accents */
+    --sage: 91 16% 52%;
+    --ocre: 34 69% 61%;
+    --terracotta: 12 42% 58%;
+
+    --radius: 0.875rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-serif;
+  }
+}
+
+@layer utilities {
+  .paper-texture {
+    background-color: hsl(var(--background));
+    background-image: radial-gradient(hsl(33 22% 78% / 0.4) 0.5px, transparent 0.5px);
+    background-size: 18px 18px;
+  }
+
+  .scrollbar-cozy::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-cozy::-webkit-scrollbar-thumb {
+    background: hsl(33 18% 80%);
+    border-radius: 9999px;
+  }
+  .scrollbar-cozy::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* React Flow · cozy overrides */
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__controls {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 8px 24px -8px rgba(58, 51, 44, 0.22) !important;
+}
+.react-flow__controls-button {
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  width: 30px;
+  height: 30px;
+}
+.react-flow__controls-button:hover {
+  background: hsl(var(--secondary));
+}
+.react-flow__controls-button svg {
+  fill: hsl(var(--foreground));
+}
+.react-flow__edge-path {
+  stroke: hsl(var(--sage));
+  stroke-width: 2;
+}
+.react-flow__node {
+  font-family: 'Nunito', system-ui, sans-serif;
+}
