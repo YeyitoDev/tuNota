@@ -1,17 +1,172 @@
 #!/usr/bin/env python3
 # tuNota - servidor estatico + base de datos JSON persistente (solo libreria estandar).
 # Uso:  py server.py   (luego abre http://localhost:8765)
+import base64
+import gzip
 import json
 import os
+import shlex
 import socket
+import ssl
 import sys
 import threading
+import time
+import urllib.error
+import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(ROOT, "db.json")
 LOCK = threading.Lock()
 PORT = int(os.environ.get("PORT", "8765"))
+
+# Flags de curl que no llevan valor y que podemos ignorar sin afectar la peticion.
+_CURL_BOOL_IGNORE = {
+    "--compressed", "-L", "--location", "-s", "--silent", "-S", "--show-error",
+    "-i", "--include", "-v", "--verbose", "-g", "--globoff", "--fail", "-f",
+    "-#", "--progress-bar", "--no-buffer", "-N",
+}
+# Flags que llevan un valor que ignoramos (no aplican en este proxy simple).
+_CURL_VALUE_IGNORE = {
+    "-o", "--output", "-w", "--write-out", "--connect-timeout", "--max-time",
+    "-m", "--retry", "--cacert", "--cert", "--key", "--resolve",
+}
+
+
+def parse_curl(cmd):
+    """Interpreta un comando curl y devuelve (method, url, headers, data, insecure, user)."""
+    cmd = cmd.replace("\\\n", " ").replace("\\\r\n", " ").strip()
+    tokens = shlex.split(cmd, posix=True)
+    if tokens and tokens[0] == "curl":
+        tokens = tokens[1:]
+    method = None
+    headers = {}
+    data = None
+    url = None
+    insecure = False
+    user = None
+    i = 0
+    n = len(tokens)
+    while i < n:
+        t = tokens[i]
+        if t in ("-X", "--request") and i + 1 < n:
+            i += 1
+            method = tokens[i]
+        elif t in ("-H", "--header") and i + 1 < n:
+            i += 1
+            hv = tokens[i]
+            if ":" in hv:
+                k, v = hv.split(":", 1)
+                headers[k.strip()] = v.strip()
+        elif t in ("-d", "--data", "--data-raw", "--data-binary", "--data-ascii") and i + 1 < n:
+            i += 1
+            piece = tokens[i]
+            data = piece if data is None else data + "&" + piece
+        elif t == "--url" and i + 1 < n:
+            i += 1
+            url = tokens[i]
+        elif t in ("-u", "--user") and i + 1 < n:
+            i += 1
+            user = tokens[i]
+        elif t in ("-A", "--user-agent") and i + 1 < n:
+            i += 1
+            headers["User-Agent"] = tokens[i]
+        elif t in ("-e", "--referer") and i + 1 < n:
+            i += 1
+            headers["Referer"] = tokens[i]
+        elif t in ("-b", "--cookie") and i + 1 < n:
+            i += 1
+            headers["Cookie"] = tokens[i]
+        elif t in ("-k", "--insecure"):
+            insecure = True
+        elif t in _CURL_BOOL_IGNORE:
+            pass
+        elif t in _CURL_VALUE_IGNORE:
+            i += 1  # saltar su valor
+        elif t.startswith("-"):
+            pass  # flag desconocido: ignorar por seguridad
+        else:
+            if url is None:
+                url = t
+        i += 1
+    if not method:
+        method = "POST" if data is not None else "GET"
+    return method.upper(), url, headers, data, insecure, user
+
+
+def run_curl(cmd):
+    """Ejecuta el comando curl interpretado y devuelve un dict serializable."""
+    try:
+        method, url, headers, data, insecure, user = parse_curl(cmd)
+    except Exception as e:
+        return {"ok": False, "error": "No se pudo interpretar el comando: %s" % e}
+    if not url:
+        return {"ok": False, "error": "No se encontro una URL en el comando."}
+    if not (url.startswith("http://") or url.startswith("https://")):
+        url = "http://" + url
+
+    body_bytes = data.encode("utf-8") if data is not None else None
+    if body_bytes is not None and not any(k.lower() == "content-type" for k in headers):
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+    if user and not any(k.lower() == "authorization" for k in headers):
+        headers["Authorization"] = "Basic " + base64.b64encode(user.encode("utf-8")).decode("ascii")
+
+    req = urllib.request.Request(url, data=body_bytes, method=method, headers=headers)
+    ctx = None
+    if url.startswith("https://"):
+        ctx = ssl.create_default_context()
+        if insecure:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+
+    t0 = time.time()
+    try:
+        resp = urllib.request.urlopen(req, timeout=30, context=ctx)
+        raw = resp.read()
+        status = resp.status
+        reason = resp.reason
+        resp_headers = dict(resp.getheaders())
+    except urllib.error.HTTPError as e:
+        raw = e.read()
+        status = e.code
+        reason = e.reason
+        try:
+            resp_headers = dict(e.headers.items())
+        except Exception:
+            resp_headers = {}
+    except Exception as e:
+        return {"ok": False, "error": "%s" % e, "url": url, "method": method}
+    ms = int((time.time() - t0) * 1000)
+
+    enc = ""
+    ctype = ""
+    for k, v in resp_headers.items():
+        kl = k.lower()
+        if kl == "content-encoding":
+            enc = (v or "").lower()
+        elif kl == "content-type":
+            ctype = v or ""
+    if "gzip" in enc:
+        try:
+            raw = gzip.decompress(raw)
+        except Exception:
+            pass
+    try:
+        text = raw.decode("utf-8")
+    except Exception:
+        text = raw.decode("latin-1", "replace")
+
+    return {
+        "ok": True,
+        "status": status,
+        "reason": reason,
+        "headers": resp_headers,
+        "body": text,
+        "contentType": ctype,
+        "timeMs": ms,
+        "url": url,
+        "method": method,
+    }
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -52,7 +207,8 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
-        if self.path.split("?")[0] == "/api/data":
+        route = self.path.split("?")[0]
+        if route == "/api/data":
             try:
                 length = int(self.headers.get("Content-Length", 0))
                 raw = self.rfile.read(length) if length else b"{}"
@@ -62,6 +218,17 @@ class Handler(SimpleHTTPRequestHandler):
             with LOCK:
                 self._write_db(data)
             return self._send_json({"ok": True})
+        if route == "/api/curl":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                raw = self.rfile.read(length) if length else b"{}"
+                payload = json.loads(raw.decode("utf-8"))
+                cmd = (payload.get("command") or "").strip()
+            except Exception:
+                return self._send_json({"ok": False, "error": "invalid json"}, 400)
+            if not cmd:
+                return self._send_json({"ok": False, "error": "Comando cURL vacio."})
+            return self._send_json(run_curl(cmd))
         self.send_response(404)
         self.end_headers()
 
