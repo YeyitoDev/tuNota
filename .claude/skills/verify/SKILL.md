@@ -46,7 +46,19 @@ Gotchas aprendidos:
   `Storage.prototype.setItem` para las claves `tunota.*` y recarga.
 - Blobs: IndexedDB `tunota-blobs`, stores `blobs` (id → data URL) y `backups` (snapshots).
 - Selectores útiles: `.card`, `.img-media img`, `iframe.pdf-frame`, `#saveBanner`,
-  `.backup-panel`, `.kanban-panel`, `.log-panel`, `.card[data-id="<id>"]`.
+  `.backup-panel`, `.kanban-panel`, `.log-panel`, `.card[data-id="<id>"]`,
+  `.tpl-panel`/`.tpl-card` (plantillas), `.search-panel`/`.search-input`/`.search-row`,
+  `.shortcut-panel`, `.cm-ai .cm-chip` (acciones IA del menú de tarjeta), `.app-toast`.
+- Probar acciones IA sin API real: en `page.evaluate`, fija
+  `ui.ai = {provider:'openai', model:'m', apiKey:'k', baseUrl:'https://fake/v1'}` y
+  reemplaza `window.fetch` por un mock que devuelva
+  `{choices:[{message:{content:'…'}}]}`; luego llama `aiBlockAction(b, AI_BLOCK_ACTIONS[i])`.
+- El doble clic de crear bloque exige `e.target === .canvas-content`: dispara el
+  evento con `dispatchEvent(new MouseEvent('dblclick', {bubbles:true, clientX, clientY}))`
+  sobre `.canvas-content` (los clicks de Playwright suelen caer en tarjetas o el SVG).
+- Unit tests: `npm test` (Vitest, tests/ con arnés vm que carga js/ reales).
 
-Script de referencia que ya cubre importar/recargar/migración/copias/cuota/pop-out:
-ver `drive.js` del scratchpad de la sesión 2026-07-07 (reproducible desde este SKILL).
+Scripts de referencia (scratchpad sesión 2026-07-07, reproducibles desde este SKILL):
+`drive.js` (Fase 1: importar/recargar/migración/copias/cuota/pop-out),
+`smoke.js` (13 tipos de bloque + paneles), `phase5.js` (plantillas, búsqueda,
+atajos, IA con fetch simulado), `shots.js` (capturas).
