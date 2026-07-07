@@ -1,4 +1,4 @@
-import { type MouseEvent, useCallback, useEffect, useState } from 'react'
+import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -76,7 +76,7 @@ export function Canvas() {
   }, [])
 
   const onPaneClick = useCallback(
-    (e: MouseEvent) => {
+    (e: ReactMouseEvent) => {
       if (!currentNoteId) return
       const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
       const type = e.ctrlKey || e.metaKey ? 'idea' : 'text'
@@ -87,7 +87,7 @@ export function Canvas() {
     [currentNoteId, screenToFlowPosition, buildNode],
   )
 
-  const onNodeDragStop = useCallback((_: MouseEvent, node: Node) => {
+  const onNodeDragStop = useCallback((_: MouseEvent | TouchEvent, node: Node) => {
     moveBlock(node.id, node.position.x, node.position.y)
   }, [])
 
