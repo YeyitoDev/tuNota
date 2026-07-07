@@ -322,8 +322,14 @@ body {
   background: var(--card);
   color: var(--fg);
   border-radius: 10px;
-  cursor: not-allowed;
-  opacity: 0.75;
+  cursor: pointer;
+}
+.ai-btn:hover {
+  border-color: var(--ocre);
+}
+.ai-btn.ready {
+  border-color: var(--ocre);
+  background: rgba(217, 163, 90, 0.12);
 }
 .ai-btn .icon {
   width: 16px;
@@ -3024,6 +3030,474 @@ body.curl-resizing {
   animation: pop 0.14s ease-out;
 }
 .link-hint .icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* ---------- Panel de tema / colores ---------- */
+.theme-panel {
+  max-width: 380px;
+}
+.theme-sec-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 10px 2px 6px;
+}
+.theme-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.theme-preset-btn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.theme-preset-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.theme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.theme-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.theme-color {
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.theme-reset-btn {
+  margin-top: 14px;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--fg);
+  border-radius: 10px;
+  padding: 9px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.theme-reset-btn:hover {
+  border-color: var(--primary);
+}
+
+/* ---------- Texto transl\u00facido (freetext) ---------- */
+.card.freetext {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible;
+  min-height: 0;
+}
+.card.freetext .card-head {
+  position: absolute;
+  top: -32px;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+}
+.card.freetext:hover .card-head,
+.card.freetext.selected .card-head {
+  opacity: 1;
+  pointer-events: auto;
+}
+.card.freetext.selected {
+  outline: 1px dashed var(--primary);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.card.freetext .free-ta {
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  width: 100%;
+  padding: 2px 6px;
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Nunito', system-ui, sans-serif;
+  color: var(--fg);
+}
+.card.freetext .card-link-anchor {
+  opacity: 0;
+}
+.card.freetext:hover .card-link-anchor {
+  opacity: 1;
+}
+.free-format-pop {
+  position: absolute;
+  top: -8px;
+  left: calc(100% + 10px);
+  z-index: 60;
+  width: 210px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.free-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.free-lbl {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 48px;
+}
+.free-size {
+  flex: 1;
+}
+.free-size-lbl {
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 34px;
+  text-align: right;
+}
+.free-color {
+  width: 32px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.free-chip {
+  min-width: 28px;
+  height: 26px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.free-chip.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* ---------- Salida de Python ---------- */
+.py-out {
+  overflow: auto;
+  background: #1e1f25;
+  color: #e6e3da;
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 8px 10px;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.py-out.empty {
+  background: var(--secondary);
+  color: var(--muted);
+  font-family: inherit;
+}
+.py-stdout {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.py-err {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #ff9b8a;
+}
+.py-img {
+  display: block;
+  max-width: 100%;
+  margin: 6px 0;
+  border-radius: 6px;
+  background: #fff;
+}
+
+/* ---------- Panel de IA ---------- */
+.ai-panel {
+  max-width: 460px;
+  width: 92vw;
+  height: 78vh;
+  display: flex;
+  flex-direction: column;
+}
+.ai-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.ai-settings {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.ai-settings.open {
+  display: flex;
+}
+.ai-set-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-set-row label {
+  font-size: 12.5px;
+  color: var(--muted);
+  min-width: 72px;
+}
+.ai-input {
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--fg);
+}
+.ai-warn {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.ai-save-btn {
+  align-self: flex-end;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 9px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ai-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px;
+}
+.ai-msg {
+  max-width: 88%;
+  padding: 9px 12px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  position: relative;
+  word-wrap: break-word;
+}
+.ai-msg.user {
+  align-self: flex-end;
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  white-space: pre-wrap;
+}
+.ai-msg.bot {
+  align-self: flex-start;
+  background: var(--secondary);
+  color: var(--fg);
+  border-bottom-left-radius: 4px;
+}
+.ai-msg.note {
+  align-self: center;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+}
+.ai-msg.thinking {
+  opacity: 0.7;
+}
+.ai-msg.bot.md-render :first-child {
+  margin-top: 0;
+}
+.ai-msg.bot.md-render :last-child {
+  margin-bottom: 0;
+}
+.ai-insert {
+  display: inline-block;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  border-radius: 7px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.ai-insert:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.ai-quick {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ai-chip {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.ai-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.ai-inbar {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.ai-textarea {
+  flex: 1;
+  resize: none;
+  min-height: 42px;
+  max-height: 130px;
+  font: inherit;
+  font-size: 13.5px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--fg);
+  outline: none;
+}
+.ai-textarea:focus {
+  border-color: var(--primary);
+}
+.ai-send-btn {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.ai-send-btn .icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* ---------- Bloque de dibujo (l\u00e1piz / Apple Pencil) ---------- */
+.card.draw .card-body,
+.draw-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: #fff;
+}
+.draw-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+.draw-toolbar {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.card.draw:hover .draw-toolbar,
+.card.draw.selected .draw-toolbar {
+  opacity: 1;
+}
+.draw-color {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.draw-size {
+  width: 90px;
+}
+.draw-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--fg);
+  border-radius: 7px;
+  cursor: pointer;
+}
+.draw-tool:hover {
+  background: var(--secondary);
+}
+.draw-tool.on {
+  background: var(--primary);
+  color: #fff;
+}
+.draw-tool .icon {
   width: 15px;
   height: 15px;
 }
