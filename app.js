@@ -20,6 +20,218 @@
     }
   }
 
+  // ---------- Almacén de blobs (IndexedDB) ----------
+  // Las imágenes/PDF viven en IndexedDB; localStorage guarda solo referencias
+  // ('blob:<id>') para no superar la cuota (~5 MB). Un espejo en memoria
+  // (blobCache) permite que el render síncrono resuelva las referencias.
+  var BlobStore = (function () {
+    var DB_NAME = 'tunota-blobs', VERSION = 1;
+    var dbP = null;
+    function open() {
+      if (dbP) return dbP;
+      dbP = new Promise(function (resolve, reject) {
+        if (!window.indexedDB) { reject(new Error('IndexedDB no disponible')); return; }
+        var req = indexedDB.open(DB_NAME, VERSION);
+        req.onupgradeneeded = function () {
+          var db = req.result;
+          if (!db.objectStoreNames.contains('blobs')) db.createObjectStore('blobs');
+          if (!db.objectStoreNames.contains('backups')) db.createObjectStore('backups');
+        };
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+      return dbP;
+    }
+    function tx(storeName, mode, fn) {
+      return open().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var t = db.transaction(storeName, mode);
+          var store = t.objectStore(storeName);
+          var out = fn(store);
+          t.oncomplete = function () { resolve(out && out.result !== undefined ? out.result : undefined); };
+          t.onerror = function () { reject(t.error); };
+          t.onabort = function () { reject(t.error); };
+        });
+      });
+    }
+    return {
+      put: function (store, id, value) { return tx(store, 'readwrite', function (s) { s.put(value, id); }); },
+      get: function (store, id) { return tx(store, 'readonly', function (s) { return s.get(id); }); },
+      del: function (store, id) { return tx(store, 'readwrite', function (s) { s.delete(id); }); },
+      keys: function (store) { return tx(store, 'readonly', function (s) { return s.getAllKeys(); }); },
+      all: function (store) {
+        return open().then(function (db) {
+          return new Promise(function (resolve, reject) {
+            var t = db.transaction(store, 'readonly');
+            var s = t.objectStore(store);
+            var out = {};
+            var kReq = s.getAllKeys(), vReq = s.getAll();
+            t.oncomplete = function () {
+              var ks = kReq.result || [], vs = vReq.result || [];
+              for (var i = 0; i < ks.length; i++) out[ks[i]] = vs[i];
+              resolve(out);
+            };
+            t.onerror = function () { reject(t.error); };
+          });
+        });
+      },
+    };
+  })();
+
+  var blobCache = {}; // id -> data URL (espejo síncrono de IndexedDB)
+  function isBlobRef(s) { return typeof s === 'string' && s.indexOf('blob:') === 0; }
+  function blobRefId(s) { return s.slice(5); }
+  function resolveSrc(s) {
+    if (isBlobRef(s)) return blobCache[blobRefId(s)] || ''; // '' hasta hidratar
+    return s || ''; // data URL heredada sigue funcionando
+  }
+  function storeBlob(dataUrl) {
+    var id = uid();
+    blobCache[id] = dataUrl;
+    BlobStore.put('blobs', id, dataUrl).catch(function (e) { onSaveError('blob', e); });
+    return 'blob:' + id;
+  }
+  function deleteBlobRef(ref) {
+    if (!isBlobRef(ref)) return;
+    var id = blobRefId(ref);
+    delete blobCache[id];
+    BlobStore.del('blobs', id).catch(function () {});
+  }
+  // Gráficos de Python: nuevo = ref de blob; heredado = base64 crudo sin prefijo.
+  function pyImgSrc(img) {
+    return isBlobRef(img) ? resolveSrc(img) : 'data:image/png;base64,' + img;
+  }
+  // Recorre todas las referencias de blob de un snapshot de datos.
+  function eachBlobRef(d, fn) {
+    (d.blocks || []).forEach(function (b) {
+      var c = b.content;
+      if (!c) return;
+      if (c.images) c.images.forEach(function (it) {
+        var s = typeof it === 'string' ? it : (it && it.src);
+        if (isBlobRef(s)) fn(s);
+      });
+      if (isBlobRef(c.pdf)) fn(c.pdf);
+      if (c.result && isBlobRef(c.result.img)) fn(c.result.img);
+    });
+  }
+
+  // ---------- Escritura protegida en localStorage (sin fallos silenciosos) ----------
+  var saveHealthy = true;
+  var autoBackupDone = false;
+  function writeLS(key, valueStr) {
+    try {
+      localStorage.setItem(key, valueStr);
+      if (!saveHealthy) { saveHealthy = true; clearSaveBanner(); }
+      return true;
+    } catch (e) {
+      saveHealthy = false;
+      var quota = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);
+      onSaveError(quota ? 'quota' : 'unknown', e);
+      return false;
+    }
+  }
+  function onSaveError(kind, e) {
+    if (e) console.error('tuNota: no se pudo guardar (' + kind + ')', e);
+    if (!document.body) return;
+    var msg = kind === 'quota'
+      ? '⚠ No se pudo guardar: almacenamiento lleno. Exporta una copia de seguridad para no perder cambios.'
+      : '⚠ No se pudo guardar tus cambios.';
+    var banner = document.getElementById('saveBanner');
+    if (!banner) {
+      banner = h('div', { class: 'save-banner', id: 'saveBanner' });
+      document.body.appendChild(banner);
+    }
+    banner.innerHTML = '';
+    banner.appendChild(h('span', { class: 'save-banner-msg' }, msg));
+    banner.appendChild(h('button', { class: 'save-banner-btn', onclick: downloadBackup }, 'Exportar copia'));
+    // Emergencia real: tras mover los blobs a IndexedDB, una cuota llena
+    // significa que la propia estructura creció demasiado. Descarga una copia
+    // automática una sola vez.
+    if (kind === 'quota' && !autoBackupDone) {
+      autoBackupDone = true;
+      try { downloadBackup(); } catch (er) {}
+    }
+  }
+  function clearSaveBanner() {
+    var b = document.getElementById('saveBanner');
+    if (b) b.remove();
+  }
+
+  // ---------- Copias automáticas (snapshots en IndexedDB) ----------
+  var SNAP_MAX = 10, SNAP_EVERY_MS = 2 * 60 * 1000;
+  var lastSnapAt = 0;
+  function maybeSnapshot(dataStr) {
+    var t = now();
+    if (t - lastSnapAt < SNAP_EVERY_MS) return;
+    lastSnapAt = t;
+    BlobStore.put('backups', t, { ts: t, json: dataStr })
+      .then(function () { return BlobStore.keys('backups'); })
+      .then(function (ks) {
+        ks = (ks || []).slice().sort(function (a, b) { return a - b; });
+        for (var i = 0; i < ks.length - SNAP_MAX; i++) BlobStore.del('backups', ks[i]).catch(function () {});
+      })
+      .catch(function () {});
+  }
+
+  // ---------- Copia de seguridad completa (estructura + blobs inline) ----------
+  function collectBlobsFor(d) {
+    var out = {};
+    eachBlobRef(d, function (ref) {
+      var id = blobRefId(ref);
+      if (blobCache[id]) out[id] = blobCache[id];
+    });
+    return out;
+  }
+  function downloadBackup() {
+    var payload = { app: 'tunota', version: 1, exportedAt: now(), data: data, blobs: collectBlobsFor(data) };
+    var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var d = new Date();
+    var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    var name = 'tunota-copia-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.json';
+    downloadDataUrl(url, name);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+    logChange('Copia de seguridad exportada', '');
+    debouncedSave();
+  }
+  function importBackupFile(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var obj;
+      try { obj = JSON.parse(String(reader.result || '')); } catch (e) { obj = null; }
+      // Acepta tanto la copia completa { data, blobs } como un JSON de datos crudo.
+      var payload = obj && obj.data && obj.data.notebooks ? obj : (obj && obj.notebooks ? { data: obj, blobs: {} } : null);
+      if (!payload) { alert('El archivo no es una copia válida de tuNota.'); return; }
+      if (!window.confirm('Importar esta copia reemplazará TODOS los datos actuales. ¿Continuar?')) return;
+      var blobs = payload.blobs || {};
+      Object.keys(blobs).forEach(function (id) {
+        blobCache[id] = blobs[id];
+        BlobStore.put('blobs', id, blobs[id]).catch(function (e) { onSaveError('blob', e); });
+      });
+      data = payload.data;
+      normalizeData();
+      migrateInlineBlobs(true); // copias antiguas pueden traer data URLs inline
+      if (!ui.currentNoteId || !getNote(ui.currentNoteId)) { var n0 = data.notes[0]; ui.currentNoteId = n0 ? n0.id : null; }
+      logChange('Copia de seguridad importada', '');
+      save();
+      renderAll();
+      closeBackups();
+    };
+    reader.readAsText(file);
+  }
+  function restoreSnapshot(snap) {
+    var d;
+    try { d = JSON.parse(snap.json); } catch (e) { alert('No se pudo leer la copia.'); return; }
+    if (!window.confirm('Restaurar la copia del ' + fmtDate(snap.ts) + ' ' + fmtTime(snap.ts) + ' reemplazará los datos actuales. ¿Continuar?')) return;
+    data = d;
+    normalizeData();
+    if (!ui.currentNoteId || !getNote(ui.currentNoteId)) { var n0 = data.notes[0]; ui.currentNoteId = n0 ? n0.id : null; }
+    logChange('Copia restaurada', fmtDate(snap.ts) + ' ' + fmtTime(snap.ts));
+    save();
+    renderAll();
+    closeBackups();
+  }
+
   // ---------- Estado ----------
   var data = loadJSON(LS_DATA);
   var ui = loadJSON(LS_UI);
@@ -51,8 +263,10 @@
   }
   function save() {
     data.savedAt = now();
-    localStorage.setItem(LS_DATA, JSON.stringify(data));
-    localStorage.setItem(LS_UI, JSON.stringify(ui));
+    var dataStr = JSON.stringify(data);
+    var ok = writeLS(LS_DATA, dataStr);
+    writeLS(LS_UI, JSON.stringify(ui));
+    if (ok) maybeSnapshot(dataStr);
     if (bc) bc.postMessage({ app: 'tunota' });
     serverSave();
   }
@@ -270,6 +484,8 @@
     return b;
   }
   function deleteBlock(id) {
+    // Nota: los blobs del bloque NO se borran aquí para que Ctrl+Z pueda
+    // restaurarlos; gcBlobs() limpia los huérfanos en el próximo arranque.
     pushUndo('Eliminar bloque');
     var blk = data.blocks.find(function (x) { return x.id === id; });
     data.blocks = data.blocks.filter(function (x) { return x.id !== id; });
@@ -379,6 +595,8 @@
     key: S + '<circle cx="7.5" cy="15.5" r="3.5"/><path d="M10 13l8-8"/><path d="M15.5 7.5l2 2"/><path d="M18 5l2 2"/></svg>',
     send: S + '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
     pencil: S + '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    shield: S + '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    upload: S + '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
     eraser: S + '<path d="M20 20H7L3 16a2 2 0 0 1 0-3L13 3a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3l-8 8"/><line x1="8" y1="20" x2="20" y2="20"/></svg>',
   };
   function icon(name, cls) {
@@ -478,7 +696,7 @@
   }
   function toggleSidebar() {
     ui.sidebarCollapsed = !ui.sidebarCollapsed;
-    try { localStorage.setItem(LS_UI, JSON.stringify(ui)); } catch (e) {}
+    writeLS(LS_UI, JSON.stringify(ui));
     applySidebar();
     drawLinks();
   }
@@ -861,6 +1079,7 @@
     var importBtn = h('button', { class: 'icon-btn', title: 'Importar Markdown (.md) o PDF', onclick: openImport }, icon('download'));
     var kanBtn = h('button', { class: 'icon-btn', title: 'Kanban de ideas', onclick: openKanban }, icon('board'));
     var histBtn = h('button', { class: 'icon-btn', title: 'Historial de cambios', onclick: openLog }, icon('clock'));
+    var backupBtn = h('button', { class: 'icon-btn', title: 'Copias de seguridad', onclick: openBackups }, icon('shield'));
     var integBtn = h('button', { class: 'icon-btn', title: 'Integraciones y versiones', onclick: openIntegrations }, icon('info'));
     var themeBtn = h('button', { class: 'icon-btn', title: 'Personalizar colores', onclick: openTheme }, icon('palette'));
     var ai = h('button', { class: 'ai-btn' + (aiReady() ? ' ready' : ''), title: aiReady() ? 'Asistente IA' : 'Configurar IA (API key)', onclick: openAI }, icon('spark'), 'IA');
@@ -870,6 +1089,7 @@
     bar.appendChild(importBtn);
     bar.appendChild(kanBtn);
     bar.appendChild(histBtn);
+    bar.appendChild(backupBtn);
     bar.appendChild(themeBtn);
     bar.appendChild(integBtn);
     bar.appendChild(ai);
@@ -2177,7 +2397,7 @@
   // ---------- PDF ----------
   function renderPdf(wrap, b) {
     wrap.innerHTML = '';
-    var src = b.content && b.content.pdf;
+    var src = resolveSrc(b.content && b.content.pdf);
     if (src) {
       wrap.appendChild(h('iframe', { class: 'pdf-frame', src: src, title: (b.content && b.content.name) || 'PDF' }));
     } else {
@@ -2246,7 +2466,7 @@
         var pr = new FileReader();
         pr.onload = function () {
           var b = createAt(ox, oy, 'pdf'); if (!b) return;
-          b.content = { pdf: String(pr.result || ''), name: name };
+          b.content = { pdf: storeBlob(String(pr.result || '')), name: name };
           b.width = 480; b.height = 600;
           var el = cardEl(b.id);
           if (el) {
@@ -2263,7 +2483,9 @@
   }
   // ---------- Im\u00e1genes ----------
   var MAX_IMG_DIM = 1400;
-  function imgItemSrc(it) { return typeof it === 'string' ? it : (it && it.src) || ''; }
+  // imgItemRaw: valor almacenado (ref 'blob:<id>' o data URL). imgItemSrc: src ya resuelta para pintar.
+  function imgItemRaw(it) { return typeof it === 'string' ? it : (it && it.src) || ''; }
+  function imgItemSrc(it) { return resolveSrc(imgItemRaw(it)); }
   function imgItemW(it) { return (it && typeof it === 'object' && it.w) ? it.w : 0; }
   var DEFAULT_IMG_W = 260;
   function fileToScaledDataURL(file, cb) {
@@ -2294,7 +2516,8 @@
     arr.forEach(function (f) {
       fileToScaledDataURL(f, function (url, cw) {
         var dw = cw ? Math.min(cw, DEFAULT_IMG_W) : 0;
-        b.content.images.push(dw ? { src: url, w: dw } : { src: url });
+        var ref = storeBlob(url); // el blob va a IndexedDB; aquí solo queda la referencia
+        b.content.images.push(dw ? { src: ref, w: dw } : { src: ref });
         added++; pending--;
         if (pending <= 0) {
           touchNote(b.noteId);
@@ -2307,7 +2530,9 @@
   }
   function removeCardImage(b, index, cardEl) {
     if (!b.content || !b.content.images) return;
+    var removed = b.content.images[index];
     b.content.images.splice(index, 1);
+    deleteBlobRef(imgItemRaw(removed)); // quitar imagen no pasa por deshacer: borra el blob ya
     touchNote(b.noteId);
     logChange('Imagen eliminada', '');
     save();
@@ -2398,7 +2623,7 @@
       document.removeEventListener('mouseup', up);
       if (media) media.removeAttribute('data-resizing');
       var nw = img.offsetWidth;
-      b.content.images[index] = { src: imgItemSrc(b.content.images[index]), w: nw };
+      b.content.images[index] = { src: imgItemRaw(b.content.images[index]), w: nw };
       touchNote(b.noteId);
       logChange('Imagen redimensionada', nw + ' px');
       save();
@@ -2680,7 +2905,7 @@
       var text = py.globals.get('_out_text');
       var err = py.globals.get('_err');
       var img = py.globals.get('_img');
-      var res = { text: text ? String(text) : '', error: err ? String(err) : '', img: img ? String(img) : '', timeMs: Date.now() - t0 };
+      var res = { text: text ? String(text) : '', error: err ? String(err) : '', img: img ? storeBlob('data:image/png;base64,' + String(img)) : '', timeMs: Date.now() - t0 };
       b.content.result = res;
       renderPyResult(res, out, status);
       logChange('Python ejecutado', res.error ? 'con error' : 'ok');
@@ -2696,7 +2921,7 @@
   function renderPyResult(res, out, status) {
     out.style.display = ''; out.classList.remove('empty'); out.innerHTML = '';
     if (res.text) out.appendChild(h('pre', { class: 'py-stdout' }, res.text));
-    if (res.img) out.appendChild(h('img', { class: 'py-img', src: 'data:image/png;base64,' + res.img, alt: 'gr\u00e1fico' }));
+    if (res.img) out.appendChild(h('img', { class: 'py-img', src: pyImgSrc(res.img), alt: 'gr\u00e1fico' }));
     if (res.error) out.appendChild(h('pre', { class: 'py-err' }, res.error));
     if (!res.text && !res.img && !res.error) out.textContent = '(sin salida)';
     if (res.error) { status.textContent = 'Error \u00b7 ' + res.timeMs + ' ms'; status.className = 'mono-status err'; }
@@ -3030,7 +3255,7 @@
     if (!ui.views[id]) ui.views[id] = { zoom: 1, x: 0, y: 0 };
     return ui.views[id];
   }
-  function saveView() { try { localStorage.setItem(LS_UI, JSON.stringify(ui)); } catch (e) {} }
+  function saveView() { writeLS(LS_UI, JSON.stringify(ui)); }
   function saveViewDebounced() { clearTimeout(viewSaveT); viewSaveT = setTimeout(saveView, 250); }
   function updateZoomLabel() {
     var el = document.getElementById('zoomPct');
@@ -3240,6 +3465,8 @@
   }
   function serverSaveNow() {
     if (!SERVER || !window.fetch) return;
+    // data solo contiene referencias 'blob:<id>' (db.json queda pequeño).
+    // Los bytes de los blobs aún NO se sincronizan al servidor (Fase 4: multi-dispositivo).
     fetch('api/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).catch(function () {});
   }
   function serverLoad(done) {
@@ -3253,7 +3480,7 @@
           var srvAt = srv.savedAt || 0, locAt = (local && local.savedAt) || 0;
           if (srvAt >= locAt) {
             data = srv; normalizeData();
-            localStorage.setItem(LS_DATA, JSON.stringify(data));
+            writeLS(LS_DATA, JSON.stringify(data));
             if (!ui.currentNoteId || !getNote(ui.currentNoteId)) { var n0 = data.notes[0]; if (n0) ui.currentNoteId = n0.id; }
           } else { serverSaveNow(); }
         } else { serverSaveNow(); }
@@ -3354,6 +3581,7 @@
     mergeFromStorage(fresh);
     refreshAfterMerge();
     serverSave();
+    hydrateMissingBlobs();
   }
   function mergeFromStorage(fresh) {
     var activeId = activeCardId();
@@ -3543,6 +3771,73 @@
     var o = document.getElementById('integOverlay');
     if (o) o.remove();
     document.removeEventListener('keydown', escCloseInteg);
+  }
+
+  // ---------- Copias de seguridad (UI) ----------
+  function snapCounts(snap) {
+    try {
+      var d = JSON.parse(snap.json);
+      return (d.notes || []).length + ' notas · ' + (d.blocks || []).length + ' bloques';
+    } catch (e) { return ''; }
+  }
+  function pickBackupFile() {
+    var input = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' } });
+    input.addEventListener('change', function () {
+      if (input.files && input.files[0]) importBackupFile(input.files[0]);
+      input.value = '';
+    });
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(function () { input.remove(); }, 60000);
+  }
+  function openBackups() {
+    closeBackups();
+    var overlay = h('div', { class: 'overlay', id: 'backupOverlay', onclick: function (e) { if (e.target === overlay) closeBackups(); } });
+    var panel = h('div', { class: 'log-panel backup-panel' });
+    var head = h('div', { class: 'log-head' },
+      h('div', { class: 'log-title' }, icon('shield'), 'Copias de seguridad'),
+      h('button', { class: 'icon-btn', title: 'Cerrar', onclick: closeBackups }, icon('x'))
+    );
+    var actions = h('div', { class: 'backup-actions' },
+      h('button', { class: 'backup-btn primary', onclick: downloadBackup }, icon('download'), 'Descargar copia completa'),
+      h('button', { class: 'backup-btn', onclick: pickBackupFile }, icon('upload'), 'Importar copia')
+    );
+    var body = h('div', { class: 'log-body' });
+    body.appendChild(h('p', { class: 'tree-empty' }, 'Cargando copias…'));
+    BlobStore.all('backups').then(function (map) {
+      body.innerHTML = '';
+      var snaps = Object.keys(map || {}).map(function (k) { return map[k]; })
+        .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+      if (!snaps.length) {
+        body.appendChild(h('p', { class: 'tree-empty' }, 'Aún no hay copias automáticas. Se crean solas mientras trabajas.'));
+        return;
+      }
+      body.appendChild(h('div', { class: 'log-date' }, 'Copias automáticas (se guardan las últimas ' + SNAP_MAX + ')'));
+      snaps.forEach(function (s) {
+        body.appendChild(h('div', { class: 'backup-row' },
+          h('div', { class: 'backup-info' },
+            h('div', { class: 'backup-when' }, fmtDate(s.ts) + ' · ' + fmtTime(s.ts)),
+            h('div', { class: 'backup-meta' }, snapCounts(s))
+          ),
+          h('button', { class: 'backup-btn', onclick: function () { restoreSnapshot(s); } }, 'Restaurar')
+        ));
+      });
+    }).catch(function () {
+      body.innerHTML = '';
+      body.appendChild(h('p', { class: 'tree-empty' }, 'No se pudieron leer las copias.'));
+    });
+    panel.appendChild(head);
+    panel.appendChild(actions);
+    panel.appendChild(body);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', escCloseBackups);
+  }
+  function escCloseBackups(e) { if (e.key === 'Escape') closeBackups(); }
+  function closeBackups() {
+    var o = document.getElementById('backupOverlay');
+    if (o) o.remove();
+    document.removeEventListener('keydown', escCloseBackups);
   }
   function groupByDate(entries) {
     var map = {}, order = [];
@@ -4044,7 +4339,7 @@
     sel.value = ui.kanbanBook || '';
     sel.addEventListener('change', function () {
       ui.kanbanBook = sel.value;
-      try { localStorage.setItem(LS_UI, JSON.stringify(ui)); } catch (er) {}
+      writeLS(LS_UI, JSON.stringify(ui));
       renderKanbanBody();
     });
     panel.appendChild(h('div', { class: 'kanban-head' },
@@ -4210,15 +4505,88 @@
   window.addEventListener('blur', closeRadial);
   window.addEventListener('blur', function () { setLinkMode(false); });
 
+  // ---------- Migración única: data URLs inline -> blobs en IndexedDB ----------
+  function migrateInlineBlobs(skipSave) {
+    var moved = 0;
+    (data.blocks || []).forEach(function (b) {
+      var c = b.content;
+      if (!c) return;
+      if (c.images) c.images.forEach(function (it, i) {
+        var src = typeof it === 'string' ? it : (it && it.src);
+        if (src && src.indexOf('data:') === 0) {
+          var ref = storeBlob(src);
+          if (typeof it === 'string') c.images[i] = { src: ref };
+          else it.src = ref;
+          moved++;
+        }
+      });
+      if (typeof c.pdf === 'string' && c.pdf.indexOf('data:') === 0) { c.pdf = storeBlob(c.pdf); moved++; }
+      if (c.result && c.result.img && !isBlobRef(c.result.img)) {
+        c.result.img = storeBlob('data:image/png;base64,' + c.result.img);
+        moved++;
+      }
+    });
+    if (moved && !skipSave) {
+      logChange('Imágenes migradas a IndexedDB', moved + ' elemento' + (moved > 1 ? 's' : ''));
+      save();
+    }
+    return moved;
+  }
+
+  // Recolector: elimina de IndexedDB los blobs que ya no referencia ni la
+  // data actual ni ninguna copia automática. Se ejecuta al arrancar (así el
+  // deshacer de la sesión anterior nunca pierde bytes a mitad de sesión).
+  function gcBlobs() {
+    var marked = {};
+    eachBlobRef(data, function (ref) { marked[blobRefId(ref)] = 1; });
+    BlobStore.all('backups').then(function (snaps) {
+      Object.keys(snaps || {}).forEach(function (k) {
+        try {
+          eachBlobRef(JSON.parse(snaps[k].json), function (ref) { marked[blobRefId(ref)] = 1; });
+        } catch (e) {}
+      });
+      return BlobStore.keys('blobs');
+    }).then(function (ks) {
+      (ks || []).forEach(function (id) {
+        if (!marked[id]) {
+          delete blobCache[id];
+          BlobStore.del('blobs', id).catch(function () {});
+        }
+      });
+    }).catch(function () {});
+  }
+
+  // Si otra ventana (note.html) añadió blobs, tráelos al espejo en memoria.
+  function hydrateMissingBlobs() {
+    var missing = false;
+    eachBlobRef(data, function (ref) { if (!blobCache[blobRefId(ref)]) missing = true; });
+    if (!missing) return;
+    BlobStore.all('blobs').then(function (map) {
+      var added = false;
+      Object.keys(map || {}).forEach(function (k) {
+        if (!blobCache[k]) { blobCache[k] = map[k]; added = true; }
+      });
+      if (added) syncCanvasCards();
+    }).catch(function () {});
+  }
+
   // ---------- Init ----------
   function boot() {
     applyTheme();
     initCanvasNav();
-    serverLoad(function () {
-      renderAll();
-      lastSig = sidebarSig();
-      startReminderLoop();
-    });
+    // 1) hidrata los blobs, 2) carga datos del servidor, 3) migra lo inline, 4) pinta.
+    BlobStore.all('blobs')
+      .then(function (map) { blobCache = map || {}; })
+      .catch(function () {})
+      .then(function () {
+        serverLoad(function () {
+          migrateInlineBlobs();
+          renderAll();
+          lastSig = sidebarSig();
+          startReminderLoop();
+          gcBlobs();
+        });
+      });
   }
   if (bc) bc.onmessage = function (ev) { if (ev && ev.data && ev.data.app === 'tunota') scheduleSync(); };
   window.addEventListener('storage', function (e) { if (e.key === LS_DATA) scheduleSync(); });

@@ -20,6 +20,89 @@
   function loadData() {
     try { return JSON.parse(localStorage.getItem(LS_DATA)); } catch (e) { return null; }
   }
+
+  // ---------- Almacén de blobs (mismo IndexedDB que la app principal) ----------
+  var BlobStore = (function () {
+    var DB_NAME = 'tunota-blobs', VERSION = 1;
+    var dbP = null;
+    function open() {
+      if (dbP) return dbP;
+      dbP = new Promise(function (resolve, reject) {
+        if (!window.indexedDB) { reject(new Error('IndexedDB no disponible')); return; }
+        var req = indexedDB.open(DB_NAME, VERSION);
+        req.onupgradeneeded = function () {
+          var db = req.result;
+          if (!db.objectStoreNames.contains('blobs')) db.createObjectStore('blobs');
+          if (!db.objectStoreNames.contains('backups')) db.createObjectStore('backups');
+        };
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+      return dbP;
+    }
+    function tx(mode, fn) {
+      return open().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var t = db.transaction('blobs', mode);
+          var out = fn(t.objectStore('blobs'));
+          t.oncomplete = function () { resolve(out && out.result !== undefined ? out.result : undefined); };
+          t.onerror = function () { reject(t.error); };
+        });
+      });
+    }
+    return {
+      put: function (id, value) { return tx('readwrite', function (s) { s.put(value, id); }); },
+      del: function (id) { return tx('readwrite', function (s) { s.delete(id); }); },
+      all: function () {
+        return open().then(function (db) {
+          return new Promise(function (resolve, reject) {
+            var t = db.transaction('blobs', 'readonly');
+            var s = t.objectStore('blobs');
+            var out = {};
+            var kReq = s.getAllKeys(), vReq = s.getAll();
+            t.oncomplete = function () {
+              var ks = kReq.result || [], vs = vReq.result || [];
+              for (var i = 0; i < ks.length; i++) out[ks[i]] = vs[i];
+              resolve(out);
+            };
+            t.onerror = function () { reject(t.error); };
+          });
+        });
+      },
+    };
+  })();
+  var blobCache = {}; // id -> data URL
+  function isBlobRef(s) { return typeof s === 'string' && s.indexOf('blob:') === 0; }
+  function blobRefId(s) { return s.slice(5); }
+  function resolveSrc(s) {
+    if (isBlobRef(s)) return blobCache[blobRefId(s)] || '';
+    return s || '';
+  }
+  function storeBlob(dataUrl) {
+    var id = uid();
+    blobCache[id] = dataUrl;
+    BlobStore.put(id, dataUrl).catch(function (e) { console.error('tuNota: no se pudo guardar el blob', e); });
+    return 'blob:' + id;
+  }
+  // Si la app principal añadió imágenes nuevas, tráelas al espejo en memoria.
+  function hydrateMissingBlobs(done) {
+    var d = loadData();
+    var missing = false;
+    if (d) (d.blocks || []).forEach(function (b) {
+      var c = b.content;
+      if (!c) return;
+      if (c.images) c.images.forEach(function (it) {
+        var s = typeof it === 'string' ? it : (it && it.src);
+        if (isBlobRef(s) && !blobCache[blobRefId(s)]) missing = true;
+      });
+      if (isBlobRef(c.pdf) && !blobCache[blobRefId(c.pdf)]) missing = true;
+    });
+    if (!missing) { if (done) done(false); return; }
+    BlobStore.all().then(function (map) {
+      Object.keys(map || {}).forEach(function (k) { if (!blobCache[k]) blobCache[k] = map[k]; });
+      if (done) done(true);
+    }).catch(function () { if (done) done(false); });
+  }
   function announce() { if (bc) bc.postMessage({ app: 'tunota', id: id }); }
   function snippet(t) {
     t = (t || '').replace(/\s+/g, ' ').trim();
@@ -315,7 +398,7 @@
           if (fb) {
             fb.content = fb.content || {};
             fb.content.images = fb.content.images || [];
-            fb.content.images.push({ src: url });
+            fb.content.images.push({ src: storeBlob(url) });
             fb.updatedAt = now();
             logTo(fresh, 'Imagen a\u00f1adida', '');
           }
@@ -339,6 +422,8 @@
     persist(function (fresh) {
       var fb = fresh.blocks.find(function (x) { return x.id === id; });
       if (fb && fb.content && fb.content.images) {
+        var removed = imgSrc(fb.content.images[index]);
+        if (isBlobRef(removed)) { delete blobCache[blobRefId(removed)]; BlobStore.del(blobRefId(removed)).catch(function () {}); }
         fb.content.images.splice(index, 1);
         fb.updatedAt = now();
         logTo(fresh, 'Imagen eliminada', '');
@@ -361,7 +446,7 @@
       return;
     }
     imgs.forEach(function (it, i) {
-      var img = h('img', { src: imgSrc(it), alt: '', draggable: 'false' });
+      var img = h('img', { src: resolveSrc(imgSrc(it)), alt: '', draggable: 'false' });
       var w = imgW(it);
       if (w) img.style.width = w + 'px';
       var handle = h('span', { class: 'nw-resize', title: 'Arrastra para redimensionar' });
@@ -712,7 +797,7 @@
   }
 
   function renderPdfBody(b) {
-    var src = b.content && b.content.pdf;
+    var src = resolveSrc(b.content && b.content.pdf);
     var body = h('div', { class: 'nw-body nw-pdf-body' });
     if (src) {
       body.appendChild(h('iframe', { class: 'nw-pdf', src: src, title: (b.content && b.content.name) || 'PDF' }));
@@ -746,7 +831,12 @@
     document.title = (ctx.note ? ctx.note.title : 'Nota') + ' \u00b7 tuNota';
   }
   var syncT;
-  function scheduleExternal() { clearTimeout(syncT); syncT = setTimeout(onExternal, 60); }
+  function scheduleExternal() {
+    clearTimeout(syncT);
+    syncT = setTimeout(function () {
+      hydrateMissingBlobs(function () { onExternal(); });
+    }, 60);
+  }
   if (bc) bc.onmessage = function (ev) { if (ev && ev.data && ev.data.app === 'tunota') scheduleExternal(); };
   window.addEventListener('storage', function (e) { if (e.key === LS_DATA) scheduleExternal(); });
 
@@ -766,6 +856,10 @@
   if (!id) {
     root.appendChild(msg('Falta el identificador de la nota.'));
   } else {
-    render();
+    // Hidrata los blobs antes del primer render para que imágenes/PDF aparezcan.
+    BlobStore.all()
+      .then(function (map) { blobCache = map || {}; })
+      .catch(function () {})
+      .then(render);
   }
 })();
