@@ -293,7 +293,9 @@ function openAI() {
   var log = h('div', { class: 'ai-log' });
   var quick = h('div', { class: 'ai-quick' },
     h('button', { class: 'ai-chip', onclick: function () { aiAsk('Resume la siguiente nota en vi\u00f1etas claras y breves:\n\n' + currentNoteText(), 'Resumir nota'); } }, 'Resumir nota'),
-    h('button', { class: 'ai-chip', onclick: function () { aiAsk('Sugiere 5 ideas o siguientes pasos a partir de esta nota:\n\n' + currentNoteText(), 'Ideas'); } }, 'Ideas')
+    h('button', { class: 'ai-chip', onclick: function () { aiAsk('Sugiere 5 ideas o siguientes pasos a partir de esta nota:\n\n' + currentNoteText(), 'Ideas'); } }, 'Ideas'),
+    h('button', { class: 'ai-chip', onclick: function () { aiAsk('Analiza esta nota y extrae de 3 a 5 insights NO obvios: patrones, implicaciones, riesgos y conexiones entre las ideas. Cada insight en negrita con una explicación corta:\n\n' + currentNoteText(), 'Insights de la nota'); } }, 'Insights'),
+    h('button', { class: 'ai-chip', onclick: function () { aiAsk('Extrae de esta nota una lista de próximos pasos accionables en Markdown con casillas "- [ ]", ordenados por impacto:\n\n' + currentNoteText(), 'Accionables'); } }, 'Accionables')
   );
   var input = h('textarea', { class: 'ai-textarea', placeholder: 'Escribe tu mensaje\u2026 (Enter env\u00eda, Shift+Enter salto)' });
   var sendBtn = h('button', { class: 'ai-send-btn', title: 'Enviar', onclick: function () { var v = input.value.trim(); if (v) { input.value = ''; aiAsk(v); } } }, icon('send'));
@@ -350,3 +352,81 @@ function insertAINote(text) {
 }
 function escCloseAI(e) { if (e.key === 'Escape') closeAI(); }
 function closeAI() { var o = document.getElementById('aiOverlay'); if (o) o.remove(); document.removeEventListener('keydown', escCloseAI); }
+
+// ---------- IA sobre bloques (mejorar, resumir, insights…) ----------
+var AI_BLOCK_ACTIONS = [
+  {
+    key: 'improve', label: '✍️ Mejorar redacción', mode: 'replace',
+    prompt: 'Reescribe el siguiente texto mejorando claridad, estructura y estilo. Mantén el idioma original, el significado y el nivel de detalle; conserva listas y saltos de línea cuando ayuden. Devuelve SOLO el texto reescrito, sin comentarios.',
+  },
+  {
+    key: 'summary', label: '📝 Resumir', mode: 'insert', title: 'Resumen',
+    prompt: 'Resume el siguiente texto en viñetas breves y fieles (máximo 6). Mantén el idioma original. Devuelve solo el resumen en Markdown.',
+  },
+  {
+    key: 'insights', label: '💡 Insights', mode: 'insert', title: 'Insights',
+    prompt: 'Analiza el siguiente texto y extrae de 3 a 5 insights NO obvios: patrones, implicaciones, riesgos, conexiones con otras ideas y preguntas que valga la pena hacerse. Mantén el idioma original. Devuelve Markdown con viñetas, cada insight en negrita seguido de una explicación corta.',
+  },
+  {
+    key: 'expand', label: '🌱 Expandir', mode: 'insert', title: 'Desarrollo',
+    prompt: 'Desarrolla la siguiente idea: contexto necesario, ejemplos concretos y posibles direcciones. Sé útil y específico, no genérico. Mantén el idioma original. Devuelve Markdown breve y bien estructurado.',
+  },
+  {
+    key: 'actions', label: '✅ Accionables', mode: 'insert', title: 'Próximos pasos',
+    prompt: 'Extrae del siguiente texto una lista de próximos pasos accionables (verbo + objeto, una línea cada uno), ordenados por impacto. Mantén el idioma original. Devuelve solo la lista en Markdown con casillas "- [ ]".',
+  },
+];
+function aiBlockText(b) {
+  var c = b.content || {};
+  if (c.table && c.table.rows) return c.table.rows.map(function (r) { return r.join(' | '); }).join('\n');
+  return c.text || '';
+}
+function aiCanActOn(b) {
+  if (['text', 'idea', 'freetext', 'markdown', 'table'].indexOf(b.type) < 0) return false;
+  return !!aiBlockText(b).trim();
+}
+function aiBlockAction(b, action) {
+  if (!aiReady()) { openAI(); return; }
+  var el = cardEl(b.id);
+  if (el) el.classList.add('ai-busy');
+  var text = aiBlockText(b).slice(0, 8000);
+  var msgs = [
+    { role: 'system', content: 'Eres el asistente de escritura de tuNota. Sigues instrucciones al pie de la letra y respondes solo con el resultado pedido.' },
+    { role: 'user', content: action.prompt + '\n\n---\n\n' + text },
+  ];
+  callAI(msgs).then(function (result) {
+    if (el) el.classList.remove('ai-busy');
+    result = (result || '').trim();
+    if (!result) { toast('La IA devolvió una respuesta vacía.', 'warn'); return; }
+    if (action.mode === 'replace') {
+      pushUndo('IA: mejorar redacción');
+      b.content = b.content || {};
+      b.content.text = result;
+      touchNote(b.noteId);
+      logChange('IA: redacción mejorada', snippet(result));
+      save();
+      renderCanvas();
+      toast('Texto mejorado (Ctrl+Z para deshacer).', 'ok');
+    } else {
+      var t = now();
+      var nb = {
+        id: uid(), noteId: b.noteId, type: 'markdown',
+        x: b.x + (b.width || 260) + 56, y: b.y,
+        width: 400, height: Math.max(240, Math.min(420, (b.height || 240))),
+        content: { text: '### ' + action.title + '\n\n' + result },
+        createdAt: t, updatedAt: t,
+      };
+      data.blocks.push(nb);
+      data.links.push({ id: uid(), noteId: b.noteId, a: b.id, b: nb.id, createdAt: t });
+      touchNote(b.noteId);
+      logChange('IA: ' + action.title.toLowerCase() + ' generado', snippet(aiBlockText(b)));
+      save();
+      renderCanvas();
+      focusBlock(nb.id);
+      toast(action.title + ' añadido junto al bloque, enlazado a la fuente.', 'ok');
+    }
+  }).catch(function (e) {
+    if (el) el.classList.remove('ai-busy');
+    toast('IA: ' + ((e && e.message) || e), 'warn');
+  });
+}

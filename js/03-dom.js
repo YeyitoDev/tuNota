@@ -77,6 +77,9 @@ var I = {
   shield: S + '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
   upload: S + '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
   eraser: S + '<path d="M20 20H7L3 16a2 2 0 0 1 0-3L13 3a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3l-8 8"/><line x1="8" y1="20" x2="20" y2="20"/></svg>',
+  layout: S + '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+  search: S + '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>',
+  help: S + '<circle cx="12" cy="12" r="9"/><path d="M9.2 9a3 3 0 0 1 5.8 1c0 2-2.9 2.6-2.9 4"/><circle cx="12" cy="17.3" r="0.6" fill="currentColor" stroke="none"/></svg>',
 };
 function icon(name, cls) {
   return h('span', { class: 'icon' + (cls ? ' ' + cls : ''), html: I[name] || '' });
@@ -178,4 +181,17 @@ function toggleSidebar() {
   writeLS(LS_UI, JSON.stringify(ui));
   applySidebar();
   drawLinks();
+}
+
+// ---------- Toast (aviso breve no bloqueante) ----------
+function toast(msg, kind) {
+  var old = document.getElementById('appToast');
+  if (old) old.remove();
+  var el = h('div', { class: 'app-toast' + (kind ? ' ' + kind : ''), id: 'appToast' }, msg);
+  document.body.appendChild(el);
+  setTimeout(function () { el.classList.add('show'); }, 10);
+  setTimeout(function () {
+    el.classList.remove('show');
+    setTimeout(function () { el.remove(); }, 300);
+  }, 3400);
 }

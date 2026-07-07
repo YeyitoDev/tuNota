@@ -229,6 +229,19 @@ function openCardMenu(b, anchor) {
     });
     pop.appendChild(sw);
   }
+  if (aiCanActOn(b)) {
+    pop.appendChild(h('div', { class: 'cm-sep' }));
+    pop.appendChild(h('div', { class: 'cm-label' }, icon('spark'), 'IA sobre este bloque'));
+    var aiRow = h('div', { class: 'cm-quick cm-ai' });
+    AI_BLOCK_ACTIONS.forEach(function (a) {
+      aiRow.appendChild(h('button', {
+        class: 'cm-chip',
+        title: a.mode === 'replace' ? 'Reemplaza el texto (Ctrl+Z deshace)' : 'Crea un bloque enlazado con el resultado',
+        onclick: function () { closeCardMenu(); aiBlockAction(b, a); },
+      }, a.label));
+    });
+    pop.appendChild(aiRow);
+  }
   pop.appendChild(h('div', { class: 'cm-sep' }));
   pop.appendChild(h('div', { class: 'cm-label' }, icon('bell'), 'Recordarme'));
   pop.appendChild(h('div', { class: 'cm-quick' },
@@ -412,6 +425,19 @@ document.addEventListener('keydown', function (e) {
     if (z && (z.tagName === 'TEXTAREA' || z.tagName === 'INPUT' || z.isContentEditable)) return; // deja el undo nativo del texto
     if (undoStack.length) { e.preventDefault(); undo(); }
     return;
+  }
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault();
+    openSearch();
+    return;
+  }
+  if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    var qe = document.activeElement;
+    if (!(qe && (qe.tagName === 'TEXTAREA' || qe.tagName === 'INPUT' || qe.isContentEditable))) {
+      e.preventDefault();
+      openShortcuts();
+      return;
+    }
   }
   if (e.key === 'Delete') {
     var a = document.activeElement;
