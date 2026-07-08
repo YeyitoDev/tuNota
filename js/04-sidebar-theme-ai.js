@@ -297,7 +297,8 @@ function openAI() {
     h('button', { class: 'ai-chip', onclick: function () { aiAsk('Resume la siguiente nota en vi\u00f1etas claras y breves:\n\n' + currentNoteText(), 'Resumir nota'); } }, 'Resumir nota'),
     h('button', { class: 'ai-chip', onclick: function () { aiAsk('Sugiere 5 ideas o siguientes pasos a partir de esta nota:\n\n' + currentNoteText(), 'Ideas'); } }, 'Ideas'),
     h('button', { class: 'ai-chip', onclick: function () { aiAsk('Analiza esta nota y extrae de 3 a 5 insights NO obvios: patrones, implicaciones, riesgos y conexiones entre las ideas. Cada insight en negrita con una explicación corta:\n\n' + currentNoteText(), 'Insights de la nota'); } }, 'Insights'),
-    h('button', { class: 'ai-chip', onclick: function () { aiAsk('Extrae de esta nota una lista de próximos pasos accionables en Markdown con casillas "- [ ]", ordenados por impacto:\n\n' + currentNoteText(), 'Accionables'); } }, 'Accionables')
+    h('button', { class: 'ai-chip', onclick: function () { aiAsk('Extrae de esta nota una lista de próximos pasos accionables en Markdown con casillas "- [ ]", ordenados por impacto:\n\n' + currentNoteText(), 'Accionables'); } }, 'Accionables'),
+    h('button', { class: 'ai-chip', title: 'Sugiere y aplica un título para la nota actual', onclick: aiSuggestTitle }, 'Título')
   );
   var input = h('textarea', { class: 'ai-textarea', placeholder: 'Escribe tu mensaje\u2026 (Enter env\u00eda, Shift+Enter salto)' });
   var sendBtn = h('button', { class: 'ai-send-btn', title: 'Enviar', onclick: function () { var v = input.value.trim(); if (v) { input.value = ''; aiAsk(v); } } }, icon('send'));
@@ -431,5 +432,75 @@ function aiBlockAction(b, action) {
   }).catch(function (e) {
     if (el) el.classList.remove('ai-busy');
     toast('IA: ' + ((e && e.message) || e), 'warn');
+  });
+}
+
+// Combina los bloques seleccionados en una síntesis enlazada a todas las fuentes.
+function aiSynthesizeSelection() {
+  if (!aiReady()) { openAI(); return; }
+  var blocks = Object.keys(selectedIds).map(function (id) {
+    return data.blocks.find(function (x) { return x.id === id; });
+  }).filter(function (b) { return b && aiCanActOn(b); });
+  if (blocks.length < 2) { toast('Selecciona al menos 2 bloques con texto.', 'warn'); return; }
+  var parts = blocks.map(function (b, i) { return '[Bloque ' + (i + 1) + ']\n' + aiBlockText(b); });
+  toast('Sintetizando ' + blocks.length + ' bloques…');
+  blocks.forEach(function (b) { var el = cardEl(b.id); if (el) el.classList.add('ai-busy'); });
+  function clearBusy() { blocks.forEach(function (b) { var el = cardEl(b.id); if (el) el.classList.remove('ai-busy'); }); }
+  callAI([
+    { role: 'system', content: 'Eres el asistente de síntesis de tuNota. Combinas varias notas en una síntesis fiel, clara y accionable, sin inventar información.' },
+    { role: 'user', content: 'Sintetiza estos ' + blocks.length + ' bloques en un solo texto: idea central, puntos en común, tensiones o contradicciones y conclusión. Mantén el idioma original. Devuelve Markdown breve.\n\n' + parts.join('\n\n').slice(0, 9000) },
+  ]).then(function (result) {
+    clearBusy();
+    result = (result || '').trim();
+    if (!result) { toast('La IA devolvió una respuesta vacía.', 'warn'); return; }
+    var t = now();
+    var maxX = -Infinity, minY = Infinity;
+    blocks.forEach(function (b) { maxX = Math.max(maxX, b.x + (b.width || 260)); minY = Math.min(minY, b.y); });
+    var nb = {
+      id: uid(), noteId: blocks[0].noteId, type: 'markdown',
+      x: Math.round(maxX + 64), y: Math.round(minY),
+      width: 420, height: 320,
+      content: { text: '### Síntesis\n\n' + result },
+      createdAt: t, updatedAt: t,
+    };
+    data.blocks.push(nb);
+    blocks.forEach(function (b) {
+      data.links.push({ id: uid(), noteId: nb.noteId, a: b.id, b: nb.id, createdAt: t });
+    });
+    touchNote(nb.noteId);
+    logChange('IA: síntesis de ' + blocks.length + ' bloques', snippet(result));
+    save();
+    renderCanvas();
+    cardEnterAnim(cardEl(nb.id));
+    focusBlock(nb.id);
+    toast('Síntesis creada, enlazada a los ' + blocks.length + ' bloques.', 'ok');
+  }).catch(function (e) {
+    clearBusy();
+    toast('IA: ' + ((e && e.message) || e), 'warn');
+  });
+}
+// Sugiere y aplica un título para la nota actual a partir de su contenido.
+function aiSuggestTitle() {
+  if (!aiReady()) { openAI(); return; }
+  var note = ui.currentNoteId && getNote(ui.currentNoteId);
+  if (!note) { toast('Abre una nota primero.', 'warn'); return; }
+  var body = currentNoteText();
+  if (!body.trim()) { toast('La nota aún no tiene contenido.', 'warn'); return; }
+  callAI([
+    { role: 'system', content: 'Devuelves SOLO un título corto (máximo 6 palabras), sin comillas ni punto final, en el idioma del contenido.' },
+    { role: 'user', content: 'Título para esta nota:\n\n' + body },
+  ]).then(function (title) {
+    title = (title || '').replace(/^["“”']+|["“”'.]+$/g, '').trim();
+    if (!title) { toast('La IA devolvió una respuesta vacía.', 'warn'); return; }
+    var old = note.title;
+    note.title = title.slice(0, 80);
+    note.updatedAt = now();
+    logChange('IA: título de nota', old + ' → ' + note.title);
+    save();
+    renderTopbar();
+    renderSidebar();
+    pushAIMsg('system-note', 'Título aplicado: “' + note.title + '” (antes: “' + old + '”). Edítalo con F2 si no encaja.');
+  }).catch(function (e) {
+    pushAIMsg('system-note', 'Error: ' + ((e && e.message) || e));
   });
 }

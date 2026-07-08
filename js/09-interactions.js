@@ -81,10 +81,17 @@ function updateSelInfo() {
   if (!bar) {
     bar = h('div', { id: 'selBar', class: 'sel-bar' },
       h('span', { class: 'sel-count' }, ''),
+      h('button', { class: 'sel-ai', title: 'Combinar los bloques seleccionados en una s\u00edntesis con IA', onclick: function () { aiSynthesizeSelection(); } }, icon('spark'), 'Sintetizar'),
       h('button', { class: 'sel-del', title: 'Eliminar selecci\u00f3n', onclick: deleteSelected }, icon('trash'), 'Eliminar'));
     document.body.appendChild(bar);
   }
   bar.querySelector('.sel-count').textContent = n + (n > 1 ? ' seleccionados' : ' seleccionado');
+  // Sintetizar solo tiene sentido con 2+ bloques con texto.
+  var withText = Object.keys(selectedIds).filter(function (id) {
+    var b = data.blocks.find(function (x) { return x.id === id; });
+    return b && aiCanActOn(b);
+  }).length;
+  bar.querySelector('.sel-ai').style.display = withText >= 2 ? '' : 'none';
 }
 function deleteSelected() {
   var ids = Object.keys(selectedIds);

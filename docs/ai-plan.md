@@ -17,6 +17,17 @@ ideas y ayuda a pasar de idea → decisión → ejecución.
   - 📝 *Resumir* / 💡 *Insights* / 🌱 *Expandir* / ✅ *Accionables* — crean un
     bloque Markdown **enlazado al bloque fuente**, así el grafo de
     conocimiento registra de dónde salió cada análisis.
+- **Diagramas con IA** (herramienta de diagramas del bloque Mermaid):
+  describir el proceso en una frase genera el diagrama del tipo adecuado
+  (flujo, carriles, secuencia, estados, Gantt…).
+- **Rellenar plantillas con IA**: en la galería de plantillas, describir el
+  proyecto en una línea rellena las cajas del BMC/Lean/DAFO/… con contenido
+  específico (JSON validado, Ctrl+Z deshace).
+- **Sintetizar selección**: con 2+ bloques de texto seleccionados, el botón
+  "Sintetizar" crea una síntesis (idea central, puntos comunes, tensiones,
+  conclusión) enlazada a todas las fuentes.
+- **Título automático**: chip "Título" en el panel de IA que sugiere y aplica
+  un título a la nota actual.
 
 ## Principios
 
@@ -28,14 +39,6 @@ ideas y ayuda a pasar de idea → decisión → ejecución.
    elegido por el usuario; nada pasa por servidores de tuNota.
 
 ## Roadmap
-
-### Corto plazo (siguiente iteración)
-- **IA en plantillas**: botón "Rellenar con IA" en cada canvas (BMC, Lean,
-  DAFO…) que, a partir de una descripción de una línea, propone contenido
-  inicial para cada caja y lo escribe en los bloques de la plantilla.
-- **Título automático**: sugerir título de nota a partir de su contenido.
-- **Selección múltiple → sintetizar**: con varios bloques seleccionados,
-  acción "Combinar con IA" que genera una síntesis enlazada a todos ellos.
 
 ### Medio plazo
 - **Conexiones sugeridas**: al guardar un bloque, buscar (por embeddings

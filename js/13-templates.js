@@ -131,7 +131,7 @@ function templateOrigin(tpl) {
   return { x: 60, y: (any ? maxY + 110 : 90) - minY };
 }
 
-function insertTemplate(tpl) {
+function insertTemplate(tpl, aiDesc) {
   if (!ui.currentNoteId || !getNote(ui.currentNoteId)) { alert('Abre una nota primero.'); return; }
   pushUndo('Insertar plantilla');
   var o = templateOrigin(tpl);
@@ -165,6 +165,7 @@ function insertTemplate(tpl) {
   // Entrada escalonada de los bloques de la plantilla.
   made.forEach(function (nb, i) { cardEnterAnim(cardEl(nb.id), i * 45); });
   closeTemplates();
+  if (aiDesc && aiDesc.trim()) aiFillTemplate(tpl, made, aiDesc.trim());
 }
 
 function centerViewOnTemplate(blocks) {
@@ -187,6 +188,59 @@ function centerViewOnTemplate(blocks) {
   saveViewDebounced();
 }
 
+// Convierte "🤝 Socios clave\n…" en "Socios clave" (clave estable para la IA).
+function tplBoxTitle(text) {
+  var first = (text || '').split('\n')[0] || '';
+  return first.replace(/^[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ¿¡]+/, '').trim();
+}
+// Rellena las cajas de texto de una plantilla recién insertada con contenido
+// generado por IA a partir de la descripción del proyecto.
+function aiFillTemplate(tpl, made, desc) {
+  if (!aiReady()) { toast('Configura la IA (botón IA del topbar) para rellenar plantillas.', 'warn'); return; }
+  var boxes = made.filter(function (b) {
+    return (b.type === 'text' || b.type === 'idea') && b.content && (b.content.text || '').trim();
+  });
+  if (!boxes.length) { toast('Esta plantilla no tiene cajas de texto que rellenar.', 'warn'); return; }
+  var titles = boxes.map(function (b) { return tplBoxTitle(b.content.text); });
+  boxes.forEach(function (b) { var el = cardEl(b.id); if (el) el.classList.add('ai-busy'); });
+  function clearBusy() { boxes.forEach(function (b) { var el = cardEl(b.id); if (el) el.classList.remove('ai-busy'); }); }
+  toast('La IA está rellenando “' + tpl.name + '”…');
+  callAI([
+    { role: 'system', content: 'Rellenas plantillas de trabajo (canvas de negocio, DAFO, brainstorming…). Respondes SOLO con un objeto JSON válido, sin fences ni comentarios.' },
+    { role: 'user', content: 'Plantilla: ' + tpl.name + '\nProyecto: ' + desc + '\n\nDevuelve un objeto JSON cuyas claves sean EXACTAMENTE estas: ' + JSON.stringify(titles) + '. El valor de cada clave: contenido concreto y específico para esa caja (2 a 4 líneas, cada una empezando por "• "), en el idioma de la descripción del proyecto. Nada genérico: usa el proyecto descrito.' },
+  ]).then(function (res) {
+    clearBusy();
+    res = String(res || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+    var map = null;
+    try { map = JSON.parse(res); } catch (e) {
+      var m = /\{[\s\S]*\}/.exec(res);
+      if (m) { try { map = JSON.parse(m[0]); } catch (e2) {} }
+    }
+    if (!map || typeof map !== 'object') { toast('La IA no devolvió un JSON válido; la plantilla queda con las guías.', 'warn'); return; }
+    var norm = {};
+    Object.keys(map).forEach(function (k) { norm[k.toLowerCase().trim()] = map[k]; });
+    pushUndo('IA: rellenar plantilla');
+    var filled = 0;
+    boxes.forEach(function (b) {
+      var v = norm[tplBoxTitle(b.content.text).toLowerCase()];
+      if (typeof v !== 'string' || !v.trim()) return;
+      var firstLine = (b.content.text || '').split('\n')[0];
+      b.content.text = firstLine + '\n\n' + v.trim();
+      b.updatedAt = now();
+      filled++;
+    });
+    if (!filled) { toast('La IA no encajó con las cajas de la plantilla.', 'warn'); return; }
+    touchNote(boxes[0].noteId);
+    logChange('IA: plantilla rellenada', tpl.name + ' · ' + filled + ' cajas');
+    save();
+    renderCanvas();
+    toast('“' + tpl.name + '” rellenada (' + filled + ' cajas). Ctrl+Z para deshacer.', 'ok');
+  }).catch(function (e) {
+    clearBusy();
+    toast('IA: ' + ((e && e.message) || e), 'warn');
+  });
+}
+
 function openTemplates() {
   closeTemplates();
   var overlay = h('div', { class: 'overlay', id: 'tplOverlay', onclick: function (e) { if (e.target === overlay) closeTemplates(); } });
@@ -195,9 +249,14 @@ function openTemplates() {
     h('div', { class: 'log-title' }, icon('layout'), 'Plantillas de canvas'),
     h('button', { class: 'icon-btn', title: 'Cerrar', onclick: closeTemplates }, icon('x'))
   );
+  var aiDesc = h('input', {
+    class: 'tpl-ai-input',
+    placeholder: aiReady() ? 'Opcional: describe tu proyecto y la IA rellena las cajas…' : 'Configura la IA (botón IA) para rellenar plantillas automáticamente',
+  });
+  if (!aiReady()) aiDesc.disabled = true;
   var grid = h('div', { class: 'tpl-grid' });
   CANVAS_TEMPLATES.forEach(function (tpl) {
-    grid.appendChild(h('button', { class: 'tpl-card', onclick: function () { insertTemplate(tpl); } },
+    grid.appendChild(h('button', { class: 'tpl-card', onclick: function () { insertTemplate(tpl, aiDesc.value); } },
       h('div', { class: 'tpl-icon' }, icon(tpl.icon)),
       h('div', { class: 'tpl-name' }, tpl.name),
       h('div', { class: 'tpl-desc' }, tpl.desc)
@@ -205,6 +264,7 @@ function openTemplates() {
   });
   var body = h('div', { class: 'log-body' },
     h('p', { class: 'tpl-hint' }, 'Se insertan como bloques normales en la nota actual: muévelos, edítalos y conéctalos como quieras.'),
+    h('div', { class: 'tpl-ai-row' }, icon('spark'), aiDesc),
     grid
   );
   panel.appendChild(head);
