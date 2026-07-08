@@ -456,17 +456,34 @@ body.panning {
   resize: both;
   min-width: 160px;
   min-height: 92px;
-  animation: pop 0.14s ease-out;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
 }
 @keyframes pop {
   from {
     opacity: 0;
-    transform: scale(0.97);
+    transform: scale(0.94) translateY(4px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
+}
+/* Solo los bloques recién creados entran con rebote (no cada re-render). */
+.card.card-enter {
+  animation: cardIn 0.32s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+}
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: scale(0.86) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.card:hover {
+  box-shadow: var(--shadow-lg);
 }
 .card:focus-within {
   box-shadow: var(--shadow-lg);
@@ -607,10 +624,17 @@ body.panning {
   border-radius: 10px;
   cursor: pointer;
   flex: none;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 .icon-btn:hover {
   color: var(--fg);
   border-color: var(--muted2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -6px rgba(58, 51, 44, 0.35);
+}
+.icon-btn:active {
+  transform: translateY(0) scale(0.95);
+  box-shadow: none;
 }
 .icon-btn .icon {
   width: 17px;
@@ -649,12 +673,12 @@ body.panning {
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  animation: slidein 0.18s ease-out;
+  animation: slidein 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 @keyframes slidein {
   from {
-    transform: translateX(24px);
-    opacity: 0.5;
+    transform: translateX(36px);
+    opacity: 0;
   }
   to {
     transform: none;
@@ -3846,4 +3870,168 @@ body.curl-resizing {
 @keyframes aiPulse {
   0%, 100% { opacity: 0.75; }
   50% { opacity: 1; }
+}
+
+/* ---------- Herramienta de diagramas (menú del bloque Mermaid) ---------- */
+.diagram-pop {
+  width: 300px;
+}
+.dg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 2px;
+}
+.dg-type {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 10px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
+}
+.dg-type:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px -8px rgba(58, 51, 44, 0.4);
+}
+.dg-type:active {
+  transform: translateY(0) scale(0.97);
+}
+.dg-type-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--fg);
+}
+.dg-type-desc {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.dg-shapes {
+  flex-wrap: wrap;
+}
+.dg-ai-row {
+  display: flex;
+  gap: 6px;
+  padding: 2px;
+}
+.dg-ai-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+}
+.dg-ai-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.dg-ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.14s ease, transform 0.14s ease;
+}
+.dg-ai-btn:hover {
+  filter: brightness(1.08);
+}
+.dg-ai-btn:active {
+  transform: scale(0.96);
+}
+.dg-ai-btn .icon {
+  width: 13px;
+  height: 13px;
+}
+
+/* ---------- Microinteracciones globales ---------- */
+.cm-chip,
+.ai-chip,
+.backup-btn,
+.tpl-card,
+.search-row {
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
+}
+.cm-chip:hover,
+.ai-chip:hover {
+  border-color: var(--primary);
+}
+.cm-chip:active,
+.ai-chip:active,
+.backup-btn:active,
+.tpl-card:active {
+  transform: scale(0.96);
+}
+.kanban-card {
+  transition: box-shadow 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+}
+.kanban-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+.ai-btn {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.ai-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+.ai-btn:active {
+  transform: scale(0.96);
+}
+.card-menu-pop {
+  animation: menuIn 0.18s cubic-bezier(0.34, 1.4, 0.64, 1);
+  transform-origin: top right;
+}
+@keyframes menuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.search-panel {
+  animation: searchIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes searchIn {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Accesibilidad: sin animaciones si el sistema lo pide */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

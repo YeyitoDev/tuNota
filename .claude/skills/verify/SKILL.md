@@ -48,7 +48,8 @@ Gotchas aprendidos:
 - Selectores útiles: `.card`, `.img-media img`, `iframe.pdf-frame`, `#saveBanner`,
   `.backup-panel`, `.kanban-panel`, `.log-panel`, `.card[data-id="<id>"]`,
   `.tpl-panel`/`.tpl-card` (plantillas), `.search-panel`/`.search-input`/`.search-row`,
-  `.shortcut-panel`, `.cm-ai .cm-chip` (acciones IA del menú de tarjeta), `.app-toast`.
+  `.shortcut-panel`, `.cm-ai .cm-chip` (acciones IA del menú de tarjeta), `.app-toast`,
+  `.card-mmd-type` → `.diagram-pop`/`.dg-type`/`.dg-shapes`/`.dg-ai-input` (herramienta de diagramas).
 - Probar acciones IA sin API real: en `page.evaluate`, fija
   `ui.ai = {provider:'openai', model:'m', apiKey:'k', baseUrl:'https://fake/v1'}` y
   reemplaza `window.fetch` por un mock que devuelva

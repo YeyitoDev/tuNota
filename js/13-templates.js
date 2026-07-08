@@ -162,6 +162,8 @@ function insertTemplate(tpl) {
   save();
   renderCanvas();
   centerViewOnTemplate(made);
+  // Entrada escalonada de los bloques de la plantilla.
+  made.forEach(function (nb, i) { cardEnterAnim(cardEl(nb.id), i * 45); });
   closeTemplates();
 }
 

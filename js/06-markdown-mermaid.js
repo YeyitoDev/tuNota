@@ -94,20 +94,53 @@ function toggleMdEdit(b, el) {
 }
 // ---------- Mermaid (diagramas) ----------
 var mermaidReady = false;
+// Colores de los diagramas a juego con la paleta actual (tema personalizable).
+function mmdThemeVars() {
+  return {
+    fontFamily: 'Nunito, system-ui, sans-serif',
+    fontSize: '14px',
+    primaryColor: cssVarValue('--secondary'),
+    primaryTextColor: cssVarValue('--fg'),
+    primaryBorderColor: cssVarValue('--primary'),
+    lineColor: cssVarValue('--muted'),
+    secondaryColor: cssVarValue('--bg'),
+    secondaryBorderColor: cssVarValue('--border'),
+    tertiaryColor: cssVarValue('--card'),
+    tertiaryBorderColor: cssVarValue('--border'),
+    noteBkgColor: cssVarValue('--secondary'),
+    noteBorderColor: cssVarValue('--border'),
+    actorBkg: cssVarValue('--secondary'),
+    actorBorder: cssVarValue('--primary'),
+    actorTextColor: cssVarValue('--fg'),
+    clusterBkg: cssVarValue('--bg'),
+    clusterBorder: cssVarValue('--border'),
+    edgeLabelBackground: cssVarValue('--card'),
+    textColor: cssVarValue('--fg'),
+  };
+}
 function ensureMermaid() {
   if (!window.mermaid) return false;
   if (!mermaidReady) {
     try {
-      window.mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'neutral', suppressErrorRendering: true, flowchart: { htmlLabels: false }, fontFamily: 'Nunito, system-ui, sans-serif' });
+      window.mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'base', themeVariables: mmdThemeVars(), suppressErrorRendering: true, flowchart: { htmlLabels: false }, fontFamily: 'Nunito, system-ui, sans-serif' });
       mermaidReady = true;
     } catch (e) {}
   }
   return true;
 }
+// Al cambiar la paleta, re-inicializa mermaid y repinta los diagramas visibles.
+function mmdThemeRefresh() {
+  if (!window.mermaid) return;
+  mermaidReady = false;
+  var views = document.querySelectorAll('.mmd-render');
+  Array.prototype.forEach.call(views, function (v) {
+    if (v._block) renderMmdCard(v, v._block);
+  });
+}
 function renderMermaid(view, code, onDone) {
   var src = String(code == null ? '' : code).trim();
   view.classList.remove('mmd-has-error');
-  if (!src) { view.innerHTML = '<div class="mmd-empty">Escribe c\u00f3digo Mermaid y pulsa \u201cver diagrama\u201d.</div>'; return; }
+  if (!src) { view.innerHTML = '<div class="mmd-empty">Elige un tipo de diagrama en el bot\u00f3n de formas de la tarjeta,<br>escribe c\u00f3digo Mermaid o genera uno con IA.</div>'; return; }
   if (!ensureMermaid()) {
     view.innerHTML = '<div class="mmd-err">Mermaid no est\u00e1 disponible. Necesitas conexi\u00f3n a internet para cargarlo.</div>';
     return;
@@ -897,3 +930,124 @@ function downloadDataUrl(url, filename) {
   a.click();
   a.remove();
 }
+
+// ---------- Herramienta de diagramas: tipos, nodos rápidos y generación con IA ----------
+var DIAGRAM_TYPES = [
+  { key: 'flow', name: 'Flujo', desc: 'Pasos y decisiones', code: 'flowchart TD\n  A[Inicio] --> B{Decisión}\n  B -->|Sí| C[Acción]\n  B -->|No| D[Fin]' },
+  { key: 'swimlane', name: 'Carriles (swimlane)', desc: 'Quién hace qué', code: 'flowchart LR\n  subgraph Cliente\n    A[Solicita] --> B[Recibe]\n  end\n  subgraph Equipo\n    C[Procesa] --> D[Entrega]\n  end\n  subgraph Sistema\n    E[(Registro)]\n  end\n  A --> C\n  C --> E\n  D --> B' },
+  { key: 'sequence', name: 'Secuencia', desc: 'Mensajes en el tiempo', code: 'sequenceDiagram\n  participant U as Usuario\n  participant A as App\n  participant S as Servidor\n  U->>A: Acción\n  A->>S: Petición\n  S-->>A: Respuesta\n  A-->>U: Resultado' },
+  { key: 'state', name: 'Estados', desc: 'Ciclo de vida', code: 'stateDiagram-v2\n  [*] --> Borrador\n  Borrador --> Revision: enviar\n  Revision --> Aprobado: ok\n  Revision --> Borrador: cambios\n  Aprobado --> [*]' },
+  { key: 'gantt', name: 'Gantt', desc: 'Plan en el tiempo', code: 'gantt\n  title Plan\n  dateFormat YYYY-MM-DD\n  section Fase 1\n    Diseño :a1, 2026-07-07, 5d\n    Desarrollo :after a1, 10d\n  section Fase 2\n    Pruebas :5d\n    Lanzamiento :2d' },
+  { key: 'mindmap', name: 'Mapa mental', desc: 'Ideas ramificadas', code: 'mindmap\n  root((Tema))\n    Rama 1\n      Detalle\n    Rama 2\n    Rama 3' },
+  { key: 'journey', name: 'User journey', desc: 'Experiencia por pasos', code: 'journey\n  title Viaje del usuario\n  section Descubre\n    Encuentra la app: 4: Usuario\n    Prueba la demo: 3: Usuario\n  section Usa\n    Crea su primera nota: 5: Usuario' },
+  { key: 'pie', name: 'Tarta', desc: 'Proporciones', code: 'pie title Distribución\n  "A" : 45\n  "B" : 30\n  "C" : 25' },
+];
+// Formas rápidas para diagramas de flujo (flowchart/graph).
+var DIAGRAM_SHAPES = [
+  { key: 'step', label: '▭ Paso', open: '[', close: ']', text: 'Nuevo paso' },
+  { key: 'decision', label: '◇ Decisión', open: '{', close: '}', text: 'Decisión' },
+  { key: 'data', label: '⬮ Datos', open: '[(', close: ')]', text: 'Datos' },
+  { key: 'sub', label: '⧉ Subproceso', open: '[[', close: ']]', text: 'Subproceso' },
+];
+function mmdIsFlowchart(code) { return /^\s*(flowchart|graph)\b/.test(code || ''); }
+function mmdNodeIds(code) {
+  return (code.match(/\b[A-Za-z][A-Za-z0-9_]*(?=\[|\{|\()/g) || []);
+}
+function mmdFreshId(code) {
+  var i = 1;
+  while (new RegExp('\\bn' + i + '\\b').test(code)) i++;
+  return 'n' + i;
+}
+// Actualiza código + textarea + render en un solo sitio (y limpia el layout
+// guardado cuando el diagrama cambia de forma sustancial).
+function mmdSetCode(b, el, code, logMsg, keepLayout) {
+  b.content = b.content || {};
+  b.content.text = code;
+  if (!keepLayout) delete b.content.layout;
+  var ta = el.querySelector('.mmd-src');
+  if (ta) ta.value = code;
+  var view = el.querySelector('.mmd-render');
+  if (view) renderMmdCard(view, b);
+  touchNote(b.noteId);
+  if (logMsg) logChange(logMsg, snippet(code));
+  save();
+}
+function mmdAddShape(b, el, shape) {
+  var code = (b.content && b.content.text || '').trim();
+  if (!code) code = 'flowchart TD';
+  if (!mmdIsFlowchart(code)) { toast('Añadir formas rápidas funciona con diagramas de flujo.', 'warn'); return; }
+  var id = mmdFreshId(code);
+  var ids = mmdNodeIds(code);
+  var last = ids.length ? ids[ids.length - 1] : null;
+  var line = last ? ('  ' + last + ' --> ' + id + shape.open + shape.text + shape.close)
+                  : ('  ' + id + shape.open + shape.text + shape.close);
+  mmdSetCode(b, el, code + '\n' + line, 'Forma añadida al diagrama', true);
+}
+function mmdAddLane(b, el) {
+  var code = (b.content && b.content.text || '').trim();
+  if (!code) code = 'flowchart LR';
+  if (!mmdIsFlowchart(code)) { toast('Los carriles funcionan con diagramas de flujo.', 'warn'); return; }
+  var n = (code.match(/subgraph /g) || []).length + 1;
+  var id = mmdFreshId(code);
+  mmdSetCode(b, el, code + '\n  subgraph Carril ' + n + '\n    ' + id + '[Paso]\n  end', 'Carril añadido al diagrama', true);
+}
+function aiDiagramGenerate(b, el, desc) {
+  desc = (desc || '').trim();
+  if (!desc) { toast('Describe primero qué diagrama quieres.', 'warn'); return; }
+  if (!aiReady()) { openAI(); return; }
+  el.classList.add('ai-busy');
+  callAI([
+    { role: 'system', content: 'Eres un experto en Mermaid 11. Respondes SOLO con código Mermaid válido, sin explicaciones y sin fences de Markdown.' },
+    { role: 'user', content: 'Genera un diagrama Mermaid para: ' + desc + '\nElige el tipo más adecuado (flowchart, flowchart con subgraph como carriles, sequenceDiagram, stateDiagram-v2, gantt, mindmap, journey, pie…). Etiquetas en el idioma de la descripción. Sin fences.' },
+  ]).then(function (code) {
+    el.classList.remove('ai-busy');
+    code = String(code || '').replace(/^```(?:mermaid)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+    if (!code) { toast('La IA devolvió una respuesta vacía.', 'warn'); return; }
+    pushUndo('IA: diagrama generado');
+    mmdSetCode(b, el, code, 'IA: diagrama generado');
+    toast('Diagrama generado (Ctrl+Z para deshacer).', 'ok');
+  }).catch(function (e) {
+    el.classList.remove('ai-busy');
+    toast('IA: ' + ((e && e.message) || e), 'warn');
+  });
+}
+function openDiagramMenu(b, el, anchor) {
+  closeDiagramMenu();
+  var backdrop = h('div', { class: 'pop-backdrop', id: 'diagramMenuBackdrop', onmousedown: function (e) { if (e.target === backdrop) closeDiagramMenu(); } });
+  var pop = h('div', { class: 'card-menu-pop diagram-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  pop.appendChild(h('div', { class: 'cm-label' }, icon('flow'), 'Tipo de diagrama'));
+  var grid = h('div', { class: 'dg-grid' });
+  DIAGRAM_TYPES.forEach(function (t) {
+    grid.appendChild(h('button', { class: 'dg-type', onclick: function () {
+      var cur = (b.content && b.content.text || '').trim();
+      var isStarter = !cur || DIAGRAM_TYPES.some(function (x) { return x.code === cur; }) || cur === defaultContent('mermaid').text;
+      if (!isStarter && !window.confirm('Reemplazar el diagrama actual por la plantilla "' + t.name + '"?')) return;
+      pushUndo('Cambiar tipo de diagrama');
+      mmdSetCode(b, el, t.code, 'Diagrama: plantilla ' + t.name);
+      closeDiagramMenu();
+    } },
+      h('span', { class: 'dg-type-name' }, t.name),
+      h('span', { class: 'dg-type-desc' }, t.desc)
+    ));
+  });
+  pop.appendChild(grid);
+  pop.appendChild(h('div', { class: 'cm-sep' }));
+  pop.appendChild(h('div', { class: 'cm-label' }, icon('plus'), 'Añadir (diagramas de flujo)'));
+  var shapes = h('div', { class: 'cm-quick dg-shapes' });
+  DIAGRAM_SHAPES.forEach(function (s) {
+    shapes.appendChild(h('button', { class: 'cm-chip', onclick: function () { mmdAddShape(b, el, s); } }, s.label));
+  });
+  shapes.appendChild(h('button', { class: 'cm-chip', onclick: function () { mmdAddLane(b, el); } }, '⇉ Carril'));
+  pop.appendChild(shapes);
+  pop.appendChild(h('div', { class: 'cm-sep' }));
+  pop.appendChild(h('div', { class: 'cm-label' }, icon('spark'), 'Generar con IA'));
+  var desc = h('input', { class: 'dg-ai-input', placeholder: 'p. ej. "proceso de alta de un cliente con validación"' });
+  desc.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); closeDiagramMenu(); aiDiagramGenerate(b, el, desc.value); } });
+  var go = h('button', { class: 'dg-ai-btn', onclick: function () { closeDiagramMenu(); aiDiagramGenerate(b, el, desc.value); } }, icon('spark'), 'Generar');
+  pop.appendChild(h('div', { class: 'dg-ai-row' }, desc, go));
+  backdrop.appendChild(pop);
+  document.body.appendChild(backdrop);
+  positionPop(pop, anchor, 300);
+  setTimeout(function () { desc.focus(); }, 30);
+}
+function closeDiagramMenu() { var bd = document.getElementById('diagramMenuBackdrop'); if (bd) bd.remove(); }

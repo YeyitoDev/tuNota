@@ -119,6 +119,7 @@ function createAt(clientX, clientY, type) {
   var b = addBlock(ui.currentNoteId, type || 'text', x, y);
   var el = card(b);
   canvasContentEl.appendChild(el);
+  cardEnterAnim(el);
   if (b.type === 'markdown') el.classList.add('editing-md'); // empezar en modo edici\u00f3n
   var ta = el.querySelector('textarea');
   if (ta) ta.focus();
@@ -168,6 +169,7 @@ function card(b) {
     head.appendChild(h('button', { class: 'card-pop', title: 'Abrir en ventana (calidad completa)', onclick: function (e) { e.stopPropagation(); popOut(b.id); } }, icon('popout')));
   }
   if (isMermaid) {
+    head.appendChild(h('button', { class: 'card-mmd-type', title: 'Tipo de diagrama, formas rápidas y generar con IA', onclick: function (e) { e.stopPropagation(); openDiagramMenu(b, el, e.currentTarget); } }, icon('flow')));
     head.appendChild(h('button', { class: 'card-mmd-move', title: 'Modo interactivo: mover / escalar objetos, editar texto y zoom', onclick: function (e) { e.stopPropagation(); toggleMmdMove(b, el); } }, icon('move')));
     head.appendChild(h('button', { class: 'card-mmd-edit', title: 'Editar / ver diagrama', onclick: function (e) { e.stopPropagation(); toggleMmdEdit(b, el); } }, icon('edit')));
     head.appendChild(h('button', { class: 'card-mmd-dl', title: 'Descargar diagrama (PNG)', onclick: function (e) { e.stopPropagation(); downloadMermaid(b, el); } }, icon('download')));

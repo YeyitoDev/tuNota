@@ -105,6 +105,8 @@ function applyTheme() {
   ['--muted', '--muted2'].forEach(function (k) { root.style.removeProperty(k); });
   var t = ui.theme || {};
   Object.keys(t).forEach(function (k) { if (t[k]) root.style.setProperty(k, t[k]); });
+  // Los diagramas Mermaid toman sus colores de la paleta: re-tematizarlos.
+  if (typeof mmdThemeRefresh === 'function') mmdThemeRefresh();
 }
 function cssVarValue(name) {
   var inline = document.documentElement.style.getPropertyValue(name);
@@ -422,6 +424,7 @@ function aiBlockAction(b, action) {
       logChange('IA: ' + action.title.toLowerCase() + ' generado', snippet(aiBlockText(b)));
       save();
       renderCanvas();
+      cardEnterAnim(cardEl(nb.id));
       focusBlock(nb.id);
       toast(action.title + ' añadido junto al bloque, enlazado a la fuente.', 'ok');
     }
