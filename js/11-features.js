@@ -208,12 +208,42 @@ function setQuickReminder(b, minutes) {
   save();
   renderCanvas();
 }
+// Duplica un bloque (contenido clonado; los blobs se copian de verdad para
+// que borrar una imagen del duplicado no rompa el original).
+function duplicateBlock(b) {
+  pushUndo('Duplicar bloque');
+  var t = now();
+  var copy = JSON.parse(JSON.stringify(b));
+  copy.id = uid();
+  copy.x = b.x + 28;
+  copy.y = b.y + 28;
+  copy.createdAt = t;
+  copy.updatedAt = t;
+  delete copy.kanban; delete copy.kanbanAt; delete copy.kanbanOrder;
+  delete copy.reminder;
+  var c = copy.content || {};
+  var reBlob = function (ref) { return isBlobRef(ref) ? storeBlob(resolveSrc(ref)) : ref; };
+  if (c.images) c.images = c.images.map(function (it) {
+    return typeof it === 'string' ? reBlob(it) : Object.assign({}, it, { src: reBlob(it.src) });
+  });
+  if (isBlobRef(c.pdf)) c.pdf = reBlob(c.pdf);
+  if (c.result && isBlobRef(c.result.img)) c.result.img = reBlob(c.result.img);
+  data.blocks.push(copy);
+  touchNote(copy.noteId);
+  logChange('Bloque duplicado', snippet((c.text || '')));
+  save();
+  renderCanvas();
+  cardEnterAnim(cardEl(copy.id));
+}
+
 function openCardMenu(b, anchor) {
   closeCardMenu();
   var backdrop = h('div', { class: 'pop-backdrop', id: 'cardMenuBackdrop', onmousedown: function (e) { if (e.target === backdrop) closeCardMenu(); } });
   var pop = h('div', { class: 'card-menu-pop', onmousedown: function (e) { e.stopPropagation(); } });
   pop.appendChild(h('button', { class: 'cm-item' + (b.important ? ' active' : ''), onclick: function () { toggleImportant(b); closeCardMenu(); } },
     icon('star'), h('span', {}, b.important ? 'Quitar de importantes' : 'Marcar como importante')));
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { duplicateBlock(b); closeCardMenu(); } },
+    icon('copy'), h('span', {}, 'Duplicar bloque')));
   if (b.type === 'text' || b.type === 'idea' || b.type === 'image') {
     pop.appendChild(h('div', { class: 'cm-sep' }));
     pop.appendChild(h('div', { class: 'cm-label' }, icon('leaf'), 'Color / categor\u00eda'));

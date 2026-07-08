@@ -26,32 +26,44 @@ function renderTopbar() {
 
   var sidebarBtn = h('button', { class: 'icon-btn tb-sidebar-btn', title: 'Mostrar/ocultar panel', onclick: toggleSidebar }, icon('panel'));
   var left = h('div', { class: 'tb-left' }, sidebarBtn, crumb, title);
-  var hint = h('div', { class: 'hint' }, icon('cursor'), 'Doble clic: nota \u00b7 Alt: men\u00fa \u00b7 Teclas t/f/i/c/p: crear \u00b7 F2: renombrar \u00b7 Espacio: arrastrar');
+  var hint = h('div', { class: 'hint' }, icon('cursor'), 'Doble clic crea una nota \u00b7 pulsa ? para ver los atajos');
   var searchBtn = h('button', { class: 'icon-btn', title: 'Buscar en todo (Ctrl+K)', onclick: openSearch }, icon('search'));
   var tplBtn = h('button', { class: 'icon-btn', title: 'Plantillas de canvas (BMC, DAFO, arquitectura…)', onclick: openTemplates }, icon('layout'));
   var graphBtn = h('button', { class: 'icon-btn', title: 'Mapa de conocimiento (grafo)', onclick: openGraph }, icon('graph'));
-  var importBtn = h('button', { class: 'icon-btn', title: 'Importar Markdown (.md) o PDF', onclick: openImport }, icon('download'));
   var kanBtn = h('button', { class: 'icon-btn', title: 'Kanban de ideas', onclick: openKanban }, icon('board'));
-  var histBtn = h('button', { class: 'icon-btn', title: 'Historial de cambios', onclick: openLog }, icon('clock'));
-  var backupBtn = h('button', { class: 'icon-btn', title: 'Copias de seguridad', onclick: openBackups }, icon('shield'));
-  var integBtn = h('button', { class: 'icon-btn', title: 'Integraciones y versiones', onclick: openIntegrations }, icon('info'));
-  var helpBtn = h('button', { class: 'icon-btn', title: 'Atajos de teclado (?)', onclick: openShortcuts }, icon('help'));
-  var themeBtn = h('button', { class: 'icon-btn', title: 'Personalizar colores', onclick: openTheme }, icon('palette'));
+  var moreBtn = h('button', { class: 'icon-btn', title: 'Más opciones', onclick: function (e) { e.stopPropagation(); openTopbarMenu(moreBtn); } }, icon('more'));
   var ai = h('button', { class: 'ai-btn' + (aiReady() ? ' ready' : ''), title: aiReady() ? 'Asistente IA' : 'Configurar IA (API key)', onclick: openAI }, icon('spark'), 'IA');
   bar.appendChild(left);
   bar.appendChild(hint);
   bar.appendChild(searchBtn);
   bar.appendChild(tplBtn);
   bar.appendChild(graphBtn);
-  bar.appendChild(importBtn);
   bar.appendChild(kanBtn);
-  bar.appendChild(histBtn);
-  bar.appendChild(backupBtn);
-  bar.appendChild(themeBtn);
-  bar.appendChild(helpBtn);
-  bar.appendChild(integBtn);
+  bar.appendChild(moreBtn);
   bar.appendChild(ai);
 }
+
+// Menú "⋯" del topbar: acciones menos frecuentes, con etiqueta.
+function openTopbarMenu(anchor) {
+  closeTopbarMenu();
+  var backdrop = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === backdrop) closeTopbarMenu(); } });
+  var pop = h('div', { class: 'card-menu-pop topbar-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  [
+    ['download', 'Importar Markdown (.md) o PDF', openImport],
+    ['clock', 'Historial de cambios', openLog],
+    ['shield', 'Copias de seguridad', openBackups],
+    ['palette', 'Personalizar colores', openTheme],
+    ['help', 'Atajos de teclado', openShortcuts],
+    ['info', 'Integraciones y versiones', openIntegrations],
+  ].forEach(function (it) {
+    pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); it[2](); } },
+      icon(it[0]), h('span', {}, it[1])));
+  });
+  backdrop.appendChild(pop);
+  document.body.appendChild(backdrop);
+  positionPop(pop, anchor, 250);
+}
+function closeTopbarMenu() { var bd = document.getElementById('topbarMenuBackdrop'); if (bd) bd.remove(); }
 
 // ---------- Render: Canvas ----------
 var canvasContentEl = null;
@@ -95,7 +107,13 @@ function emptyState() {
     { class: 'empty-state' },
     h('div', { class: 'empty-ico' }, icon('leaf')),
     h('p', { class: 'empty-title' }, 'Selecciona o crea una nota'),
-    h('p', { class: 'empty-sub' }, 'Tus ideas viven dentro de libros y secciones, como un cuaderno tranquilo.')
+    h('p', { class: 'empty-sub' }, 'Tus ideas viven dentro de libros y secciones, como un cuaderno tranquilo.'),
+    h('div', { class: 'empty-keys' },
+      h('span', { class: 'empty-key' }, h('kbd', {}, 'Doble clic'), ' nota'),
+      h('span', { class: 'empty-key' }, h('kbd', {}, 'Alt'), ' menú de bloques'),
+      h('span', { class: 'empty-key' }, h('kbd', {}, 'Ctrl+K'), ' buscar'),
+      h('span', { class: 'empty-key' }, h('kbd', {}, '?'), ' atajos')
+    )
   );
 }
 

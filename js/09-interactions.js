@@ -81,17 +81,65 @@ function updateSelInfo() {
   if (!bar) {
     bar = h('div', { id: 'selBar', class: 'sel-bar' },
       h('span', { class: 'sel-count' }, ''),
+      h('span', { class: 'sel-align' },
+        h('button', { class: 'sel-mini', title: 'Alinear a la izquierda', onclick: function () { alignSelected('left'); } }, icon('alignL')),
+        h('button', { class: 'sel-mini', title: 'Alinear arriba', onclick: function () { alignSelected('top'); } }, icon('alignT')),
+        h('button', { class: 'sel-mini sel-dist', title: 'Distribuir horizontalmente', onclick: function () { alignSelected('distH'); } }, icon('distH')),
+        h('button', { class: 'sel-mini sel-dist', title: 'Distribuir verticalmente', onclick: function () { alignSelected('distV'); } }, icon('distV'))
+      ),
       h('button', { class: 'sel-ai', title: 'Combinar los bloques seleccionados en una s\u00edntesis con IA', onclick: function () { aiSynthesizeSelection(); } }, icon('spark'), 'Sintetizar'),
       h('button', { class: 'sel-del', title: 'Eliminar selecci\u00f3n', onclick: deleteSelected }, icon('trash'), 'Eliminar'));
     document.body.appendChild(bar);
   }
   bar.querySelector('.sel-count').textContent = n + (n > 1 ? ' seleccionados' : ' seleccionado');
+  bar.querySelector('.sel-align').style.display = n >= 2 ? '' : 'none';
+  Array.prototype.forEach.call(bar.querySelectorAll('.sel-dist'), function (btn) {
+    btn.style.display = n >= 3 ? '' : 'none';
+  });
   // Sintetizar solo tiene sentido con 2+ bloques con texto.
   var withText = Object.keys(selectedIds).filter(function (id) {
     var b = data.blocks.find(function (x) { return x.id === id; });
     return b && aiCanActOn(b);
   }).length;
   bar.querySelector('.sel-ai').style.display = withText >= 2 ? '' : 'none';
+}
+// Alinea o distribuye los bloques seleccionados en el lienzo.
+function alignSelected(mode) {
+  var blocks = Object.keys(selectedIds).map(function (id) {
+    return data.blocks.find(function (x) { return x.id === id; });
+  }).filter(Boolean);
+  if (blocks.length < 2) return;
+  pushUndo('Alinear bloques');
+  if (mode === 'left') {
+    var minX = Math.min.apply(null, blocks.map(function (b) { return b.x; }));
+    blocks.forEach(function (b) { b.x = minX; });
+  } else if (mode === 'top') {
+    var minY = Math.min.apply(null, blocks.map(function (b) { return b.y; }));
+    blocks.forEach(function (b) { b.y = minY; });
+  } else if (mode === 'distH' || mode === 'distV') {
+    var horiz = mode === 'distH';
+    var sorted = blocks.slice().sort(function (a, b) { return horiz ? a.x - b.x : a.y - b.y; });
+    var sizeOf = function (b) { return horiz ? (b.width || 200) : (b.height || 120); };
+    var first = sorted[0], last = sorted[sorted.length - 1];
+    var start = horiz ? first.x : first.y;
+    var end = (horiz ? last.x : last.y) + sizeOf(last);
+    var total = sorted.reduce(function (s, b) { return s + sizeOf(b); }, 0);
+    var gap = Math.max(12, (end - start - total) / (sorted.length - 1));
+    var pos = start;
+    sorted.forEach(function (b) {
+      if (horiz) b.x = Math.round(pos); else b.y = Math.round(pos);
+      pos += sizeOf(b) + gap;
+    });
+  }
+  blocks.forEach(function (b) {
+    b.updatedAt = now();
+    var el = cardEl(b.id);
+    if (el) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; }
+  });
+  touchNote(blocks[0].noteId);
+  logChange('Bloques alineados', blocks.length + ' bloques');
+  save();
+  drawLinks();
 }
 function deleteSelected() {
   var ids = Object.keys(selectedIds);
