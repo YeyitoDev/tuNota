@@ -1,0 +1,16 @@
+node_modules
+.env
+.env.*
+src
+dist
+tests
+.claude
+.git
+db.json
+*.md
+package*.json
+tsconfig*.json
+vite.config.ts
+vitest.config.js
+tailwind.config.js
+postcss.config.js

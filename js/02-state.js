@@ -26,10 +26,89 @@ function initState() {
   if (!ui.views) ui.views = {};
   if (!data.log) data.log = [];
   if (!Array.isArray(data.links)) data.links = [];
+  if (!Array.isArray(data.groups)) data.groups = [];
+  if (!Array.isArray(data.userTemplates)) data.userTemplates = []; // plantillas guardadas por el usuario
+  if (!Array.isArray(data.inks)) data.inks = [];
   if (typeof ui.kanbanBook !== 'string') ui.kanbanBook = '';
+  if (typeof ui.tablet !== 'boolean') ui.tablet = false;
+  if (!ui.pen || typeof ui.pen !== 'object') ui.pen = { tool: 'pen', color: '#33302b', size: 3 };
   if (typeof ui.sidebarCollapsed !== 'boolean') ui.sidebarCollapsed = false;
   if (!ui.theme || typeof ui.theme !== 'object') ui.theme = {};
   if (!ui.ai || typeof ui.ai !== 'object') ui.ai = { provider: 'openai', model: '', apiKey: '', baseUrl: '' };
+  if (typeof ui.token !== 'string') ui.token = '';
+  if (typeof ui.alarmSound !== 'string') ui.alarmSound = 'chime';
+  // Preferencias de formato de texto: enumerador, viñeta y espaciado entre ítems.
+  if (!ui.fmt || typeof ui.fmt !== 'object') ui.fmt = { num: '1.', bullet: '-', gap: false };
+  // Color de texto en contraste automático con el fondo (legible en temas oscuros / tarjetas de color).
+  if (typeof ui.autoText !== 'boolean') ui.autoText = true;
+  // Tipo de bloque que crea el doble clic en el lienzo (por defecto texto libre translúcido).
+  if (typeof ui.dblType !== 'string') ui.dblType = 'freetext';
+  // Sincronización con Apple (CalDAV) y Google Drive.
+  if (!ui.apple || typeof ui.apple !== 'object') ui.apple = { id: '', password: '', autoSync: false };
+  if (!ui.drive || typeof ui.drive !== 'object') ui.drive = { clientId: '', autoSync: false, fileId: '' };
+}
+
+// ---------- API del backend: token Bearer + descubrimiento de capacidades ----------
+// server.py puede exigir un token Bearer y ofrecer IA (OpenCode) y búsqueda web
+// (Tavily) con las claves del .env. La UI mantiene las claves manuales por proveedor;
+// esto solo añade la opción de "usar las claves del servidor".
+var BACKEND = { ai: false, search: false, image: false, telegram: false, apple: false, publicMode: false, tokenRequired: false, models: [], defaultModel: '' };
+function authHeaders(base) {
+  var hh = {};
+  if (base) Object.keys(base).forEach(function (k) { hh[k] = base[k]; });
+  var t = (ui && ui.token) || '';
+  if (t) hh['Authorization'] = 'Bearer ' + t;
+  return hh;
+}
+// Igual que fetch() pero adjunta el token Bearer (si hay) en todas las llamadas /api/*.
+function apiFetch(path, opts) {
+  opts = opts || {};
+  opts.headers = authHeaders(opts.headers);
+  return fetch(path, opts);
+}
+// Enlace de confianza: si la URL trae ?token=… (o #token=…), lo guarda y limpia la URL.
+// Permite "confiar" un dispositivo con un enlace, sin teclear el token en la app desplegada.
+function applyUrlToken() {
+  try {
+    var m = /[?#&]token=([^&#]+)/.exec((location.search || '') + (location.hash || ''));
+    if (m && m[1] && ui) {
+      ui.token = decodeURIComponent(m[1]);
+      writeLS(LS_UI, JSON.stringify(ui));
+      if (window.history && history.replaceState) history.replaceState(null, '', location.pathname);
+    }
+  } catch (e) {}
+}
+function loadBackendConfig(done) {
+  if (!window.fetch) { if (done) done(); return; }
+  apiFetch('api/config', { cache: 'no-store' })
+    .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    .then(function (c) {
+      BACKEND.ai = !!c.aiAvailable;
+      BACKEND.search = !!c.searchAvailable;
+      BACKEND.image = !!c.imageAvailable;
+      BACKEND.telegram = !!c.telegramAvailable;
+      BACKEND.apple = !!c.appleAvailable;
+      BACKEND.publicMode = !!c.publicMode;
+      BACKEND.tokenRequired = !!c.tokenRequired;
+      BACKEND.models = c.models || [];
+      BACKEND.defaultModel = c.defaultModel || '';
+      // En local el servidor entrega el token a los clientes del mismo equipo
+      // (loopback): así el navegador no tiene que pedirlo. Nunca llega a clientes
+      // remotos (Fly.io), donde sí hay que introducirlo a mano.
+      // En loopback sincroniza SIEMPRE con el token actual del servidor (arregla tokens
+      // antiguos guardados tras rotar el token). En remoto `c.token` no llega, así que
+      // no toca el token que el usuario introdujo a mano.
+      if (c.token && ui.token !== c.token) { ui.token = c.token; writeLS(LS_UI, JSON.stringify(ui)); }
+      // Si el servidor tiene IA y el usuario no configuró clave propia, usa por
+      // defecto las claves del servidor (listo para usar sin pegar ninguna clave).
+      if (BACKEND.ai && !ui.ai.apiKey && (!ui.ai.provider || ui.ai.provider === 'openai')) {
+        ui.ai.provider = 'backend';
+        if (!ui.ai.model) ui.ai.model = BACKEND.defaultModel;
+        writeLS(LS_UI, JSON.stringify(ui));
+      }
+    })
+    .catch(function () {})
+    .then(function () { if (done) done(); });
 }
 
 function pair(id) {
@@ -45,6 +124,7 @@ function save() {
   if (ok) maybeSnapshot(dataStr);
   if (bc) bc.postMessage({ app: 'tunota' });
   serverSave();
+  if (typeof scheduleDriveSync === 'function') scheduleDriveSync(); // copia automática a Google Drive
 }
 var saveT;
 function debouncedSave() {
@@ -64,7 +144,7 @@ function snippet(t) {
 // ---------- Deshacer (Ctrl+Z) ----------
 var undoStack = [];
 function pushUndo(label) {
-  undoStack.push({ blocks: JSON.parse(JSON.stringify(data.blocks)), links: JSON.parse(JSON.stringify(data.links || [])), noteId: ui.currentNoteId, label: label || '' });
+  undoStack.push({ blocks: JSON.parse(JSON.stringify(data.blocks)), links: JSON.parse(JSON.stringify(data.links || [])), inks: JSON.parse(JSON.stringify(data.inks || [])), noteId: ui.currentNoteId, label: label || '' });
   if (undoStack.length > 40) undoStack.shift();
 }
 function undo() {
@@ -72,6 +152,7 @@ function undo() {
   var snap = undoStack.pop();
   data.blocks = snap.blocks;
   data.links = snap.links || [];
+  data.inks = snap.inks || [];
   if (snap.noteId && getNote(snap.noteId)) ui.currentNoteId = snap.noteId;
   logChange('Deshacer', snap.label || '');
   save();
@@ -105,6 +186,21 @@ function notebookIdOfBlock(b) {
 }
 function linksOf(noteId) {
   return (data.links || []).filter(function (l) { return l.noteId === noteId && getBlockById(l.a) && getBlockById(l.b); });
+}
+function inksOf(noteId) {
+  return (data.inks || []).filter(function (i) { return i.noteId === noteId; });
+}
+function addInk(stroke) {
+  data.inks = data.inks || [];
+  data.inks.push(stroke);
+  touchNote(stroke.noteId);
+}
+function dropInksFor(ids) {
+  var set = {}; (Array.isArray(ids) ? ids : [ids]).forEach(function (i) { set[i] = 1; });
+  data.inks = (data.inks || []).filter(function (i) { return !set[i.id]; });
+}
+function removeInksForNote(noteId) {
+  data.inks = (data.inks || []).filter(function (i) { return i.noteId !== noteId; });
 }
 function linkExists(aId, bId) {
   return (data.links || []).some(function (l) { return (l.a === aId && l.b === bId) || (l.a === bId && l.b === aId); });
@@ -157,6 +253,7 @@ function rename(kind, id, val) {
 
 function removeNoteData(id) {
   data.blocks = data.blocks.filter(function (b) { return b.noteId !== id; });
+  removeInksForNote(id);
   data.notes = data.notes.filter(function (n) { return n.id !== id; });
   if (ui.currentNoteId === id) ui.currentNoteId = null;
 }
@@ -220,18 +317,25 @@ var BLOCK_SIZES = {
   python: { w: 400, h: 340 },
   table: { w: 340, h: 170 },
   image: { w: 280, h: 240 },
+  freeimage: { w: 240, h: 180 },
+  aiimage: { w: 320, h: 300 },
+  shape: { w: 200, h: 130 },
+  canvas: { w: 250, h: 92 },
   markdown: { w: 420, h: 320 },
   pdf: { w: 460, h: 560 },
   mermaid: { w: 440, h: 340 },
   draw: { w: 380, h: 300 },
 };
-function defaultFreeStyle() { return { size: 20, color: '', bold: false, italic: false, underline: false, shadow: false, align: 'left' }; }
+function defaultFreeStyle() { return { size: 20, color: '', font: 'sans', bold: false, italic: false, underline: false, strike: false, shadow: false, align: 'left', lineHeight: 1.3, letterSpacing: 0, bg: '', pad: 4, minH: 0 }; }
 function defaultContent(type) {
   if (type === 'table') return { table: { rows: [['', ''], ['', '']] } };
   if (type === 'code' || type === 'json' || type === 'curl') return { text: '' };
   if (type === 'python') return { text: '# Escribe Python y pulsa Ejecutar (Ctrl+Enter)\nprint("Hola desde Python")' };
   if (type === 'freetext') return { text: '', style: defaultFreeStyle() };
-  if (type === 'image') return { images: [] };
+  if (type === 'image' || type === 'freeimage') return { images: [] };
+  if (type === 'aiimage') return { prompt: '', images: [], mode: 'search' };
+  if (type === 'shape') return { text: '', shape: 'rect' };
+  if (type === 'canvas') return { noteRef: '' }; // portal a un lienzo (nota) anidado
   if (type === 'markdown') return { text: '' };
   if (type === 'mermaid') return { text: 'graph TD\n  A[Inicio] --> B{\u00bfDecisi\u00f3n?}\n  B -->|S\u00ed| C[Acci\u00f3n]\n  B -->|No| D[Fin]' };
   if (type === 'pdf') return { pdf: '', name: '' };

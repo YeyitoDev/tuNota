@@ -70,6 +70,7 @@ function hydrateMissingBlobs() {
 // ---------- Init ----------
 function boot() {
   initState();
+  applyUrlToken();
   applyTheme();
   initCanvasNav();
   // 1) hidrata los blobs, 2) carga datos del servidor, 3) migra lo inline, 4) pinta.
@@ -77,12 +78,18 @@ function boot() {
     .then(function (map) { blobCache = map || {}; })
     .catch(function () {})
     .then(function () {
-      serverLoad(function () {
-        migrateInlineBlobs();
-        renderAll();
-        lastSig = sidebarSig();
-        startReminderLoop();
-        gcBlobs();
+      // Primero descubre el backend (y, en local, recibe el token) para que la
+      // carga de datos ya vaya autenticada; luego sincroniza y pinta.
+      loadBackendConfig(function () {
+        serverLoad(function () {
+          migrateInlineBlobs();
+          renderAll();
+          lastSig = sidebarSig();
+          startReminderLoop();
+          gcBlobs();
+          // Puerta de acceso primero; si no hace falta, el tour guiado en la 1ª visita.
+          if (!maybeShowTokenGate()) maybeAutoTour();
+        });
       });
     });
 }

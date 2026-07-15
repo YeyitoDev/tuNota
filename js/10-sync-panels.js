@@ -10,6 +10,8 @@ function normalizeData() {
   data.notes = data.notes || [];
   data.blocks = data.blocks || [];
   data.log = data.log || [];
+  if (!Array.isArray(data.links)) data.links = [];
+  if (!Array.isArray(data.groups)) data.groups = [];
 }
 function serverSave() {
   if (!SERVER || !window.fetch) return;
@@ -18,14 +20,15 @@ function serverSave() {
 }
 function serverSaveNow() {
   if (!SERVER || !window.fetch) return;
+  if (BACKEND.publicMode) return; // modo público: no hay base de datos compartida (todo local)
   // data solo contiene referencias 'blob:<id>' (db.json queda pequeño).
   // Los bytes de los blobs aún NO se sincronizan al servidor (Fase 4: multi-dispositivo).
-  fetch('api/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).catch(function () {});
+  apiFetch('api/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).catch(function () {});
 }
 function serverLoad(done) {
   if (!window.fetch) { done(); return; }
   var local = data;
-  fetch('api/data', { cache: 'no-store' })
+  apiFetch('api/data', { cache: 'no-store' })
     .then(function (r) { if (!r.ok) throw 0; return r.json(); })
     .then(function (srv) {
       SERVER = true;
@@ -55,7 +58,7 @@ function popOut(id) {
   var blk = getBlockById(id);
   var dim = 'width=600,height=680';
   if (blk && blk.type === 'pdf') dim = 'width=980,height=900';
-  else if (blk && blk.type === 'image') dim = 'width=820,height=780';
+  else if (blk && blk.type === 'image' || blk && blk.type === 'freeimage') dim = 'width=820,height=780';
   else if (blk && blk.type === 'markdown') dim = 'width=760,height=820';
   else if (blk && blk.type === 'mermaid') dim = 'width=900,height=760';
   else if (blk && blk.type === 'curl') dim = 'width=820,height=760';
@@ -110,7 +113,7 @@ function updateCardMedia(el, b) {
       imgs.forEach(function (_it, i) { media.appendChild(cardFigure(b, i, el)); });
     } else if (b.type === 'image') {
       media.style.display = '';
-      media.appendChild(h('div', { class: 'card-media-empty' }, 'Pega (Ctrl+V) o inserta una imagen'));
+      media.appendChild(h('div', { class: 'card-media-empty' }, 'Pega (' + MOD + '+V) o inserta una imagen'));
     } else { media.style.display = 'none'; }
   }
 }
@@ -420,7 +423,7 @@ function fmtTime(ts) {
 // ---------- Mapa de conocimiento (grafo tipo Obsidian) ----------
 function graphBlockLabel(b) {
   if (b.type === 'pdf') return (b.content && b.content.name) || 'PDF';
-  if (b.type === 'image') return 'Imagen';
+  if (b.type === 'image' || b.type === 'freeimage') return 'Imagen';
   if (b.type === 'mermaid') return 'Diagrama';
   if (b.type === 'markdown') {
     var t = (b.content && b.content.text) || '';
@@ -439,7 +442,7 @@ function buildGraphTree() {
       notesOf(s.id).forEach(function (n) {
         var nNode = { id: 'note-' + n.id, label: n.title || 'Nota', kind: 'note', noteId: n.id, children: [] };
         blocksOf(n.id).forEach(function (b) {
-          if (b.type === 'markdown' || b.type === 'pdf' || b.type === 'image' || b.type === 'mermaid') {
+          if (b.type === 'markdown' || b.type === 'pdf' || b.type === 'image' || b.type === 'freeimage' || b.type === 'mermaid') {
             nNode.children.push({ id: 'blk-' + b.id, label: graphBlockLabel(b), kind: 'doc', docType: b.type, noteId: n.id, blockId: b.id, children: [] });
           }
         });
@@ -494,7 +497,7 @@ function openGraph() {
   var overlay = h('div', { class: 'overlay graph-overlay', id: 'graphOverlay', onmousedown: function (e) { if (e.target === overlay) closeGraph(); } });
   var panel = h('div', { class: 'graph-panel' });
   panel.appendChild(h('div', { class: 'graph-head' },
-    h('div', { class: 'graph-title' }, icon('graph'), 'Mapa de conocimiento'),
+    h('div', { class: 'graph-title' }, icon('graph'), 'Mapa de conocimiento', h('span', { class: 'graph-count', id: 'graphCount' })),
     h('div', { class: 'graph-head-right' },
       h('span', { class: 'graph-hint' }, 'Clic en un nodo para ir a su lienzo \u00b7 Arrastra para mover \u00b7 Rueda: zoom'),
       h('button', { class: 'icon-btn', title: 'Cerrar', onclick: closeGraph }, icon('x')))
@@ -526,11 +529,15 @@ function renderGraph(world, svg, stage) {
   svg.setAttribute('height', stage.clientHeight);
   svg.innerHTML = '';
   edges.forEach(function (e) {
-    var l = document.createElementNS(SVGNS, 'line');
-    l.setAttribute('x1', cx + e[0]._x); l.setAttribute('y1', cy + e[0]._y);
-    l.setAttribute('x2', cx + e[1]._x); l.setAttribute('y2', cy + e[1]._y);
-    l.setAttribute('class', 'graph-edge k-' + e[1].kind);
-    svg.appendChild(l);
+    // Arista curva (bezier cuadrática) con un ligero abombado para un aire orgánico.
+    var x1 = cx + e[0]._x, y1 = cy + e[0]._y, x2 = cx + e[1]._x, y2 = cy + e[1]._y;
+    var mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = x2 - x1, dy = y2 - y1;
+    var ctrlX = mx - dy * 0.08, ctrlY = my + dx * 0.08;
+    var p = document.createElementNS(SVGNS, 'path');
+    p.setAttribute('d', 'M' + x1 + ',' + y1 + ' Q' + ctrlX + ',' + ctrlY + ' ' + x2 + ',' + y2);
+    p.setAttribute('class', 'graph-edge k-' + e[1].kind);
+    p.setAttribute('data-from', e[0].id); p.setAttribute('data-to', e[1].id);
+    svg.appendChild(p);
   });
   nodes.forEach(function (n) {
     var el = h('button', {
@@ -540,20 +547,54 @@ function renderGraph(world, svg, stage) {
     });
     el.appendChild(h('span', { class: 'gn-dot' }, n.kind === 'doc' ? icon(typeMeta(n.docType).icon) : (n.kind === 'note' ? icon('file') : null)));
     el.appendChild(h('span', { class: 'gn-label' }, n.label));
+    el.setAttribute('data-id', n.id);
+    el.addEventListener('mouseenter', function () { highlightGraph(svg, world, n.id, true); });
+    el.addEventListener('mouseleave', function () { highlightGraph(svg, world, n.id, false); });
     el.addEventListener('click', function (ev) { ev.stopPropagation(); onGraphNodeClick(n); });
     world.appendChild(el);
   });
-  setupGraphNav(world, stage);
+  var docs = nodes.filter(function (n) { return n.kind === 'doc'; }).length;
+  var notes = nodes.filter(function (n) { return n.kind === 'note'; }).length;
+  var countEl = document.getElementById('graphCount');
+  if (countEl) countEl.textContent = notes + ' notas · ' + docs + ' documentos';
+  setupGraphNav(world, stage, nodes);
 }
-function setupGraphNav(world, stage) {
+// Resalta un nodo y sus aristas/vecinos; atenúa el resto.
+function highlightGraph(svg, world, id, on) {
+  var connected = {};
+  Array.prototype.forEach.call(svg.querySelectorAll('.graph-edge'), function (e) {
+    var f = e.getAttribute('data-from'), t = e.getAttribute('data-to');
+    var hit = f === id || t === id;
+    e.classList.toggle('hl', on && hit);
+    e.classList.toggle('dim', on && !hit);
+    if (hit) { connected[f] = 1; connected[t] = 1; }
+  });
+  Array.prototype.forEach.call(world.querySelectorAll('.graph-node'), function (nd) {
+    var nid = nd.getAttribute('data-id');
+    nd.classList.toggle('dim', on && !connected[nid] && nid !== id);
+    nd.classList.toggle('hl', on && nid === id);
+  });
+}
+function setupGraphNav(world, stage, nodes) {
   var view = { x: 0, y: 0, z: 1 };
   function apply() { world.style.transform = 'translate(' + view.x + 'px,' + view.y + 'px) scale(' + view.z + ')'; }
-  apply();
+  function fit() {
+    if (!nodes || !nodes.length) { view = { x: 0, y: 0, z: 1 }; apply(); return; }
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodes.forEach(function (n) { minX = Math.min(minX, n._x); minY = Math.min(minY, n._y); maxX = Math.max(maxX, n._x); maxY = Math.max(maxY, n._y); });
+    var pad = 90, w = (maxX - minX) + pad * 2, hh = (maxY - minY) + pad * 2;
+    var z = Math.min(stage.clientWidth / w, stage.clientHeight / hh, 1.4);
+    z = Math.max(0.2, z);
+    view.z = z;
+    view.x = -((minX + maxX) / 2) * z;
+    view.y = -((minY + maxY) / 2) * z;
+    apply();
+  }
+  function zoomBy(f) { view.z = Math.max(0.2, Math.min(2.6, view.z * f)); apply(); }
+  fit();
   stage.addEventListener('wheel', function (e) {
     e.preventDefault();
-    var f = Math.exp(-e.deltaY * 0.0015);
-    view.z = Math.max(0.2, Math.min(2.6, view.z * f));
-    apply();
+    zoomBy(Math.exp(-e.deltaY * 0.0015));
   }, { passive: false });
   stage.addEventListener('mousedown', function (e) {
     if (e.target.closest('.graph-node')) return;
@@ -565,6 +606,12 @@ function setupGraphNav(world, stage) {
     document.addEventListener('mousemove', mv);
     document.addEventListener('mouseup', up);
   });
+  var ctl = h('div', { class: 'graph-ctl' },
+    h('button', { class: 'zoom-btn', title: 'Alejar', onclick: function () { zoomBy(1 / 1.2); } }, '−'),
+    h('button', { class: 'zoom-btn', title: 'Acercar', onclick: function () { zoomBy(1.2); } }, '+'),
+    h('button', { class: 'zoom-btn', title: 'Ajustar a la vista', onclick: fit }, icon('fit'))
+  );
+  stage.appendChild(ctl);
 }
 
 // ---------- Render all ----------

@@ -59,7 +59,20 @@ function renderMarkdown(src) {
     }
     if (/^\s*[-*+]\s+/.test(line)) {
       var items = [];
-      while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) { items.push('<li>' + mdInline(lines[i].replace(/^\s*[-*+]\s+/, '')) + '</li>'); i++; }
+      while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) {
+        var liBody = lines[i].replace(/^\s*[-*+]\s+/, '');
+        var tk = liBody.match(/^\[( |x|X)\]\s+(.*)$/); // casilla de tarea: - [ ] / - [x]
+        if (tk) {
+          var done = tk[1] !== ' ';
+          items.push('<li class="md-task' + (done ? ' done' : '') + '">' +
+            '<input type="checkbox" class="md-task-cb" data-ln="' + i + '"' + (done ? ' checked' : '') + '>' +
+            '<span class="md-task-txt">' + mdInline(tk[2]) + '</span>' +
+            '<button class="md-task-bell" data-ln="' + i + '" title="Recordatorio para esta tarea">' + I.bell + '</button></li>');
+        } else {
+          items.push('<li>' + mdInline(liBody) + '</li>');
+        }
+        i++;
+      }
       out.push('<ul>' + items.join('') + '</ul>');
       continue;
     }
@@ -75,6 +88,27 @@ function renderMarkdown(src) {
   }
   return out.join('\n') || '<p class="md-empty">Vac\u00edo</p>';
 }
+function looksLikeMarkdown(text) {
+  if (!text || typeof text !== 'string') return false;
+  var t = text.replace(/\r\n?/g, '\n');
+  var markers = [
+    /^#{1,6}\s+/m,                 // encabezados
+    /^\s*[-*+]\s+\[?[ xX]?\]?/m, // listas y tareas
+    /^\s*\d+[.)]\s+/m,           // listas numeradas
+    /^\s*>\s?/m,                  // citas
+    /^```[\s\S]*```/m,            // bloques de código
+    /\*\*[^*]+\*\*/,              // negrita
+    /__[^_]+__/,                  // negrita alt
+    /\*[^*]+\*/,                  // cursiva
+    /`[^`]+`/,                    // código inline
+    /!?\[[^\]]+\]\([^)]+\)/,      // enlaces / imágenes
+    /^\s*([-*_])\1\1+\s*$/m       // regla horizontal
+  ];
+  for (var i = 0; i < markers.length; i++) {
+    if (markers[i].test(t)) return true;
+  }
+  return false;
+}
 function markdownBody(b) {
   b.content = b.content || {};
   var view = h('div', { class: 'md-render' });
@@ -82,10 +116,86 @@ function markdownBody(b) {
   view.addEventListener('mousedown', function (e) { e.stopPropagation(); });
   var ta = h('textarea', { class: 'card-ta mono md-src', placeholder: '# T\u00edtulo\n\nEscribe **Markdown**...' });
   ta.value = b.content.text || '';
+  attachListAutoContinue(ta, function () { b.content.text = ta.value; touchNote(b.noteId); debouncedSave(); }, false); // Markdown: anidación simple (sin numeración con puntos)
   ta.addEventListener('input', function () { b.content.text = ta.value; touchNote(b.noteId); debouncedSave(); });
   ta.addEventListener('change', function () { logChange('Markdown editado', snippet(ta.value)); save(); });
   ta.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-  return [view, ta];
+  // Barra de formato al editar: negrita, cursiva, tachado, c\u00f3digo, t\u00edtulo, listas, enlace.
+  var fmtBar = h('div', { class: 'md-fmt-bar' });
+  [
+    ['B', 'Negrita', function () { mdWrapSel(ta, b, '**', '**'); }],
+    ['I', 'Cursiva', function () { mdWrapSel(ta, b, '*', '*'); }],
+    ['S', 'Tachado', function () { mdWrapSel(ta, b, '~~', '~~'); }],
+    ['</>', 'C\u00f3digo', function () { mdWrapSel(ta, b, '`', '`'); }],
+    ['H2', 'T\u00edtulo', function () { mdPrefixLines(ta, b, '## '); }],
+    ['\u2022', 'Vi\u00f1etas', function () { mdPrefixLines(ta, b, '- '); }],
+    ['1.', 'Numerar', function () { mdPrefixLines(ta, b, null); }],
+    ['\u2610', 'Casilla', function () { mdPrefixLines(ta, b, '- [ ] '); }],
+    ['\ud83d\udd17', 'Enlace', function () { mdWrapSel(ta, b, '[', '](url)'); }],
+  ].forEach(function (it) {
+    fmtBar.appendChild(h('button', { class: 'md-fmt-b', title: it[1], onmousedown: function (e) { e.preventDefault(); e.stopPropagation(); }, onclick: function (e) { e.stopPropagation(); it[2](); } }, it[0]));
+  });
+  // Casillas interactivas: clic marca/desmarca (edita la l\u00ednea fuente); campana =
+  // recordatorio con el texto de ESA tarea (alarma, sonido y calendario incluidos).
+  view.addEventListener('click', function (e) {
+    var cb = e.target.closest ? e.target.closest('.md-task-cb') : null;
+    var bell = e.target.closest ? e.target.closest('.md-task-bell') : null;
+    if (!cb && !bell) return;
+    e.stopPropagation();
+    var ln = parseInt((cb || bell).getAttribute('data-ln'), 10);
+    var lines = String(b.content.text || '').replace(/\r\n?/g, '\n').split('\n');
+    if (isNaN(ln) || ln < 0 || ln >= lines.length) return;
+    if (cb) {
+      var m = lines[ln].match(/^(\s*[-*+]\s+)\[( |x|X)\](\s+.*)$/);
+      if (!m) return;
+      lines[ln] = m[1] + (m[2] === ' ' ? '[x]' : '[ ]') + m[3];
+      b.content.text = lines[ln] !== null ? lines.join('\n') : b.content.text;
+      ta.value = b.content.text;
+      touchNote(b.noteId);
+      logChange(m[2] === ' ' ? 'Tarea completada' : 'Tarea reabierta', snippet(m[3]));
+      save();
+      view.innerHTML = renderMarkdown(b.content.text);
+    } else {
+      var tm = lines[ln].match(/^\s*[-*+]\s+\[( |x|X)\]\s+(.*)$/);
+      var taskText = tm ? tm[2].replace(/[*_~`]/g, '').trim() : '';
+      b.reminder = Object.assign({}, b.reminder || {}, { label: taskText || undefined });
+      openReminderPicker(b, bell);
+    }
+  });
+  return [view, fmtBar, ta];
+}
+// Envuelve la selección del textarea con marcadores Markdown y sincroniza el bloque.
+function mdWrapSel(ta, b, before, after) {
+  var s = ta.selectionStart, e = ta.selectionEnd;
+  var sel = ta.value.slice(s, e) || 'texto';
+  ta.value = ta.value.slice(0, s) + before + sel + after + ta.value.slice(e);
+  ta.selectionStart = s + before.length;
+  ta.selectionEnd = s + before.length + sel.length;
+  ta.focus();
+  b.content.text = ta.value; touchNote(b.noteId); debouncedSave();
+  var card = ta.closest('.card'); var view = card && card.querySelector('.md-render');
+  if (view) view.innerHTML = renderMarkdown(ta.value);
+}
+// Prefija las líneas seleccionadas ('- ', '## ', '- [ ] '…); null = numeración 1. 2. 3.
+function mdPrefixLines(ta, b, prefix) {
+  var s = ta.selectionStart, e = ta.selectionEnd;
+  var v = ta.value;
+  var ls = v.lastIndexOf('\n', s - 1) + 1;
+  var le = v.indexOf('\n', e); if (le < 0) le = v.length;
+  var chunk = v.slice(ls, le);
+  var n = 0;
+  var out = chunk.split('\n').map(function (line) {
+    if (!line.trim()) return line;
+    n++;
+    var body = line.replace(/^(\s*)(#{1,6}\s+|\d+[.)]\s+|[-*+]\s+(\[( |x|X)\]\s+)?)?/, '$1');
+    var im = line.match(/^(\s*)/);
+    return (im ? im[1] : '') + (prefix === null ? n + '. ' : prefix) + body.replace(/^\s*/, '');
+  }).join('\n');
+  ta.value = v.slice(0, ls) + out + v.slice(le);
+  ta.focus();
+  b.content.text = ta.value; touchNote(b.noteId); debouncedSave();
+  var card = ta.closest('.card'); var view = card && card.querySelector('.md-render');
+  if (view) view.innerHTML = renderMarkdown(ta.value);
 }
 function toggleMdEdit(b, el) {
   var editing = el.classList.toggle('editing-md');
@@ -213,9 +323,13 @@ function toggleMmdEdit(b, el) {
   if (editing) { el.classList.remove('mmd-interactive'); var ta = el.querySelector('.mmd-src'); if (ta) ta.focus(); }
   else { var view = el.querySelector('.mmd-render'); if (view) renderMmdCard(view, b); }
 }
+var mmdMoveHinted = false;
 function toggleMmdMove(b, el) {
   var on = el.classList.toggle('mmd-interactive');
-  if (on) el.classList.remove('editing-mmd');
+  if (on) {
+    el.classList.remove('editing-mmd');
+    if (!mmdMoveHinted) { mmdMoveHinted = true; toast('¿Vas a editar mucho? Prueba «Explotar a formas del lienzo»: arrastras cajas y las flechas siempre las siguen.', 'ok'); }
+  }
   var view = el.querySelector('.mmd-render');
   if (view) renderMmdCard(view, b);
 }
@@ -1040,6 +1154,10 @@ function openDiagramMenu(b, el, anchor) {
   shapes.appendChild(h('button', { class: 'cm-chip', onclick: function () { mmdAddLane(b, el); } }, '⇉ Carril'));
   pop.appendChild(shapes);
   pop.appendChild(h('div', { class: 'cm-sep' }));
+  pop.appendChild(h('div', { class: 'cm-label' }, icon('shapes'), 'Editar en el lienzo'));
+  pop.appendChild(h('button', { class: 'cm-item', title: 'Convierte el diagrama en formas y conectores que puedes arrastrar (las flechas los siguen)', onclick: function () { closeDiagramMenu(); mermaidToCanvas(b); } },
+    icon('shapes'), h('span', {}, 'Explotar a formas del lienzo')));
+  pop.appendChild(h('div', { class: 'cm-sep' }));
   pop.appendChild(h('div', { class: 'cm-label' }, icon('spark'), 'Generar con IA'));
   var desc = h('input', { class: 'dg-ai-input', placeholder: 'p. ej. "proceso de alta de un cliente con validación"' });
   desc.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); closeDiagramMenu(); aiDiagramGenerate(b, el, desc.value); } });
@@ -1051,3 +1169,145 @@ function openDiagramMenu(b, el, anchor) {
   setTimeout(function () { desc.focus(); }, 30);
 }
 function closeDiagramMenu() { var bd = document.getElementById('diagramMenuBackdrop'); if (bd) bd.remove(); }
+
+// ---------- Puente Mermaid ↔ lienzo (formas + conectores nativos) ----------
+// "Explotar" un diagrama de flujo a formas del lienzo (que sí siguen a las flechas
+// al arrastrarlas) y, a la inversa, convertir una selección de formas en Mermaid.
+function mmdDirection(src) {
+  var m = /^\s*(?:graph|flowchart)\s+(TB|TD|BT|LR|RL)/i.exec(src || '');
+  return m ? m[1].toUpperCase() : 'TD';
+}
+function mmdShapeFromOpen(open) {
+  if (open === '([') return 'pill';
+  if (open === '((') return 'ellipse';
+  if (open === '{{') return 'diamond';
+  if (open === '[[') return 'rect';
+  if (open === '[/' || open === '[\\') return 'parallelogram';
+  var c = open.charAt(0);
+  if (c === '{') return 'diamond';
+  if (c === '(') return 'round';
+  return 'rect';
+}
+function mmdCollectNodeDefs(src) {
+  var defs = {}, re = /([A-Za-z0-9_]+)\s*([\[({>]{1,2}[/\\]?)/g, m;
+  while ((m = re.exec(src))) {
+    var id = m[1], open = m[2], closeStr = mmdCloseFor(open);
+    var openEnd = m.index + m[0].length;
+    var closeAt = closeStr ? src.indexOf(closeStr, openEnd) : -1;
+    if (closeAt < 0) continue;
+    var inner = src.slice(openEnd, closeAt);
+    defs[id] = { label: mmdStripQuotes(inner).replace(/<br\s*\/?>/gi, '\n').trim() || id, shape: mmdShapeFromOpen(open) };
+    re.lastIndex = closeAt + closeStr.length;
+  }
+  return defs;
+}
+// Disposición por capas (longest-path) según la dirección del diagrama.
+function mmdLayout(ids, edges, dir) {
+  var adj = {}, indeg = {};
+  ids.forEach(function (id) { adj[id] = []; indeg[id] = 0; });
+  edges.forEach(function (e) { if (adj[e.from] && indeg[e.to] != null && e.from !== e.to) { adj[e.from].push(e.to); indeg[e.to]++; } });
+  var din = Object.assign({}, indeg), q = ids.filter(function (id) { return !indeg[id]; }), order = [];
+  while (q.length) { var id = q.shift(); order.push(id); adj[id].forEach(function (t) { if (--din[t] === 0) q.push(t); }); }
+  ids.forEach(function (id) { if (order.indexOf(id) < 0) order.push(id); });
+  var layer = {}; order.forEach(function (id) { layer[id] = 0; });
+  order.forEach(function (id) { adj[id].forEach(function (t) { layer[t] = Math.max(layer[t] || 0, (layer[id] || 0) + 1); }); });
+  var byL = {}; ids.forEach(function (id) { (byL[layer[id]] = byL[layer[id]] || []).push(id); });
+  var horiz = dir === 'LR' || dir === 'RL', GL = horiz ? 270 : 175, GC = horiz ? 150 : 220, pos = {};
+  Object.keys(byL).forEach(function (L) {
+    byL[L].forEach(function (id, i) {
+      var main = parseInt(L, 10) * GL, cross = i * GC - (byL[L].length - 1) * GC / 2;
+      pos[id] = horiz ? { x: main, y: cross } : { x: cross, y: main };
+    });
+  });
+  return pos;
+}
+function mermaidToCanvas(b) {
+  var src = (b.content && b.content.text) || '';
+  if (!mmdIsFlowchart(src)) { toast('Por ahora solo se pueden explotar diagramas de flujo (flowchart/graph).', 'warn'); return; }
+  var edges = mmdParseEdges(src), defs = mmdCollectNodeDefs(src), ids = [];
+  function add(id) { if (id && ids.indexOf(id) < 0 && !/^(subgraph|end|direction)$/i.test(id)) ids.push(id); }
+  Object.keys(defs).forEach(add);
+  edges.forEach(function (e) { add(e.from); add(e.to); });
+  if (!ids.length) { toast('No se encontraron nodos en el diagrama.', 'warn'); return; }
+  var dir = mmdDirection(src), pos = mmdLayout(ids, edges, dir);
+  var minX = Infinity, minY = Infinity;
+  ids.forEach(function (id) { minX = Math.min(minX, pos[id].x); minY = Math.min(minY, pos[id].y); });
+  var ox = Math.round(b.x), oy = Math.round(b.y + (b.height || 300) + 70), t = now(), map = {};
+  pushUndo('Explotar diagrama a lienzo');
+  ids.forEach(function (id) {
+    var d = defs[id] || {}, nb = {
+      id: uid(), noteId: b.noteId, type: 'shape',
+      x: ox + Math.round(pos[id].x - minX), y: oy + Math.round(pos[id].y - minY),
+      width: 176, height: 104,
+      content: { text: d.label || id, shape: d.shape || 'rect' },
+      createdAt: t, updatedAt: t,
+    };
+    data.blocks.push(nb); map[id] = nb.id;
+  });
+  edges.forEach(function (e) {
+    if (!map[e.from] || !map[e.to]) return;
+    var op = mmdParseOp(e.op);
+    data.links.push({ id: uid(), noteId: b.noteId, a: map[e.from], b: map[e.to], label: (e.label || '').trim(), type: 'flow', style: op.line === 'dotted' ? 'straight' : 'curve', createdAt: t });
+  });
+  touchNote(b.noteId);
+  logChange('Diagrama explotado a formas', ids.length + ' nodos, ' + edges.length + ' conexiones');
+  save();
+  renderCanvas();
+  clearSelection();
+  ids.forEach(function (id) { selectedIds[map[id]] = true; });
+  refreshSelectionUI();
+  focusBlock(map[ids[0]]);
+  toast(ids.length + ' formas creadas: arrástralas y las flechas las siguen. Puedes volver a Mermaid desde la barra de selección.', 'ok');
+}
+function mmdBracketFor(shape) {
+  switch (shape) {
+    case 'round': return ['(', ')'];
+    case 'pill': return ['([', '])'];
+    case 'ellipse': return ['((', '))'];
+    case 'diamond': return ['{', '}'];
+    case 'parallelogram': return ['[/', '/]'];
+    default: return ['[', ']'];
+  }
+}
+function mmdSanitizeLabel(t) { return (t || '').replace(/\s+/g, ' ').trim().slice(0, 60).replace(/"/g, "'"); }
+// Convierte los bloques seleccionados (formas/notas) y sus conexiones en un
+// diagrama Mermaid nuevo, junto a la selección.
+function selectionToMermaid() {
+  var sel = Object.keys(selectedIds).map(getBlockById).filter(function (b) {
+    return b && ['shape', 'text', 'idea', 'freetext', 'markdown'].indexOf(b.type) >= 0;
+  });
+  if (sel.length < 1) { toast('Selecciona al menos una forma o nota.', 'warn'); return; }
+  var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  sel.forEach(function (b) { minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x); minY = Math.min(minY, b.y); maxY = Math.max(maxY, b.y); });
+  var dir = (maxX - minX) > (maxY - minY) * 1.3 ? 'LR' : 'TD';
+  var idMap = {}, lines = [], nodeSet = {};
+  sel.forEach(function (b, i) {
+    var nid = 'N' + (i + 1); idMap[b.id] = nid; nodeSet[b.id] = 1;
+    var label = mmdSanitizeLabel(aiBlockText(b)) || typeMeta(b.type).label;
+    var br = mmdBracketFor(b.type === 'shape' ? (b.content && b.content.shape) : 'rect');
+    lines.push('  ' + nid + br[0] + '"' + label + '"' + br[1]);
+  });
+  (data.links || []).forEach(function (lk) {
+    if (nodeSet[lk.a] && nodeSet[lk.b]) {
+      var lbl = mmdSanitizeLabel(lk.label);
+      lines.push('  ' + idMap[lk.a] + ' -->' + (lbl ? '|' + lbl + '|' : '') + ' ' + idMap[lk.b]);
+    }
+  });
+  var code = 'flowchart ' + dir + '\n' + lines.join('\n'), t = now();
+  pushUndo('Convertir selección a Mermaid');
+  var nb = {
+    id: uid(), noteId: sel[0].noteId, type: 'mermaid',
+    x: Math.round(maxX + 300), y: Math.round(minY),
+    width: 460, height: 340,
+    content: { text: code },
+    createdAt: t, updatedAt: t,
+  };
+  data.blocks.push(nb);
+  touchNote(nb.noteId);
+  logChange('Selección convertida a Mermaid', sel.length + ' nodos');
+  save();
+  renderCanvas();
+  cardEnterAnim(cardEl(nb.id));
+  focusBlock(nb.id);
+  toast('Diagrama Mermaid creado desde ' + sel.length + ' bloques.', 'ok');
+}

@@ -144,20 +144,22 @@ function closeSearch() {
 // ---------- Panel de atajos ----------
 var SHORTCUTS = [
   ['Navegación y paneles', [
-    ['Ctrl/Cmd + K', 'Búsqueda global'],
+    [MOD + ' + K', 'Búsqueda global'],
+    [MOD + ' + 0', 'Centrar la vista · ' + MOD + ' + 1 ajustar todo'],
     ['?', 'Este panel de atajos'],
     ['Esc', 'Cerrar paneles / deseleccionar'],
     ['F2', 'Renombrar la nota actual'],
   ]],
   ['Lienzo', [
     ['Doble clic', 'Crear nota de texto'],
-    ['Alt (mantener)', 'Menú radial para insertar bloques'],
+    [ALTKEY + ' (mantener)', 'Menú radial para insertar bloques'],
     ['Shift (mantener)', 'Modo conexión: arrastra entre bloques'],
     ['Arrastrar en vacío', 'Selección múltiple (marquee)'],
-    ['Rueda / pellizco', 'Zoom del lienzo'],
-    ['Supr', 'Eliminar bloques seleccionados'],
-    ['Ctrl/Cmd + Z', 'Deshacer'],
-    ['Ctrl/Cmd + V', 'Pegar imagen como tarjeta'],
+    [(IS_MAC ? '⌘' : 'Ctrl') + ' + rueda', 'Zoom del lienzo'],
+    [IS_MAC ? 'Supr / ⌫' : 'Supr', 'Eliminar bloques seleccionados'],
+    [MOD + ' + D', 'Duplicar bloque(s) seleccionado(s)'],
+    [MOD + ' + Z', 'Deshacer'],
+    [MOD + ' + V', 'Pegar imagen como tarjeta'],
   ]],
   ['Crear bloques (tecla rápida, con el cursor sobre el lienzo)', [
     ['T', 'Texto'], ['F', 'Texto libre'], ['I', 'Idea'], ['B', 'Tabla'],
@@ -165,7 +167,7 @@ var SHORTCUTS = [
     ['M', 'Markdown'], ['D', 'Diagrama Mermaid'], ['X', 'Imagen'], ['K', 'Dibujo'],
   ]],
   ['Dentro de bloques', [
-    ['Ctrl/Cmd + Enter', 'Ejecutar Python / cURL'],
+    [MOD + ' + Enter', 'Ejecutar Python / cURL'],
     ['Enter', 'Enviar mensaje en el chat de IA'],
   ]],
 ];

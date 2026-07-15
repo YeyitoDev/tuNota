@@ -526,7 +526,7 @@
       root.appendChild(renderMmdBody(b));
     } else if (b.type === 'code' || b.type === 'json' || b.type === 'curl') {
       root.appendChild(renderMonoBody(b));
-    } else if (b.type === 'image') {
+    } else if (b.type === 'image' || b.type === 'freeimage') {
       root.appendChild(renderImageBody(b));
     } else {
       root.appendChild(renderTextBody(b, isIdea));

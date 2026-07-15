@@ -103,8 +103,7 @@ function pyImgSrc(img) {
 }
 // Recorre todas las referencias de blob de un snapshot de datos.
 function eachBlobRef(d, fn) {
-  (d.blocks || []).forEach(function (b) {
-    var c = b.content;
+  function scan(c) {
     if (!c) return;
     if (c.images) c.images.forEach(function (it) {
       var s = typeof it === 'string' ? it : (it && it.src);
@@ -112,7 +111,11 @@ function eachBlobRef(d, fn) {
     });
     if (isBlobRef(c.pdf)) fn(c.pdf);
     if (c.result && isBlobRef(c.result.img)) fn(c.result.img);
-  });
+  }
+  (d.blocks || []).forEach(function (b) { scan(b.content); });
+  // Plantillas de usuario: sus bloques capturan contenido (incluidas imágenes) → no deben
+  // considerarse blobs huérfanos por gcBlobs.
+  (d.userTemplates || []).forEach(function (tpl) { (tpl.blocks || []).forEach(function (spec) { scan(spec.content); }); });
 }
 
 // ---------- Escritura protegida en localStorage (sin fallos silenciosos) ----------
@@ -194,28 +197,33 @@ function downloadBackup() {
   logChange('Copia de seguridad exportada', '');
   debouncedSave();
 }
+// Aplica una copia (objeto ya parseado) { data, blobs } o un JSON de datos crudo. Devuelve
+// true si se importó. Reutilizado por la importación de archivo y la restauración de Drive.
+function applyBackupPayload(obj, opts) {
+  opts = opts || {};
+  var payload = obj && obj.data && obj.data.notebooks ? obj : (obj && obj.notebooks ? { data: obj, blobs: {} } : null);
+  if (!payload) { if (!opts.silent) alert('El archivo no es una copia válida de tuNota.'); return false; }
+  if (!opts.skipConfirm && !window.confirm('Importar esta copia reemplazará TODOS los datos actuales. ¿Continuar?')) return false;
+  var blobs = payload.blobs || {};
+  Object.keys(blobs).forEach(function (id) {
+    blobCache[id] = blobs[id];
+    BlobStore.put('blobs', id, blobs[id]).catch(function (e) { onSaveError('blob', e); });
+  });
+  data = payload.data;
+  normalizeData();
+  migrateInlineBlobs(true); // copias antiguas pueden traer data URLs inline
+  if (!ui.currentNoteId || !getNote(ui.currentNoteId)) { var n0 = data.notes[0]; ui.currentNoteId = n0 ? n0.id : null; }
+  logChange(opts.source ? ('Restaurado desde ' + opts.source) : 'Copia de seguridad importada', '');
+  save();
+  renderAll();
+  return true;
+}
 function importBackupFile(file) {
   var reader = new FileReader();
   reader.onload = function () {
     var obj;
     try { obj = JSON.parse(String(reader.result || '')); } catch (e) { obj = null; }
-    // Acepta tanto la copia completa { data, blobs } como un JSON de datos crudo.
-    var payload = obj && obj.data && obj.data.notebooks ? obj : (obj && obj.notebooks ? { data: obj, blobs: {} } : null);
-    if (!payload) { alert('El archivo no es una copia válida de tuNota.'); return; }
-    if (!window.confirm('Importar esta copia reemplazará TODOS los datos actuales. ¿Continuar?')) return;
-    var blobs = payload.blobs || {};
-    Object.keys(blobs).forEach(function (id) {
-      blobCache[id] = blobs[id];
-      BlobStore.put('blobs', id, blobs[id]).catch(function (e) { onSaveError('blob', e); });
-    });
-    data = payload.data;
-    normalizeData();
-    migrateInlineBlobs(true); // copias antiguas pueden traer data URLs inline
-    if (!ui.currentNoteId || !getNote(ui.currentNoteId)) { var n0 = data.notes[0]; ui.currentNoteId = n0 ? n0.id : null; }
-    logChange('Copia de seguridad importada', '');
-    save();
-    renderAll();
-    closeBackups();
+    if (applyBackupPayload(obj)) closeBackups();
   };
   reader.readAsText(file);
 }

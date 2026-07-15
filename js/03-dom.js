@@ -34,12 +34,19 @@ var I = {
   chevron: S + '<polyline points="9 18 15 12 9 6"/></svg>',
   chevronDown: S + '<polyline points="6 9 12 15 18 9"/></svg>',
   plus: S + '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  minus: S + '<line x1="5" y1="12" x2="19" y2="12"/></svg>',
   trash: S + '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
   folderPlus: S + '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>',
   file: S + '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
   bulb: S + '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.1 14c.2-1 .7-1.7 1.4-2.5A4.6 4.6 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.8 1.2 1.5 1.4 2.5"/></svg>',
   grip: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>',
   spark: S + '<path d="M12 3l1.6 4.8L18.5 9l-4.9 1.2L12 15l-1.6-4.8L5.5 9l4.9-1.2z"/></svg>',
+  square: S + '<rect x="4" y="4" width="16" height="16" rx="2"/></svg>',
+  circle: S + '<circle cx="12" cy="12" r="8"/></svg>',
+  diamond: S + '<path d="M12 3l9 9-9 9-9-9z"/></svg>',
+  shapes: S + '<rect x="3" y="13" width="8" height="8" rx="1.5"/><circle cx="17.5" cy="17" r="4"/><path d="M8.5 3l5 8h-10z"/></svg>',
+  target: S + '<circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
+  map: S + '<polygon points="3 7 9 4 15 7 21 4 21 17 15 20 9 17 3 20"/><line x1="9" y1="4" x2="9" y2="17"/><line x1="15" y1="7" x2="15" y2="20"/></svg>',
   cursor: S + '<path d="M5 3l6 16 2-7 7-2z"/></svg>',
   leaf: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 4C9.5 4 4 9.3 4 16.6c0 .9.1 1.8.4 2.6.6-3.6 2.6-7 7.2-9.7-3.7 3.3-5.5 6.8-6.1 10.7C13 21.2 20 16.4 20 8c0-1.5-.3-3-.9-4z"/></svg>',
   clock: S + '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>',
@@ -86,10 +93,23 @@ var I = {
   distV: S + '<line x1="3" y1="4" x2="21" y2="4"/><line x1="3" y1="20" x2="21" y2="20"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>',
   search: S + '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>',
   help: S + '<circle cx="12" cy="12" r="9"/><path d="M9.2 9a3 3 0 0 1 5.8 1c0 2-2.9 2.6-2.9 4"/><circle cx="12" cy="17.3" r="0.6" fill="currentColor" stroke="none"/></svg>',
+  pen: S + '<path d="M12 19l7-7 3-3a2.12 2.12 0 0 0 0-3l-3-3a2.12 2.12 0 0 0-3 0l-10 10v6h6z"/><circle cx="18.5" cy="5.5" r="0.5" fill="currentColor"/></svg>',
+  highlighter: S + '<path d="M9 10l4-4 6 6-9 9-7-7z"/><line x1="3" y1="21" x2="12" y2="21"/></svg>',
+  lasso: S + '<path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.4 4.6-3.5 5.8C14.5 15.5 13.5 17 12 19c-1.5-2-2.5-3.5-3.5-4.2C6.4 13.6 5 11.4 5 9a7 7 0 0 1 7-7z"/></svg>',
+  crop: S + '<path d="M6 2v16a2 2 0 0 0 2 2h13"/><path d="M2 6h16a2 2 0 0 1 2 2v13"/><path d="M2 2l20 20"/></svg>',
+  textOcr: S + '<path d="M12 2a5 5 0 0 1 5 5c0 1.7-.9 3.2-2.4 4.1L12 15l-2.6-3.9C7.9 10.2 7 8.7 7 7a5 5 0 0 1 5-5z"/><line x1="4" y1="20" x2="20" y2="20"/></svg>',
 };
 function icon(name, cls) {
   return h('span', { class: 'icon' + (cls ? ' ' + cls : ''), html: I[name] || '' });
 }
+// ---------- Plataforma: teclado Mac (⌘/⌥) vs Windows/Linux (Ctrl/Alt) ----------
+// navigator.platform es la señal más directa del teclado real; userAgentData/userAgent
+// solo como respaldo si no estuviera disponible.
+var _platform = navigator.platform || (navigator.userAgentData && navigator.userAgentData.platform) || navigator.userAgent || '';
+var IS_MAC = /mac|iphone|ipad|ipod/i.test(_platform);
+var MOD = IS_MAC ? '⌘' : 'Ctrl';       // tecla modificadora principal
+var ALTKEY = IS_MAC ? '⌥' : 'Alt';     // tecla Alt / Option
+
 var TYPE_META = {
   text: { label: 'Nota', icon: 'grip', cls: '' },
   idea: { label: 'Idea', icon: 'bulb', cls: 'idea' },
@@ -99,6 +119,10 @@ var TYPE_META = {
   curl: { label: 'cURL', icon: 'terminal', cls: 'code' },
   python: { label: 'Python', icon: 'python', cls: 'code' },
   image: { label: 'Imagen', icon: 'image', cls: 'image' },
+  freeimage: { label: 'Imagen libre', icon: 'image', cls: 'freeimage' },
+  aiimage: { label: 'Imagen IA', icon: 'spark', cls: 'image aiimage' },
+  shape: { label: 'Forma', icon: 'shapes', cls: 'shape' },
+  canvas: { label: 'Lienzo', icon: 'layout', cls: 'canvas' },
   markdown: { label: 'Markdown', icon: 'format', cls: 'md' },
   mermaid: { label: 'Mermaid', icon: 'graph', cls: 'mmd' },
   pdf: { label: 'PDF', icon: 'file', cls: 'pdf' },
@@ -120,6 +144,8 @@ var CARD_COLORS = [
   ['p', 'Pendiente'],
   ['i', 'Info'],
   ['n', 'Destacado'],
+  ['g', 'Idea'],
+  ['v', 'Clave'],
 ];
 var CARD_COLOR_LABEL = {};
 CARD_COLORS.forEach(function (c) { if (c[0]) CARD_COLOR_LABEL[c[0]] = c[1]; });
@@ -134,6 +160,8 @@ function applyCardColor(b, el) {
   if (!el) return;
   el.className = el.className.replace(/\bcard-c-\w+\b/g, '').replace(/\s{2,}/g, ' ').trim();
   if (b.color) el.classList.add('card-c-' + b.color);
+  var _ct = el.querySelector('.card-ta:not(.mono):not(.free-ta)');
+  if (_ct && typeof refreshAutoText === 'function') refreshAutoText(_ct); // recalcula el contraste del texto
   var head = el.querySelector('.card-head');
   if (!head) return;
   var old = head.querySelector('.card-cat-badge');
@@ -146,10 +174,10 @@ function applyCardColor(b, el) {
 }
 
 // ---------- Edici\u00f3n en l\u00ednea ----------
-function editable(node, value, onCommit) {
+function editable(node, value, onCommit, trigger) {
   node.title = 'Doble click para renombrar';
-  node.addEventListener('dblclick', function (e) {
-    e.stopPropagation();
+  function startEdit(e) {
+    if (e) e.stopPropagation();
     var input = h('input', { class: 'inline-edit', value: value });
     node.replaceWith(input);
     input.focus();
@@ -173,7 +201,9 @@ function editable(node, value, onCommit) {
         if (input.isConnected) input.replaceWith(node);
       }
     });
-  });
+  }
+  node.addEventListener('dblclick', startEdit);
+  if (trigger) trigger.addEventListener('click', startEdit);
   return node;
 }
 
@@ -212,4 +242,180 @@ function toast(msg, kind) {
     el.classList.remove('show');
     setTimeout(function () { el.remove(); }, 300);
   }, 3400);
+}
+// ---------- Listas multinivel (esquema tipo esquema/outline) ----------
+// Enter continúa la lista; Tab la anida un nivel (1. → 1.1 → 1.1.1) y Shift+Tab la sube.
+// Funciona con listas ordenadas (numeración jerárquica con puntos), viñetas (que cambian por
+// nivel) y casillas de tarea. La región contigua se renumera entera en cada cambio.
+var LIST_INDENT = '  '; // 2 espacios = 1 nivel
+function outlineBullets() { return [(ui && ui.fmt && ui.fmt.bullet) || '-', '◦', '▪', '‣']; }
+function outlineParse(line) {
+  var indent = (/^(\s*)/.exec(line) || ['', ''])[1];
+  var level = Math.floor(indent.replace(/\t/g, '  ').length / 2);
+  var rest = line.slice(indent.length), m;
+  if ((m = /^(\d+(?:\.\d+)*)[.)]\s+(.*)$/.exec(rest))) return { list: true, kind: 'ordered', level: level, text: m[2] };
+  if ((m = /^[-*+•·◦▪‣–—▸]\s+\[([ xX])\]\s+(.*)$/.exec(rest))) return { list: true, kind: 'task', level: level, checked: m[1] !== ' ', text: m[2] };
+  if ((m = /^[-*+•·◦▪‣–—▸]\s+(.*)$/.exec(rest))) return { list: true, kind: 'bullet', level: level, text: m[1] };
+  return { list: false, level: level, text: rest };
+}
+function outlineMarker(it, counters, dotted) {
+  if (it.kind === 'ordered') return (dotted ? counters.slice(0, it.level + 1).join('.') : String(counters[it.level])) + '. ';
+  if (it.kind === 'task') return '- [' + (it.checked ? 'x' : ' ') + '] ';
+  var bl = outlineBullets(); return bl[it.level % bl.length] + ' ';
+}
+// Ningún ítem puede estar más de un nivel por debajo del anterior (evita "1..1").
+function outlineClamp(items) {
+  for (var i = 0; i < items.length; i++) {
+    var maxL = i === 0 ? 0 : items[i - 1].level + 1;
+    items[i].level = Math.max(0, Math.min(items[i].level, maxL));
+  }
+  return items;
+}
+function outlineRender(items, dotted) {
+  outlineClamp(items);
+  var counters = [];
+  return items.map(function (it) {
+    var L = it.level;
+    counters[L] = (counters[L] || 0) + 1;
+    counters.length = L + 1; // descarta los contadores más profundos
+    return LIST_INDENT.repeat(L) + outlineMarker(it, counters, dotted) + it.text;
+  });
+}
+// Aplica una acción ('enter' | 'indent' | 'outdent') sobre el ítem del cursor y reescribe la
+// región de lista contigua con la numeración recalculada. Devuelve true si actuó.
+function outlineApply(ta, onChange, action, dotted) {
+  var v = ta.value, pos = ta.selectionStart;
+  if (pos !== ta.selectionEnd) return false;
+  var lines = v.split('\n');
+  var starts = [], acc = 0, i;
+  for (i = 0; i < lines.length; i++) { starts.push(acc); acc += lines[i].length + 1; }
+  var cur = lines.length - 1;
+  for (i = 0; i < lines.length; i++) { if (pos >= starts[i] && pos <= starts[i] + lines[i].length) { cur = i; break; } }
+  var p = outlineParse(lines[cur]);
+  if (!p.list) return false;
+  var markerLen = lines[cur].length - p.text.length;
+  var offsetInText = Math.max(0, (pos - starts[cur]) - markerLen);
+  var i0 = cur, i1 = cur;
+  while (i0 > 0 && outlineParse(lines[i0 - 1]).list) i0--;
+  while (i1 < lines.length - 1 && outlineParse(lines[i1 + 1]).list) i1++;
+  var items = [];
+  for (i = i0; i <= i1; i++) items.push(outlineParse(lines[i]));
+  var ci = cur - i0, focus = ci, focusOffset = offsetInText, removed = false, it = items[ci];
+
+  if (action === 'enter') {
+    if (it.text.trim() === '') {                       // ítem vacío: subir de nivel o salir
+      if (it.level > 0) { it.level--; focusOffset = 0; }
+      else { items.splice(ci, 1); removed = true; }
+    } else {
+      var after = it.text.slice(offsetInText);
+      it.text = it.text.slice(0, offsetInText);
+      var ni = { list: true, kind: it.kind, level: it.level, text: after };
+      if (it.kind === 'task') ni.checked = false;
+      items.splice(ci + 1, 0, ni);
+      focus = ci + 1; focusOffset = 0;
+    }
+  } else if (action === 'indent') {
+    it.level = Math.min(it.level + 1, ci > 0 ? items[ci - 1].level + 1 : 0);
+  } else if (action === 'outdent') {
+    it.level = Math.max(0, it.level - 1);
+  }
+
+  var rendered = items.length ? outlineRender(items, dotted) : [];
+  if (removed) rendered.splice(ci, 0, '');
+  var newLines = lines.slice(0, i0).concat(rendered, lines.slice(i1 + 1));
+  ta.value = newLines.join('\n');
+  var ns = [], a2 = 0;
+  for (i = 0; i < newLines.length; i++) { ns.push(a2); a2 += newLines[i].length + 1; }
+  var caret;
+  if (removed) { caret = ns[i0 + ci]; }
+  else {
+    var fli = i0 + focus, fl = newLines[fli] || '', ftext = items[focus] ? items[focus].text : '';
+    caret = ns[fli] + (fl.length - ftext.length) + Math.min(focusOffset, ftext.length);
+  }
+  try { ta.selectionStart = ta.selectionEnd = caret; } catch (e) {}
+  if (onChange) onChange();
+  return true;
+}
+// Indenta/desindenta las líneas abarcadas por una selección (Tab con texto seleccionado).
+function outlineIndentSelection(ta, onChange, outdent, dotted) {
+  var v = ta.value, s = ta.selectionStart, e = ta.selectionEnd;
+  var lines = v.split('\n'), starts = [], acc = 0, i;
+  for (i = 0; i < lines.length; i++) { starts.push(acc); acc += lines[i].length + 1; }
+  var l0 = 0, l1 = lines.length - 1;
+  for (i = 0; i < lines.length; i++) { if (s >= starts[i] && s <= starts[i] + lines[i].length) { l0 = i; break; } }
+  for (i = lines.length - 1; i >= 0; i--) { if (e >= starts[i] && e <= starts[i] + lines[i].length) { l1 = i; break; } }
+  for (i = l0; i <= l1; i++) {
+    var p = outlineParse(lines[i]);
+    if (p.list) { p.level = outdent ? Math.max(0, p.level - 1) : p.level + 1; lines[i] = p; }
+    else if (outdent) lines[i] = lines[i].replace(/^ {1,2}/, '');
+    else lines[i] = LIST_INDENT + lines[i];
+  }
+  // Renumera la región de lista tocada (los objetos parseados se convierten a texto).
+  var rebuilt = [];
+  for (i = 0; i < lines.length; i++) {
+    if (lines[i] && typeof lines[i] === 'object') {
+      var j = i, group = [];
+      while (j < lines.length && lines[j] && typeof lines[j] === 'object') { group.push(lines[j]); j++; }
+      rebuilt = rebuilt.concat(outlineRender(group, dotted));
+      i = j - 1;
+    } else rebuilt.push(lines[i]);
+  }
+  ta.value = rebuilt.join('\n');
+  var ns2 = [], a3 = 0;
+  for (i = 0; i < rebuilt.length; i++) { ns2.push(a3); a3 += rebuilt[i].length + 1; }
+  ta.selectionStart = ns2[l0] || 0;
+  ta.selectionEnd = (ns2[l1] || 0) + rebuilt[l1].length;
+  if (onChange) onChange();
+}
+function attachListAutoContinue(ta, onChange, dotted) {
+  var dot = dotted !== false; // numeración jerárquica con puntos (texto/idea/freetext); Markdown pasa false
+  ta.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (outlineApply(ta, onChange, 'enter', dot)) e.preventDefault();
+    } else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      if (ta.selectionStart !== ta.selectionEnd) { outlineIndentSelection(ta, onChange, e.shiftKey, dot); return; }
+      if (outlineApply(ta, onChange, e.shiftKey ? 'outdent' : 'indent', dot)) return;
+      if (e.shiftKey) {                                  // fuera de lista: quita indentación
+        var v = ta.value, pos = ta.selectionStart, ls = v.lastIndexOf('\n', pos - 1) + 1;
+        if (/^ {1,2}/.test(v.slice(ls))) { var cut = v.slice(ls, ls + 2) === '  ' ? 2 : 1; ta.value = v.slice(0, ls) + v.slice(ls + cut); ta.selectionStart = ta.selectionEnd = Math.max(ls, pos - cut); if (onChange) onChange(); }
+      } else { insertAtCursor(ta, '  '); if (onChange) onChange(); }
+    }
+  });
+}
+// Toast con un botón de acción (p. ej. "¿Crear recordatorio?" → [Crear]).
+function toastAction(msg, btnLabel, fn, kind) {
+  var old = document.getElementById('appToast');
+  if (old) old.remove();
+  var btn = h('button', { class: 'app-toast-btn' }, btnLabel);
+  var el = h('div', { class: 'app-toast' + (kind ? ' ' + kind : ''), id: 'appToast' }, h('span', {}, msg), btn);
+  btn.addEventListener('click', function () {
+    el.classList.remove('show');
+    setTimeout(function () { el.remove(); }, 200);
+    fn(btn);
+  });
+  document.body.appendChild(el);
+  setTimeout(function () { el.classList.add('show'); }, 10);
+  setTimeout(function () {
+    el.classList.remove('show');
+    setTimeout(function () { el.remove(); }, 300);
+  }, 7000);
+}
+// Toast de progreso persistente (no se cierra solo): útil para conversiones HEIC, importaciones, etc.
+function showProgressToast(msg) {
+  var old = document.getElementById('appProgressToast');
+  if (old) old.remove();
+  var el = h('div', { class: 'app-toast progress', id: 'appProgressToast' }, msg);
+  document.body.appendChild(el);
+  setTimeout(function () { el.classList.add('show'); }, 10);
+  return el;
+}
+function updateProgressToast(el, msg) { if (el) el.textContent = msg; }
+function hideProgressToast(el, msg, delayMs) {
+  if (!el) return;
+  if (msg) el.textContent = msg;
+  setTimeout(function () {
+    el.classList.remove('show');
+    setTimeout(function () { if (el.isConnected) el.remove(); }, 300);
+  }, delayMs || 1200);
 }

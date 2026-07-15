@@ -33,6 +33,7 @@ function startReminderLoop() {
   reminderTimer = setInterval(checkReminders, 20000);
 }
 function reminderText(b) {
+  if (b.reminder && b.reminder.label) return b.reminder.label; // recordatorio de una casilla concreta
   var t = (b.content && b.content.text) ? snippet(b.content.text) : '';
   return t || typeMeta(b.type).label;
 }
@@ -65,21 +66,133 @@ function ensureNotifyPermission() {
 function notify(title, body) {
   try { if (('Notification' in window) && Notification.permission === 'granted') new Notification(title, { body: body, icon: 'public/leaf.svg' }); } catch (e) {}
 }
-function playBeep() {
+// Sonidos de alarma (Web Audio, sin archivos). 'chime' es el estándar; se puede
+// personalizar en el propio aviso o en el panel de recordatorio (ui.alarmSound).
+var ALARM_SOUNDS = {
+  chime: { label: 'Campanilla', notes: [[880, 0, 0.16], [1175, 0.18, 0.16], [1568, 0.36, 0.16]], type: 'sine', vol: 0.22 },
+  ding: { label: 'Ding', notes: [[1318, 0, 0.5]], type: 'sine', vol: 0.25 },
+  bell: { label: 'Campana', notes: [[660, 0, 0.7], [1320, 0, 0.5], [1980, 0, 0.3]], type: 'triangle', vol: 0.18 },
+  digital: { label: 'Digital', notes: [[988, 0, 0.09], [988, 0.14, 0.09], [988, 0.28, 0.09], [1319, 0.5, 0.2]], type: 'square', vol: 0.1 },
+  soft: { label: 'Suave', notes: [[523, 0, 0.4], [659, 0.1, 0.4], [784, 0.2, 0.5]], type: 'sine', vol: 0.14 },
+  none: { label: 'Silencio', notes: [], type: 'sine', vol: 0 },
+};
+function playAlarmSound(kind) {
+  var s = ALARM_SOUNDS[kind || (ui && ui.alarmSound) || 'chime'] || ALARM_SOUNDS.chime;
+  if (!s.notes.length) return;
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     var ctx = audioCtx;
     if (ctx.state === 'suspended') ctx.resume();
-    [880, 1175, 1568].forEach(function (f, i) {
-      var o = ctx.createOscillator(), g = ctx.createGain(), at = ctx.currentTime + i * 0.18;
-      o.type = 'sine'; o.frequency.value = f;
+    s.notes.forEach(function (n) {
+      var o = ctx.createOscillator(), g = ctx.createGain(), at = ctx.currentTime + n[1];
+      o.type = s.type; o.frequency.value = n[0];
       g.gain.setValueAtTime(0.0001, at);
-      g.gain.exponentialRampToValueAtTime(0.22, at + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
+      g.gain.exponentialRampToValueAtTime(s.vol, at + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + n[2]);
       o.connect(g); g.connect(ctx.destination);
-      o.start(at); o.stop(at + 0.18);
+      o.start(at); o.stop(at + n[2] + 0.02);
     });
   } catch (e) {}
+}
+function playBeep() { playAlarmSound(); }
+function buildSoundSelect(cls) {
+  var sel = h('select', { class: cls || 'rem-input', title: 'Sonido del aviso' });
+  Object.keys(ALARM_SOUNDS).forEach(function (k) {
+    var o = h('option', { value: k }, ALARM_SOUNDS[k].label);
+    if (((ui && ui.alarmSound) || 'chime') === k) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', function () { ui.alarmSound = sel.value; save(); playAlarmSound(sel.value); });
+  return sel;
+}
+// ---------- Exportar recordatorios al calendario (Google / Apple vía .ics) ----------
+function calDates(at) {
+  var p = function (n) { return String(n).padStart(2, '0'); };
+  var f = function (d) { return d.getUTCFullYear() + p(d.getUTCMonth() + 1) + p(d.getUTCDate()) + 'T' + p(d.getUTCHours()) + p(d.getUTCMinutes()) + '00Z'; };
+  return { start: f(new Date(at)), end: f(new Date(at + 30 * 60000)) };
+}
+function calRRule(repeat) {
+  if (repeat === 'daily') return 'FREQ=DAILY';
+  if (repeat === 'weekly') return 'FREQ=WEEKLY';
+  if (repeat === 'monthly') return 'FREQ=MONTHLY';
+  if (repeat === 'weekdays') return 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR';
+  return '';
+}
+function calTitle(b) { return (b.reminder && b.reminder.label) || reminderText(b); }
+// Abre Google Calendar con el evento prellenado (sin OAuth).
+function openGoogleCalendar(b) {
+  if (!b.reminder || typeof b.reminder.at !== 'number') return;
+  var d = calDates(b.reminder.at), rr = calRRule(b.reminder.repeat);
+  var url = 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
+    '&text=' + encodeURIComponent(calTitle(b)) +
+    '&dates=' + d.start + '/' + d.end +
+    '&details=' + encodeURIComponent('Recordatorio de tuNota');
+  if (rr) url += '&recur=' + encodeURIComponent('RRULE:' + rr);
+  window.open(url, '_blank');
+}
+// Descarga un .ics con alarma: Apple Calendar / Outlook lo abren directamente.
+function downloadICS(b) {
+  if (!b.reminder || typeof b.reminder.at !== 'number') return;
+  var d = calDates(b.reminder.at), rr = calRRule(b.reminder.repeat);
+  var esc = function (s) { return String(s).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n'); };
+  var lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//tuNota//ES', 'BEGIN:VEVENT',
+    'UID:' + b.id + '-' + b.reminder.at + '@tunota',
+    'DTSTAMP:' + calDates(now()).start,
+    'DTSTART:' + d.start, 'DTEND:' + d.end,
+    'SUMMARY:' + esc(calTitle(b)),
+    'DESCRIPTION:Recordatorio de tuNota',
+  ];
+  if (rr) lines.push('RRULE:' + rr);
+  lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc(calTitle(b)), 'TRIGGER:-PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR');
+  var blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  var a = h('a', { href: URL.createObjectURL(blob), download: 'recordatorio-tunota.ics' });
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+// ---------- Exportar a Recordatorios/Calendario de iOS (.ics, sin OAuth) ----------
+// Reúne los recordatorios (con hora → VEVENT con alarma) y las tareas sin completar
+// (casillas "- [ ]" → VTODO) de una nota y genera un .ics que iOS abre para añadirlos.
+function collectNoteTodos(noteId) {
+  var items = [];
+  blocksOf(noteId).forEach(function (b) {
+    if (b.reminder && !b.reminder.done && typeof b.reminder.at === 'number') {
+      items.push({ kind: 'event', title: calTitle(b), at: b.reminder.at, repeat: b.reminder.repeat, uid: b.id + '-rem' });
+    }
+    var txt = b.content && b.content.text;
+    if (txt) String(txt).replace(/\r\n?/g, '\n').split('\n').forEach(function (line, i) {
+      var m = /^\s*[-*+•·◦▪‣]\s+\[( )\]\s+(.+)$/.exec(line); // solo tareas SIN completar
+      if (m && m[2].trim()) items.push({ kind: 'todo', title: m[2].trim(), uid: b.id + '-t' + i });
+    });
+  });
+  return items;
+}
+function exportNoteRemindersICS() {
+  if (!ui.currentNoteId || !getNote(ui.currentNoteId)) { toast('Abre una nota primero.', 'warn'); return; }
+  var items = collectNoteTodos(ui.currentNoteId);
+  if (!items.length) { toast('Esta nota no tiene tareas (- [ ]) ni recordatorios con hora.', 'warn'); return; }
+  var esc = function (s) { return String(s).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n'); };
+  var stamp = calDates(now()).start;
+  var out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//tuNota//iOS//ES', 'CALSCALE:GREGORIAN'];
+  items.forEach(function (it) {
+    if (it.kind === 'event') {
+      var d = calDates(it.at), rr = calRRule(it.repeat);
+      out.push('BEGIN:VEVENT', 'UID:' + it.uid + '@tunota', 'DTSTAMP:' + stamp, 'DTSTART:' + d.start, 'DTEND:' + d.end, 'SUMMARY:' + esc(it.title), 'DESCRIPTION:Recordatorio de tuNota');
+      if (rr) out.push('RRULE:' + rr);
+      out.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc(it.title), 'TRIGGER:-PT0M', 'END:VALARM', 'END:VEVENT');
+    } else {
+      out.push('BEGIN:VTODO', 'UID:' + it.uid + '@tunota', 'DTSTAMP:' + stamp, 'SUMMARY:' + esc(it.title), 'STATUS:NEEDS-ACTION', 'END:VTODO');
+    }
+  });
+  out.push('END:VCALENDAR');
+  var blob = new Blob([out.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  var name = (getNote(ui.currentNoteId).title || 'nota').replace(/[^\wÀ-ſ -]+/g, '').trim().slice(0, 40) || 'nota';
+  var a = h('a', { href: URL.createObjectURL(blob), download: 'recordatorios-' + name + '.ics' });
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  var ev = items.filter(function (x) { return x.kind === 'event'; }).length, td = items.length - ev;
+  logChange('Recordatorios exportados (iOS)', ev + ' con hora · ' + td + ' tareas');
+  toast('Descargado (' + items.length + '). Ábrelo en tu iPhone para añadirlo a Recordatorios / Calendario.', 'ok');
 }
 function checkReminders() {
   var t = now();
@@ -133,6 +246,10 @@ function showAlarm(fired) {
     list.appendChild(item);
   });
   panel.appendChild(list);
+  panel.appendChild(h('div', { class: 'alarm-sound-row' },
+    h('span', { class: 'alarm-sound-lbl' }, 'Sonido'),
+    buildSoundSelect('alarm-sound-sel')
+  ));
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 }
@@ -150,16 +267,24 @@ function openReminderPicker(b, anchor) {
     rep.appendChild(opt);
   });
   var msg = h('div', { class: 'rem-msg' });
-  var saveBtn = h('button', { class: 'rem-save', onclick: function () {
+  var applyReminder = function () {
     var at = new Date(dt.value).getTime();
-    if (isNaN(at)) { msg.textContent = 'Elige una fecha y hora v\u00e1lidas.'; return; }
+    if (isNaN(at)) { msg.textContent = 'Elige una fecha y hora v\u00e1lidas.'; return null; }
+    var label = b.reminder && b.reminder.label;
     b.reminder = { at: at, repeat: rep.value, done: false };
+    if (label) b.reminder.label = label;
     ensureNotifyPermission();
+    return at;
+  };
+  var saveBtn = h('button', { class: 'rem-save', onclick: function () {
+    var at = applyReminder();
+    if (at == null) return;
     logChange('Recordatorio creado', fmtWhen(at));
     save();
     closeReminderPicker();
     renderCanvas();
     checkReminders();
+    if (typeof scheduleAppleSync === 'function') scheduleAppleSync();
   } }, 'Guardar');
   var actions = h('div', { class: 'rem-actions' });
   if (exists) actions.appendChild(h('button', { class: 'rem-del', onclick: function () { b.reminder = null; logChange('Recordatorio quitado', ''); save(); closeReminderPicker(); renderCanvas(); } }, 'Quitar'));
@@ -169,6 +294,13 @@ function openReminderPicker(b, anchor) {
   pop.appendChild(dt);
   pop.appendChild(h('label', { class: 'rem-lbl' }, 'Repetir'));
   pop.appendChild(rep);
+  pop.appendChild(h('label', { class: 'rem-lbl' }, 'Sonido del aviso'));
+  pop.appendChild(buildSoundSelect());
+  pop.appendChild(h('label', { class: 'rem-lbl' }, 'A\u00f1adir a tu calendario'));
+  pop.appendChild(h('div', { class: 'rem-cal-row' },
+    h('button', { class: 'rem-cal-btn', title: 'Abre Google Calendar con el evento y su alarma', onclick: function () { if (applyReminder() == null) return; save(); renderCanvas(); openGoogleCalendar(b); } }, 'Google Calendar'),
+    h('button', { class: 'rem-cal-btn', title: 'Descarga un archivo .ics con alarma (Apple Calendar / Outlook)', onclick: function () { if (applyReminder() == null) return; save(); renderCanvas(); downloadICS(b); } }, 'Apple / .ics')
+  ));
   pop.appendChild(msg);
   pop.appendChild(actions);
   backdrop.appendChild(pop);
@@ -207,6 +339,69 @@ function setQuickReminder(b, minutes) {
   logChange('Recordatorio creado', 'En ' + humanMins(minutes) + ' \u00b7 ' + fmtWhen(b.reminder.at));
   save();
   renderCanvas();
+  if (typeof scheduleAppleSync === 'function') scheduleAppleSync();
+}
+// ---------- Vista vertical: los bloques de la nota en lista, importantes primero ----------
+function openVerticalView() {
+  closeVerticalView();
+  if (!ui.currentNoteId || !getNote(ui.currentNoteId)) { toast('Abre una nota primero.', 'warn'); return; }
+  var overlay = h('div', { class: 'overlay', id: 'vertOverlay', onclick: function (e) { if (e.target === overlay) closeVerticalView(); } });
+  var panel = h('div', { class: 'log-panel vert-panel' });
+  panel.appendChild(h('div', { class: 'log-head' },
+    h('div', { class: 'log-title' }, icon('panel'), 'Vista vertical — ' + getNote(ui.currentNoteId).title),
+    h('button', { class: 'icon-btn', title: 'Cerrar', onclick: closeVerticalView }, icon('x'))
+  ));
+  var body = h('div', { class: 'log-body vert-body' });
+  var bs = blocksOf(ui.currentNoteId).slice().sort(function (a, b2) {
+    if (!!a.important !== !!b2.important) return a.important ? -1 : 1; // importantes arriba
+    return (a.y - b2.y) || (a.x - b2.x);
+  });
+  if (!bs.length) body.appendChild(h('p', { class: 'tree-empty' }, 'Esta nota aún no tiene bloques.'));
+  bs.forEach(function (b) {
+    var text = aiBlockText(b) || '';
+    var item = h('div', { class: 'vert-item' + (b.important ? ' important' : '') });
+    var head = h('div', { class: 'vert-item-head' },
+      icon(typeMeta(b.type).icon),
+      h('span', { class: 'vert-item-title' }, b.title || typeMeta(b.type).label));
+    if (b.important) head.appendChild(h('span', { class: 'vert-star' }, icon('star')));
+    if (b.reminder && !b.reminder.done) head.appendChild(h('span', { class: 'vert-rem' }, icon('clock'), fmtShort(b.reminder.at)));
+    item.appendChild(head);
+    if (b.type === 'markdown' && text) {
+      var md = h('div', { class: 'vert-item-md md-render' }); md.innerHTML = renderMarkdown(text.slice(0, 700)); item.appendChild(md);
+    } else if (text) {
+      item.appendChild(h('div', { class: 'vert-item-text' }, text.slice(0, 400) + (text.length > 400 ? '…' : '')));
+    }
+    item.addEventListener('click', function () { closeVerticalView(); focusBlock(b.id); });
+    body.appendChild(item);
+  });
+  panel.appendChild(body);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+function closeVerticalView() { var o = document.getElementById('vertOverlay'); if (o) o.remove(); }
+
+// ---------- Enviar por Telegram ----------
+// Compartir (sin configurar nada): abre Telegram con el texto listo para elegir chat.
+function telegramShare(text) {
+  var t = String(text || '').trim().slice(0, 3500);
+  if (!t) { toast('No hay texto que enviar.', 'warn'); return; }
+  window.open('https://t.me/share/url?url=' + encodeURIComponent('tuNota') + '&text=' + encodeURIComponent(t), '_blank');
+}
+// Bot del servidor (.env TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID): envía directo al grupo.
+function telegramSend(text) {
+  var t = String(text || '').trim();
+  if (!t) { toast('No hay texto que enviar.', 'warn'); return; }
+  apiFetch('api/telegram', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t }),
+  }).then(aiHandleJSON).then(function () {
+    toast('Enviado a Telegram ✈️', 'ok');
+  }).catch(function (e) {
+    toast('Telegram: ' + ((e && e.message) || e), 'warn');
+  });
+}
+function blockShareText(b) {
+  var head = b.title ? b.title + '\n' : '';
+  return head + aiBlockText(b);
 }
 // Duplica un bloque (contenido clonado; los blobs se copian de verdad para
 // que borrar una imagen del duplicado no rompa el original).
@@ -234,6 +429,36 @@ function duplicateBlock(b) {
   save();
   renderCanvas();
   cardEnterAnim(cardEl(copy.id));
+  return copy;
+}
+// Duplica todos los bloques seleccionados (y los conectores entre ellos); selecciona las copias.
+function duplicateSelected() {
+  var ids = Object.keys(selectedIds).filter(function (id) { return getBlockById(id); });
+  if (!ids.length) return;
+  if (ids.length === 1) { var one = duplicateBlock(getBlockById(ids[0])); if (one) { clearSelection(); selectedIds[one.id] = true; refreshSelectionUI(); } return; }
+  pushUndo('Duplicar selección');
+  var t = now(), map = {};
+  var reBlob = function (ref) { return isBlobRef(ref) ? storeBlob(resolveSrc(ref)) : ref; };
+  ids.forEach(function (id) {
+    var b = getBlockById(id), copy = JSON.parse(JSON.stringify(b));
+    copy.id = uid(); copy.x = b.x + 28; copy.y = b.y + 28; copy.createdAt = t; copy.updatedAt = t;
+    delete copy.kanban; delete copy.kanbanAt; delete copy.kanbanOrder; delete copy.reminder;
+    var c = copy.content || {};
+    if (c.images) c.images = c.images.map(function (it) { return typeof it === 'string' ? reBlob(it) : Object.assign({}, it, { src: reBlob(it.src) }); });
+    if (isBlobRef(c.pdf)) c.pdf = reBlob(c.pdf);
+    if (c.result && isBlobRef(c.result.img)) c.result.img = reBlob(c.result.img);
+    data.blocks.push(copy); map[id] = copy.id;
+  });
+  (data.links || []).slice().forEach(function (l) {
+    if (map[l.a] && map[l.b]) data.links.push({ id: uid(), noteId: l.noteId, a: map[l.a], b: map[l.b], label: l.label, type: l.type, style: l.style, createdAt: t });
+  });
+  touchNote(getBlockById(ids[0]).noteId);
+  logChange('Selección duplicada', ids.length + ' bloques');
+  save();
+  renderCanvas();
+  clearSelection();
+  Object.keys(map).forEach(function (o) { selectedIds[map[o]] = true; });
+  refreshSelectionUI();
 }
 
 function openCardMenu(b, anchor) {
@@ -242,9 +467,30 @@ function openCardMenu(b, anchor) {
   var pop = h('div', { class: 'card-menu-pop', onmousedown: function (e) { e.stopPropagation(); } });
   pop.appendChild(h('button', { class: 'cm-item' + (b.important ? ' active' : ''), onclick: function () { toggleImportant(b); closeCardMenu(); } },
     icon('star'), h('span', {}, b.important ? 'Quitar de importantes' : 'Marcar como importante')));
-  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { duplicateBlock(b); closeCardMenu(); } },
-    icon('copy'), h('span', {}, 'Duplicar bloque')));
-  if (b.type === 'text' || b.type === 'idea' || b.type === 'image') {
+  var selN = Object.keys(selectedIds).length;
+  var dupAll = selectedIds[b.id] && selN > 1;  // si el bloque es parte de una selección, duplica toda
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { if (dupAll) duplicateSelected(); else duplicateBlock(b); closeCardMenu(); } },
+    icon('copy'), h('span', {}, dupAll ? 'Duplicar selección (' + selN + ')' : 'Duplicar bloque')));
+  pop.appendChild(h('div', { class: 'cm-quick' },
+    h('button', { class: 'cm-chip', title: 'Traer al frente', onclick: function () { bringToFront(b); closeCardMenu(); } }, '⤒ Al frente'),
+    h('button', { class: 'cm-chip', title: 'Enviar al fondo', onclick: function () { sendToBack(b); closeCardMenu(); } }, '⤓ Al fondo')
+  ));
+  // Grupo: meter/sacar este bloque de un grupo (contenido dentro de contenido).
+  var curG = groupOfBlock(b.id);
+  var otherGs = groupsOf(b.noteId).filter(function (g) { return g !== curG; });
+  pop.appendChild(h('div', { class: 'cm-sep' }));
+  pop.appendChild(h('div', { class: 'cm-label' }, icon('shapes'), 'Grupo'));
+  if (curG) {
+    pop.appendChild(h('button', { class: 'cm-item', onclick: function () { removeBlockFromGroup(curG, b.id); closeCardMenu(); } },
+      icon('x'), h('span', {}, 'Sacar de «' + curG.name + '»')));
+  }
+  var gRow = h('div', { class: 'cm-quick' });
+  if (!curG) gRow.appendChild(h('button', { class: 'cm-chip', title: 'Crear un grupo nuevo con este bloque', onclick: function () { clearSelection(); selectedIds[b.id] = true; createGroupFromSelection(); closeCardMenu(); } }, '＋ Nuevo grupo'));
+  otherGs.forEach(function (g) {
+    gRow.appendChild(h('button', { class: 'cm-chip', title: 'Meter este bloque en el grupo', onclick: function () { addBlockToGroup(g, b.id); closeCardMenu(); } }, '→ ' + g.name));
+  });
+  pop.appendChild(gRow);
+  if (b.type === 'text' || b.type === 'idea' || b.type === 'image' || b.type === 'freeimage') {
     pop.appendChild(h('div', { class: 'cm-sep' }));
     pop.appendChild(h('div', { class: 'cm-label' }, icon('leaf'), 'Color / categor\u00eda'));
     var sw = h('div', { class: 'cm-colors' });
@@ -270,7 +516,29 @@ function openCardMenu(b, anchor) {
         onclick: function () { closeCardMenu(); aiBlockAction(b, a); },
       }, a.label));
     });
+    if (BACKEND.search) {
+      aiRow.appendChild(h('button', {
+        class: 'cm-chip',
+        title: 'Busca en internet sobre el contenido de este bloque y crea un bloque enlazado con las fuentes',
+        onclick: function () { closeCardMenu(); aiWebSearchBlock(b); },
+      }, '🌐 Buscar en la web'));
+    }
+    if (b.type === 'idea') {
+      aiRow.appendChild(h('button', {
+        class: 'cm-chip cm-chip-idea',
+        title: 'La IA elige la metodología (Design Thinking, Lean Startup, Game Design, Marketing) y desarrolla la idea en fases numeradas y agrupadas',
+        onclick: function () { closeCardMenu(); aiStructureIdea(b); },
+      }, '🧭 Estructurar idea'));
+    }
     pop.appendChild(aiRow);
+  }
+  if (aiBlockText(b).trim() || b.title) {
+    pop.appendChild(h('div', { class: 'cm-sep' }));
+    var tgRow = h('div', { class: 'cm-quick' },
+      h('button', { class: 'cm-chip', title: 'Abre Telegram con el texto del bloque para compartirlo', onclick: function () { closeCardMenu(); telegramShare(blockShareText(b)); } }, '✈️ Telegram'));
+    if (BACKEND.telegram) tgRow.appendChild(h('button', { class: 'cm-chip', title: 'Enviar directo al grupo configurado en el servidor', onclick: function () { closeCardMenu(); telegramSend(blockShareText(b)); } }, '🤖 Al grupo'));
+    pop.appendChild(h('div', { class: 'cm-label' }, icon('send'), 'Compartir'));
+    pop.appendChild(tgRow);
   }
   pop.appendChild(h('div', { class: 'cm-sep' }));
   pop.appendChild(h('div', { class: 'cm-label' }, icon('bell'), 'Recordarme'));
@@ -342,6 +610,7 @@ function placeInColumn(id, status, beforeId) {
   var prev = col[idx - 1], next = col[idx];
   var lo = prev ? kanbanOrderOf(prev) : (next ? kanbanOrderOf(next) - 2 : now());
   var hi = next ? kanbanOrderOf(next) : (prev ? kanbanOrderOf(prev) + 2 : now());
+  var wasStatus = b.kanban;
   b.kanban = status;
   if (!b.kanbanAt) b.kanbanAt = now();
   b.kanbanOrder = (lo + hi) / 2;
@@ -349,6 +618,13 @@ function placeInColumn(id, status, beforeId) {
   save();
   renderCanvas();
   renderKanbanBody();
+  // Al entrar en "Pendiente" sin recordatorio, ofrece crear uno (con alarma,
+  // sonido y exportación al calendario desde el propio panel).
+  if (status === 'todo' && wasStatus !== 'todo' && !(b.reminder && !b.reminder.done)) {
+    toastAction('«' + reminderText(b) + '» está en Pendiente. ¿Le pongo un recordatorio?', 'Crear recordatorio', function (btn) {
+      openReminderPicker(b, btn);
+    });
+  }
 }
 function openKanban() {
   closeKanban();
@@ -426,7 +702,10 @@ function renderKanbanBody() {
 function kanbanCard(b, status) {
   var note = getNote(b.noteId);
   var sec = note ? getSection(note.sectionId) : null;
+  var nb = sec ? getNotebook(sec.notebookId) : null;
   var loc = note ? note.title : 'Nota';
+  // Muestra de qué libro viene la tarea: "📓 Libro · Sección"
+  var bookLine = nb ? ((nb.emoji ? nb.emoji + ' ' : '📓 ') + nb.name + (sec ? ' · ' + sec.name : '')) : (sec ? sec.name : '');
   var task = (b.content && b.content.text) ? snippet(b.content.text) : typeMeta(b.type).label;
   var card = h('div', { class: 'kanban-card' + (b.important ? ' important' : ''), 'data-id': b.id, draggable: 'true' });
   card.addEventListener('dragstart', function (e) { dragKanId = b.id; card.classList.add('dragging'); try { e.dataTransfer.setData('text/plain', b.id); e.dataTransfer.effectAllowed = 'move'; } catch (er) {} });
@@ -435,7 +714,7 @@ function kanbanCard(b, status) {
   if (b.important) top.appendChild(h('span', { class: 'kc-star', title: 'Importante' }, icon('star')));
   card.appendChild(top);
   card.appendChild(h('div', { class: 'kc-task' }, task));
-  if (sec) card.appendChild(h('div', { class: 'kc-sub' }, sec.name));
+  if (bookLine) card.appendChild(h('div', { class: 'kc-sub' }, bookLine));
   if (b.reminder && !b.reminder.done) card.appendChild(h('div', { class: 'kc-rem' }, icon('clock'), fmtShort(b.reminder.at)));
   var idx = KAN.map(function (k) { return k[0]; }).indexOf(status);
   var actions = h('div', { class: 'kc-actions' },
@@ -459,6 +738,22 @@ document.addEventListener('keydown', function (e) {
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'k' || e.key === 'K')) {
     e.preventDefault();
     openSearch();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'd' || e.key === 'D')) {
+    var da = document.activeElement;
+    if (da && (da.tagName === 'TEXTAREA' || da.tagName === 'INPUT' || da.isContentEditable)) return;
+    if (Object.keys(selectedIds).length) { e.preventDefault(); duplicateSelected(); }
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'a' || e.key === 'A')) {
+    var sa2 = document.activeElement;
+    if (sa2 && (sa2.tagName === 'TEXTAREA' || sa2.tagName === 'INPUT' || sa2.isContentEditable)) return; // seleccionar texto nativo
+    if (!ui.currentNoteId || document.querySelector('.overlay')) return;
+    e.preventDefault();
+    clearSelection();
+    blocksOf(ui.currentNoteId).forEach(function (bb) { selectedIds[bb.id] = true; });
+    refreshSelectionUI();
     return;
   }
   if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -502,38 +797,78 @@ document.addEventListener('keydown', function (e) {
   }
 });
 document.addEventListener('keyup', function (e) { if (e.key === 'Shift') setLinkMode(false); });
-// Pegar (Ctrl+V) una captura/imagen directamente en el tablero -> crea una tarjeta con la imagen.
+// Pegar (Ctrl+V) una captura/imagen o texto en el tablero -> crea una tarjeta con el contenido.
 document.addEventListener('paste', function (e) {
-  var items = e.clipboardData && e.clipboardData.items;
-  if (!items) return;
-  var files = [];
-  for (var i = 0; i < items.length; i++) {
-    if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { var f = items[i].getAsFile(); if (f) files.push(f); }
-  }
-  if (!files.length) return;
   var a = document.activeElement;
-  // Si se est\u00e1 editando una nota/idea, su propio manejador ya agrega la imagen a esa tarjeta.
+  // Si se esta editando una nota/idea, su propio manejador ya agrega la imagen/texto a esa tarjeta.
   if (a && a.classList && a.classList.contains('card-ta') && !a.classList.contains('mono')) return;
-  // No secuestrar el pegado en otros campos de edici\u00f3n (c\u00f3digo, t\u00edtulos, celdas, etc.).
+  // No secuestrar el pegado en otros campos de edicion (codigo, titulos, celdas, etc.).
   if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) return;
   if (!ui.currentNoteId || !getNote(ui.currentNoteId) || !canvasContentEl) return;
-  e.preventDefault();
-  var cx, cy, wrap = document.getElementById('canvas');
-  var r = wrap ? wrap.getBoundingClientRect() : null;
-  if (lastMouse.over) { cx = lastMouse.x; cy = lastMouse.y; }
-  else if (r) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
-  else { cx = 220; cy = 200; }
-  var b = createAt(cx, cy, 'image');
-  if (!b) return;
-  b.width = 300; b.height = 220;
-  var el = cardEl(b.id);
-  if (el) { el.style.width = b.width + 'px'; el.style.height = b.height + 'px'; }
-  addImagesToBlock(b, files, function () {
-    if (!el) return;
-    updateCardMedia(el, b);
-    fitImageCard(el, b);
-    drawLinks();
-  });
+  var cd = e.clipboardData;
+  if (!cd) return;
+
+  // Imagenes primero.
+  var items = cd.items;
+  var files = [];
+  if (items) {
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { var f = items[i].getAsFile(); if (f) files.push(f); }
+    }
+  }
+  if (files.length) {
+    e.preventDefault();
+    var cx, cy, wrap = document.getElementById('canvas');
+    var r = wrap ? wrap.getBoundingClientRect() : null;
+    if (lastMouse.over) { cx = lastMouse.x; cy = lastMouse.y; }
+    else if (r) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
+    else { cx = 220; cy = 200; }
+    var b = createAt(cx, cy, 'freeimage');
+    if (!b) return;
+    var el = cardEl(b.id);
+    addImagesToBlock(b, files, function () {
+      if (!el) return;
+      var media = el.querySelector('.freeimg-media');
+      if (media) renderFreeImage(media, b);
+      fitImageCard(el, b);
+      drawLinks();
+    });
+    return;
+  }
+
+  // Texto plano: detectar Markdown y crear el bloque adecuado.
+  var text = cd.getData('text/plain');
+  if (text && text.trim()) {
+    e.preventDefault();
+    var cx2, cy2, wrap2 = document.getElementById('canvas');
+    var r2 = wrap2 ? wrap2.getBoundingClientRect() : null;
+    if (lastMouse.over) { cx2 = lastMouse.x; cy2 = lastMouse.y; }
+    else if (r2) { cx2 = r2.left + r2.width / 2; cy2 = r2.top + r2.height / 2; }
+    else { cx2 = 220; cy2 = 200; }
+    var isMd = looksLikeMarkdown(text);
+    var b2 = createAt(cx2, cy2, isMd ? 'markdown' : 'text');
+    if (!b2) return;
+    b2.content = b2.content || {};
+    b2.content.text = text;
+    var el2 = cardEl(b2.id);
+    if (el2) {
+      if (isMd) {
+        var view = el2.querySelector('.md-render');
+        var ta = el2.querySelector('.md-src');
+        if (view) view.innerHTML = renderMarkdown(text);
+        if (ta) ta.value = text;
+        b2.width = 420; b2.height = 320;
+      } else {
+        var tta = el2.querySelector('.card-ta');
+        if (tta) tta.value = text;
+        b2.width = 320; b2.height = 220;
+      }
+      el2.style.width = b2.width + 'px';
+      el2.style.height = b2.height + 'px';
+    }
+    logChange(isMd ? 'Markdown pegado' : 'Texto pegado', snippet(text));
+    save(); drawLinks();
+  }
 });
 document.addEventListener('mousedown', function (e) {
   if (radialEl && !e.target.closest('.radial')) closeRadial();

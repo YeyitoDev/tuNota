@@ -105,9 +105,68 @@ var CANVAS_TEMPLATES = [
       { type: 'text', x: 0, y: 390, w: 680, h: 140, color: 'p', text: '🧪 Hipótesis a validar\n\n• Creemos que [usuario] tiene [problema] y pagaría por [solución].' },
     ],
   },
+  {
+    key: 'flow',
+    name: 'Flujograma',
+    desc: 'Proceso paso a paso con una decisión (inicio, pasos, sí/no, fin).',
+    icon: 'flow',
+    blocks: [
+      { type: 'freetext', x: 0, y: -64, w: 420, h: 52, text: 'Flujograma', style: { size: 28, bold: true } },
+      { type: 'shape', x: 160, y: 0, w: 150, h: 60, shape: 'pill', text: 'Inicio' },
+      { type: 'shape', x: 145, y: 130, w: 180, h: 72, shape: 'round', text: 'Primer paso' },
+      { type: 'shape', x: 155, y: 270, w: 160, h: 110, shape: 'diamond', text: '¿Se cumple?' },
+      { type: 'shape', x: 0, y: 450, w: 175, h: 72, shape: 'rect', text: 'Acción si SÍ' },
+      { type: 'shape', x: 300, y: 450, w: 195, h: 72, shape: 'rect', text: 'Acción si NO' },
+      { type: 'shape', x: 160, y: 580, w: 150, h: 60, shape: 'pill', text: 'Fin' },
+    ],
+    links: [[1, 2], [2, 3], { a: 3, b: 4, label: 'Sí', type: 'flow' }, { a: 3, b: 5, label: 'No', type: 'flow' }, [4, 6], [5, 6]],
+  },
+  {
+    key: 'concept',
+    name: 'Mapa conceptual',
+    desc: 'Tema central con conceptos enlazados por relaciones con etiqueta.',
+    icon: 'graph',
+    blocks: [
+      { type: 'freetext', x: 0, y: -64, w: 460, h: 52, text: 'Mapa conceptual', style: { size: 28, bold: true } },
+      { type: 'shape', x: 360, y: 250, w: 220, h: 104, shape: 'ellipse', text: 'Tema central', color: 'n' },
+      { type: 'shape', x: 40, y: 40, w: 190, h: 92, shape: 'ellipse', text: 'Concepto A' },
+      { type: 'shape', x: 710, y: 40, w: 190, h: 92, shape: 'ellipse', text: 'Concepto B' },
+      { type: 'shape', x: 20, y: 470, w: 190, h: 92, shape: 'ellipse', text: 'Concepto C' },
+      { type: 'shape', x: 730, y: 470, w: 190, h: 92, shape: 'ellipse', text: 'Concepto D' },
+    ],
+    links: [{ a: 1, b: 2, label: 'incluye' }, { a: 1, b: 3, label: 'incluye' }, { a: 1, b: 4, label: 'se relaciona' }, { a: 1, b: 5, label: 'se relaciona' }],
+  },
+  {
+    key: 'rootcause',
+    name: 'Causa–raíz (Ishikawa)',
+    desc: 'Problema central y sus categorías de causa (espina de pescado).',
+    icon: 'fit',
+    blocks: [
+      { type: 'freetext', x: 0, y: -64, w: 500, h: 52, text: 'Análisis causa–raíz', style: { size: 28, bold: true } },
+      { type: 'shape', x: 360, y: 250, w: 230, h: 104, shape: 'rect', text: '⚠️ Problema a resolver', color: 'q' },
+      { type: 'shape', x: 40, y: 40, w: 190, h: 70, shape: 'round', text: '👥 Personas' },
+      { type: 'shape', x: 40, y: 250, w: 190, h: 70, shape: 'round', text: '⚙️ Proceso' },
+      { type: 'shape', x: 40, y: 460, w: 190, h: 70, shape: 'round', text: '🧰 Materiales' },
+      { type: 'shape', x: 720, y: 40, w: 190, h: 70, shape: 'round', text: '🌡️ Entorno' },
+      { type: 'shape', x: 720, y: 250, w: 190, h: 70, shape: 'round', text: '💻 Tecnología' },
+      { type: 'shape', x: 720, y: 460, w: 190, h: 70, shape: 'round', text: '📏 Medición' },
+    ],
+    links: [{ a: 2, b: 1 }, { a: 3, b: 1 }, { a: 4, b: 1 }, { a: 5, b: 1 }, { a: 6, b: 1 }, { a: 7, b: 1 }],
+  },
 ];
 
+// Clona el contenido de un bloque para una plantilla, re-guardando los blobs (imágenes/PDF/
+// resultado) para que la plantilla sea autónoma y no dependa del bloque original.
+function cloneTplContent(content) {
+  var c = JSON.parse(JSON.stringify(content || {}));
+  var reBlob = function (ref) { return (typeof isBlobRef === 'function' && isBlobRef(ref)) ? storeBlob(resolveSrc(ref)) : ref; };
+  if (c.images) c.images = c.images.map(function (it) { return typeof it === 'string' ? reBlob(it) : Object.assign({}, it, { src: reBlob(it.src) }); });
+  if (c.pdf) c.pdf = reBlob(c.pdf);
+  if (c.result && c.result.img) c.result.img = reBlob(c.result.img);
+  return c;
+}
 function templateBlockContent(spec) {
+  if (spec.content) return cloneTplContent(spec.content); // plantilla de usuario: contenido capturado
   if (spec.type === 'table') return { table: { rows: spec.rows || [['', ''], ['', '']] } };
   if (spec.type === 'freetext') {
     var st = defaultFreeStyle();
@@ -116,6 +175,7 @@ function templateBlockContent(spec) {
   }
   if (spec.type === 'mermaid') return { text: spec.text || '' };
   if (spec.type === 'idea') return { text: spec.text || '' };
+  if (spec.type === 'shape') return { text: spec.text || '', shape: spec.shape || 'rect' };
   return { text: spec.text || '', images: [] };
 }
 
@@ -150,12 +210,19 @@ function insertTemplate(tpl, aiDesc) {
       updatedAt: t,
     };
     if (spec.color) b.color = spec.color;
+    if (spec.title) b.title = spec.title;
     data.blocks.push(b);
     return b;
   });
   (tpl.links || []).forEach(function (pair) {
-    var a = made[pair[0]], b = made[pair[1]];
-    if (a && b) data.links.push({ id: uid(), noteId: a.noteId, a: a.id, b: b.id, createdAt: t });
+    var ai, bi, extra = null;
+    if (Array.isArray(pair)) { ai = pair[0]; bi = pair[1]; }             // built-in: [i, j]
+    else if (pair && typeof pair === 'object') { ai = pair.a; bi = pair.b; extra = pair; } // usuario: {a,b,label,type,style}
+    var a = made[ai], b = made[bi];
+    if (!a || !b) return;
+    var lnk = { id: uid(), noteId: a.noteId, a: a.id, b: b.id, createdAt: t };
+    if (extra) { if (extra.label) lnk.label = extra.label; if (extra.type) lnk.type = extra.type; if (extra.style) lnk.style = extra.style; }
+    data.links.push(lnk);
   });
   touchNote(ui.currentNoteId);
   logChange('Plantilla insertada', tpl.name);
@@ -241,6 +308,84 @@ function aiFillTemplate(tpl, made, desc) {
   });
 }
 
+// ---------- Plantillas de usuario: guardar la selección para reutilizarla ----------
+// Captura los bloques seleccionados (tipo, posición relativa, tamaño, color, título y
+// contenido) y sus conexiones internas, y los guarda como plantilla en data.userTemplates.
+function saveSelectionAsTemplate(idsArg) {
+  var ids = ((idsArg && idsArg.length) ? idsArg : Object.keys(selectedIds)).filter(function (id) { return getBlockById(id); });
+  if (!ids.length) { toast('Selecciona al menos un bloque para guardarlo como plantilla.', 'warn'); return; }
+  var blocks = ids.map(getBlockById);
+  var minX = Infinity, minY = Infinity;
+  blocks.forEach(function (b) { if (b.x < minX) minX = b.x; if (b.y < minY) minY = b.y; });
+  var idx = {}; ids.forEach(function (id, i) { idx[id] = i; });
+  var specs = blocks.map(function (b) {
+    var el = cardEl(b.id);
+    var spec = {
+      type: b.type,
+      x: Math.round(b.x - minX),
+      y: Math.round(b.y - minY),
+      w: b.width || (el ? el.offsetWidth : 220),
+      h: b.height || (el ? el.offsetHeight : 120),
+      content: cloneTplContent(b.content),
+    };
+    if (b.color) spec.color = b.color;
+    if (b.title) spec.title = b.title;
+    return spec;
+  });
+  var noteId = blocks[0].noteId;
+  var links = (data.links || []).filter(function (l) {
+    return l.noteId === noteId && idx[l.a] != null && idx[l.b] != null; // solo conexiones internas a la selección
+  }).map(function (l) {
+    var o = { a: idx[l.a], b: idx[l.b] };
+    if (l.label) o.label = l.label;
+    if (l.type) o.type = l.type;
+    if (l.style) o.style = l.style;
+    return o;
+  });
+  // Nombre por defecto a partir del primer título o texto (renombrable luego en el panel).
+  var base = '';
+  for (var i = 0; i < blocks.length; i++) {
+    if (blocks[i].title) { base = blocks[i].title; break; }
+    var tx = blocks[i].content && blocks[i].content.text;
+    if (tx && tx.trim()) { base = tplBoxTitle(tx) || tx.split('\n')[0].trim(); break; }
+  }
+  var name = (base || 'Mi plantilla').trim().slice(0, 42);
+  var tpl = {
+    key: 'u_' + uid(), name: name, user: true, icon: 'layout',
+    desc: blocks.length + (blocks.length === 1 ? ' bloque' : ' bloques') + (links.length ? ' · ' + links.length + (links.length === 1 ? ' conexión' : ' conexiones') : ''),
+    blocks: specs, links: links, createdAt: now(),
+  };
+  data.userTemplates = data.userTemplates || [];
+  data.userTemplates.push(tpl);
+  logChange('Plantilla guardada', tpl.name + ' (' + blocks.length + ' bloques)');
+  save();
+  toastAction('Plantilla «' + tpl.name + '» guardada.', 'Abrir plantillas', function () { openTemplates(); }, 'ok');
+}
+// Guarda todos los bloques de un grupo como plantilla reutilizable.
+function saveGroupAsTemplate(g) {
+  if (!g || !(g.blockIds || []).length) { toast('El grupo está vacío.', 'warn'); return; }
+  saveSelectionAsTemplate(g.blockIds.slice());
+}
+function deleteUserTemplate(tpl) {
+  data.userTemplates = (data.userTemplates || []).filter(function (x) { return x.key !== tpl.key; });
+  logChange('Plantilla eliminada', tpl.name);
+  save();
+  openTemplates(); // re-pinta el panel
+}
+function renameUserTemplateInline(tpl, nameEl) {
+  var inp = h('input', { class: 'tpl-rename-input', value: tpl.name });
+  inp.addEventListener('click', function (e) { e.stopPropagation(); });
+  inp.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = tpl.name; inp.blur(); } });
+  inp.addEventListener('blur', function () {
+    tpl.name = inp.value.trim() || tpl.name;
+    nameEl.textContent = tpl.name;
+    if (inp.parentNode) inp.replaceWith(nameEl);
+    save();
+  });
+  nameEl.replaceWith(inp); inp.focus(); inp.select();
+}
+
 function openTemplates() {
   closeTemplates();
   var overlay = h('div', { class: 'overlay', id: 'tplOverlay', onclick: function (e) { if (e.target === overlay) closeTemplates(); } });
@@ -262,11 +407,30 @@ function openTemplates() {
       h('div', { class: 'tpl-desc' }, tpl.desc)
     ));
   });
-  var body = h('div', { class: 'log-body' },
-    h('p', { class: 'tpl-hint' }, 'Se insertan como bloques normales en la nota actual: muévelos, edítalos y conéctalos como quieras.'),
-    h('div', { class: 'tpl-ai-row' }, icon('spark'), aiDesc),
-    grid
-  );
+  var body = h('div', { class: 'log-body' });
+  body.appendChild(h('p', { class: 'tpl-hint' }, 'Se insertan como bloques normales en la nota actual: muévelos, edítalos y conéctalos como quieras. Guarda las tuyas seleccionando bloques → «Plantilla».'));
+  var userTpls = data.userTemplates || [];
+  if (userTpls.length) {
+    body.appendChild(h('div', { class: 'tpl-sec-title' }, icon('star'), 'Mis plantillas'));
+    var ug = h('div', { class: 'tpl-grid' });
+    userTpls.slice().reverse().forEach(function (tpl) {
+      var nameEl = h('div', { class: 'tpl-name' }, tpl.name);
+      var tools = h('div', { class: 'tpl-tools' },
+        h('button', { class: 'tpl-tool', title: 'Renombrar', onclick: function (e) { e.stopPropagation(); renameUserTemplateInline(tpl, nameEl); } }, icon('edit')),
+        h('button', { class: 'tpl-tool tpl-del', title: 'Eliminar esta plantilla', onclick: function (e) { e.stopPropagation(); deleteUserTemplate(tpl); } }, icon('trash'))
+      );
+      ug.appendChild(h('div', { class: 'tpl-card tpl-user', title: 'Insertar en la nota actual', onclick: function () { insertTemplate(tpl, ''); } },
+        tools,
+        h('div', { class: 'tpl-icon' }, icon(tpl.icon || 'layout')),
+        nameEl,
+        h('div', { class: 'tpl-desc' }, tpl.desc || 'Plantilla propia')
+      ));
+    });
+    body.appendChild(ug);
+    body.appendChild(h('div', { class: 'tpl-sec-title' }, icon('layout'), 'Plantillas de canvas'));
+  }
+  body.appendChild(h('div', { class: 'tpl-ai-row' }, icon('spark'), aiDesc));
+  body.appendChild(grid);
   panel.appendChild(head);
   panel.appendChild(body);
   overlay.appendChild(panel);
