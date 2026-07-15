@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tuNota — Guía visual de funcionalidades</title>
+<style>
+  :root{ --bg:#f4ede0; --fg:#33302b; --card:#fdfaf3; --muted:#8a8378; --border:#e4dccc; --secondary:#ece4d6; --primary:#c2745b; --sage:#8a9a7b; --ocre:#d9a35a; --shadow:0 2px 12px -2px rgba(58,51,44,.1); --shadow-lg:0 12px 34px -10px rgba(58,51,44,.22); }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;font-family:'Nunito',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);line-height:1.55}
+  a{color:var(--primary);text-decoration:none} a:hover{text-decoration:underline}
+  code{background:var(--secondary);padding:1px 6px;border-radius:6px;font-size:.9em;font-family:ui-monospace,Menlo,monospace}
+  .hero{padding:54px 24px 30px;max-width:1080px;margin:0 auto;text-align:center}
+  .hero h1{font-family:Georgia,'Times New Roman',serif;font-size:40px;margin:0 0 8px;font-weight:700}
+  .hero .lead p{font-size:17px;color:var(--muted);max-width:680px;margin:6px auto}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:18px 0 6px}
+  .badge{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;box-shadow:var(--shadow)}
+  .badge b{color:var(--sage)}
+  .search-wrap{margin:22px auto 0;max-width:460px}
+  .search-wrap input{width:100%;padding:11px 16px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--fg);font:inherit;font-size:15px;box-shadow:var(--shadow)}
+  .layout{display:grid;grid-template-columns:250px 1fr;gap:32px;max-width:1180px;margin:12px auto 60px;padding:0 24px}
+  nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow:auto;font-size:14px}
+  .nav-group{margin-bottom:10px}
+  .nav-sec{display:block;font-weight:800;color:var(--fg);padding:6px 8px;border-radius:8px}
+  .nav-sub{display:block;color:var(--muted);padding:4px 8px 4px 18px;border-radius:8px;font-size:13px}
+  nav.toc a.active{background:var(--secondary);color:var(--primary)}
+  nav.toc a:hover{background:var(--secondary);text-decoration:none}
+  main{min-width:0}
+  .sec{margin-bottom:20px}
+  .sec>h2{font-family:Georgia,serif;font-size:24px;border-bottom:2px solid var(--border);padding-bottom:8px;margin:34px 0 18px}
+  .feature{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin:16px 0;box-shadow:var(--shadow)}
+  .feature h3{margin:0 0 10px;font-size:19px}
+  .feature-body{display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:start}
+  .feature-body p{margin:0 0 10px}
+  figure.shot{margin:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--secondary);cursor:zoom-in}
+  figure.shot img{display:block;width:100%;height:auto}
+  figure.shot figcaption{display:none}
+  .feature:has(figure) .feature-body{grid-template-columns:1fr 1.2fr}
+  @media(max-width:820px){ .layout{grid-template-columns:1fr} nav.toc{display:none} .feature-body{grid-template-columns:1fr} }
+  .lightbox{position:fixed;inset:0;background:rgba(24,20,17,.86);display:none;align-items:center;justify-content:center;z-index:100;cursor:zoom-out;padding:24px}
+  .lightbox.open{display:flex}
+  .lightbox img{max-width:96vw;max-height:92vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .empty-note{color:var(--muted);text-align:center;padding:40px}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:30px}
+</style>
+</head>
+<body>
+  <header class="hero">
+    <h1>tuNota — Guía visual de funcionalidades</h1>
+    <div class="lead"><p>Recorrido con capturas de todo lo que hace tuNota: un lienzo infinito donde cada idea es un bloque que puedes conectar, organizar y enriquecer con IA. Las imágenes viven en <code>docs/screenshots/</code>.</p></div>
+    <div class="badges"><span class="badge"><b>Proyecto</b> tuNota</span><span class="badge"><b>Generado</b> 2026-07-09 09:51 -05</span><span class="badge"><b>Rama</b> <code>feature/ia-python-dibujo-tema</code></span><span class="badge"><b>Commit</b> <code>b89478f</code> — Topbar limpio, alinear/distribuir selección, duplicar bloque y pulido visual</span><span class="badge"><b>Estado del árbol</b> ⚠️ con cambios sin confirmar: las capturas reflejan el <em>working tree</em>, no exactamente ese commit</span><span class="badge"><b>Autor</b> Sergio Ramos</span></div>
+    <div class="search-wrap"><input id="q" type="search" placeholder="Buscar una funcionalidad…" autocomplete="off"></div>
+  </header>
+  <div class="layout">
+    <nav class="toc"><div class="nav-group"><a href="#1-el-lienzo-y-los-bloques" class="nav-sec">1. El lienzo y los bloques</a><a href="#vista-general" class="nav-sub">Vista general</a><a href="#menu-radial-insertar-cualquier-bloque" class="nav-sub">Menú radial: insertar cualquier bloque</a></div>
+<div class="nav-group"><a href="#2-diagramacion-estilo-lucidchart-visio" class="nav-sec">2. Diagramación (estilo Lucidchart/Visio)</a><a href="#formas-stencils" class="nav-sub">Formas / stencils</a><a href="#conexion-rapida-y-nodos-de-proceso" class="nav-sub">Conexión rápida y nodos de proceso</a><a href="#conectores-con-tipo-etiqueta-y-ruteo" class="nav-sub">Conectores con tipo, etiqueta y ruteo</a><a href="#guias-inteligentes-snap" class="nav-sub">Guías inteligentes + snap</a></div>
+<div class="nav-group"><a href="#3-organizar-y-actuar-sobre-los-bloques" class="nav-sec">3. Organizar y actuar sobre los bloques</a><a href="#menu-de-tarjeta" class="nav-sub">Menú de tarjeta</a><a href="#seleccion-multiple-alinear-y-distribuir" class="nav-sub">Selección múltiple, alinear y distribuir</a></div>
+<div class="nav-group"><a href="#4-contenido-enriquecido-y-multimedia" class="nav-sec">4. Contenido enriquecido y multimedia</a><a href="#imagen-ia-buscar-o-generar" class="nav-sub">Imagen IA (buscar o generar)</a><a href="#diagramas-mermaid" class="nav-sub">Diagramas Mermaid</a><a href="#puente-mermaid-lienzo" class="nav-sub">Puente Mermaid ↔ lienzo</a></div>
+<div class="nav-group"><a href="#5-plantillas-y-vistas" class="nav-sec">5. Plantillas y vistas</a><a href="#plantillas-de-canvas" class="nav-sub">Plantillas de canvas</a><a href="#mapa-de-conocimiento" class="nav-sub">Mapa de conocimiento</a><a href="#kanban-de-ideas" class="nav-sub">Kanban de ideas</a><a href="#no-perderse-en-el-lienzo" class="nav-sub">No perderse en el lienzo</a><a href="#busqueda-global" class="nav-sub">Búsqueda global</a></div>
+<div class="nav-group"><a href="#6-inteligencia-artificial" class="nav-sec">6. Inteligencia artificial</a><a href="#asistente-de-ia" class="nav-sub">Asistente de IA</a><a href="#configuracion-de-ia" class="nav-sub">Configuración de IA</a><a href="#busqueda-en-internet-con-ia" class="nav-sub">Búsqueda en internet con IA</a></div>
+<div class="nav-group"><a href="#7-personalizacion" class="nav-sec">7. Personalización</a><a href="#paletas-de-color" class="nav-sub">Paletas de color</a><a href="#tema-oscuro-aplicado" class="nav-sub">Tema oscuro aplicado</a></div>
+<div class="nav-group"><a href="#8-gestion-datos-y-ayuda" class="nav-sec">8. Gestión, datos y ayuda</a><a href="#historial-de-cambios" class="nav-sub">Historial de cambios</a><a href="#copias-de-seguridad" class="nav-sub">Copias de seguridad</a><a href="#atajos-de-teclado" class="nav-sub">Atajos de teclado</a><a href="#integraciones-y-versiones" class="nav-sub">Integraciones y versiones</a></div>
+<div class="nav-group"><a href="#9-ayuda-y-showcase" class="nav-sec">9. Ayuda y showcase</a><a href="#tour-visual-guiado" class="nav-sub">Tour visual guiado</a><a href="#pagina-de-showcase" class="nav-sub">Página de showcase</a><a href="#puerta-de-acceso-compartir-con-token" class="nav-sub">Puerta de acceso (compartir con token)</a></div></nav>
+    <main><section class="sec" id="1-el-lienzo-y-los-bloques"><h2>1. El lienzo y los bloques</h2><article class="feature" id="vista-general" data-search="vista general vista general del lienzo la pantalla principal: a la izquierda el &lt;strong&gt;panel de libros → secciones → notas&lt;/strong&gt;; arriba la &lt;strong&gt;barra de herramientas&lt;/strong&gt; (buscar, plantillas, formas, mapa, kanban, más opciones e ia); y en el centro el &lt;strong&gt;lienzo infinito&lt;/strong&gt; con bloques de distintos tipos —una &lt;strong&gt;nota&lt;/strong&gt;, una &lt;strong&gt;idea&lt;/strong&gt; (con color cálido), una &lt;strong&gt;tabla&lt;/strong&gt;, un bloque de &lt;strong&gt;código&lt;/strong&gt;, uno de &lt;strong&gt;markdown&lt;/strong&gt; ya renderizado y una &lt;strong&gt;forma&lt;/strong&gt; («inicio»). cada bloque se mueve, redimensiona y conecta.">
+        <h3>Vista general</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/01-vista-general.png" alt="Vista general del lienzo"><figcaption>Vista general del lienzo</figcaption></figure>
+<p>La pantalla principal: a la izquierda el <strong>panel de libros → secciones → notas</strong>; arriba la <strong>barra de herramientas</strong> (buscar, plantillas, formas, mapa, kanban, más opciones e IA); y en el centro el <strong>lienzo infinito</strong> con bloques de distintos tipos —una <strong>Nota</strong>, una <strong>Idea</strong> (con color cálido), una <strong>Tabla</strong>, un bloque de <strong>Código</strong>, uno de <strong>Markdown</strong> ya renderizado y una <strong>Forma</strong> («Inicio»). Cada bloque se mueve, redimensiona y conecta.</p></div>
+      </article>
+<article class="feature" id="menu-radial-insertar-cualquier-bloque" data-search="menú radial: insertar cualquier bloque menú radial manteniendo &lt;strong&gt;alt&lt;/strong&gt; (o con &lt;strong&gt;ctrl+clic&lt;/strong&gt;) sobre el lienzo aparece el &lt;strong&gt;menú radial&lt;/strong&gt; con los 14 tipos de bloque: nota, texto, idea, tabla, código, python, json, curl, imagen, imagen ia, &lt;strong&gt;forma&lt;/strong&gt;, markdown, mermaid y dibujo. el anillo se ajusta para no solaparse y se mantiene dentro de la ventana. también puedes crear una nota con &lt;strong&gt;doble clic&lt;/strong&gt; en el vacío.">
+        <h3>Menú radial: insertar cualquier bloque</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/02-menu-radial.png" alt="Menú radial"><figcaption>Menú radial</figcaption></figure>
+<p>Manteniendo <strong>Alt</strong> (o con <strong>Ctrl+clic</strong>) sobre el lienzo aparece el <strong>menú radial</strong> con los 14 tipos de bloque: Nota, Texto, Idea, Tabla, Código, Python, JSON, cURL, Imagen, Imagen IA, <strong>Forma</strong>, Markdown, Mermaid y Dibujo. El anillo se ajusta para no solaparse y se mantiene dentro de la ventana. También puedes crear una Nota con <strong>doble clic</strong> en el vacío.</p></div>
+      </article></section>
+<section class="sec" id="2-diagramacion-estilo-lucidchart-visio"><h2>2. Diagramación (estilo Lucidchart/Visio)</h2><article class="feature" id="formas-stencils" data-search="formas / stencils paleta de formas el botón de &lt;strong&gt;formas&lt;/strong&gt; abre una paleta para insertar rectángulos, redondeados, elipses, &lt;strong&gt;rombos de decisión&lt;/strong&gt;, &lt;strong&gt;píldoras&lt;/strong&gt; de inicio/fin y &lt;strong&gt;paralelogramos&lt;/strong&gt; de proceso. detrás se ven varias formas ya colocadas en el lienzo. el tipo de cada forma se cambia desde su tarjeta.">
+        <h3>Formas / stencils</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/03-formas.png" alt="Paleta de formas"><figcaption>Paleta de formas</figcaption></figure>
+<p>El botón de <strong>Formas</strong> abre una paleta para insertar rectángulos, redondeados, elipses, <strong>rombos de decisión</strong>, <strong>píldoras</strong> de inicio/fin y <strong>paralelogramos</strong> de proceso. Detrás se ven varias formas ya colocadas en el lienzo. El tipo de cada forma se cambia desde su tarjeta.</p></div>
+      </article>
+<article class="feature" id="conexion-rapida-y-nodos-de-proceso" data-search="conexión rápida y nodos de proceso conexión rápida en formas al pasar el ratón por una forma aparecen 4 manijas &lt;strong&gt;+&lt;/strong&gt; en los costados: un clic crea un bloque &lt;strong&gt;ya conectado&lt;/strong&gt; en esa dirección y eliges qué es —&lt;strong&gt;paso&lt;/strong&gt; (rectángulo), &lt;strong&gt;decisión&lt;/strong&gt; (rombo), &lt;strong&gt;subproceso&lt;/strong&gt;, &lt;strong&gt;inicio/fin&lt;/strong&gt; o &lt;strong&gt;fin del proceso (rojo)&lt;/strong&gt;—. así montas un flujograma en segundos. las formas se redimensionan con su manija y se pueden colorear. para &lt;strong&gt;duplicar&lt;/strong&gt; cualquier bloque: menú de tarjeta, botón de la barra de selección, o &lt;strong&gt;ctrl/⌘+d&lt;/strong&gt; (duplica también los conectores internos de una selección).">
+        <h3>Conexión rápida y nodos de proceso</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/30-conexion-rapida.png" alt="Conexión rápida en formas"><figcaption>Conexión rápida en formas</figcaption></figure>
+<p>Al pasar el ratón por una forma aparecen 4 manijas <strong>+</strong> en los costados: un clic crea un bloque <strong>ya conectado</strong> en esa dirección y eliges qué es —<strong>Paso</strong> (rectángulo), <strong>Decisión</strong> (rombo), <strong>Subproceso</strong>, <strong>Inicio/Fin</strong> o <strong>Fin del proceso (rojo)</strong>—. Así montas un flujograma en segundos. Las formas se redimensionan con su manija y se pueden colorear. Para <strong>duplicar</strong> cualquier bloque: menú de tarjeta, botón de la barra de selección, o <strong>Ctrl/⌘+D</strong> (duplica también los conectores internos de una selección).</p></div>
+      </article>
+<article class="feature" id="conectores-con-tipo-etiqueta-y-ruteo" data-search="conectores con tipo, etiqueta y ruteo conectores los bloques se enlazan &lt;strong&gt;borde a borde&lt;/strong&gt; con &lt;strong&gt;flecha direccional&lt;/strong&gt;. cada conector puede llevar &lt;strong&gt;etiqueta&lt;/strong&gt; («sí», «requiere», «no»), un &lt;strong&gt;tipo semántico con color&lt;/strong&gt; (relación, depende, bloquea, flujo) y un &lt;strong&gt;estilo de ruteo&lt;/strong&gt; (curvo, recto u ortogonal). al hacer clic sobre una conexión se abre el menú que ves a la derecha para editar todo eso o eliminarla.">
+        <h3>Conectores con tipo, etiqueta y ruteo</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/04-conectores.png" alt="Conectores"><figcaption>Conectores</figcaption></figure>
+<p>Los bloques se enlazan <strong>borde a borde</strong> con <strong>flecha direccional</strong>. Cada conector puede llevar <strong>etiqueta</strong> («sí», «requiere», «no»), un <strong>tipo semántico con color</strong> (relación, depende, bloquea, flujo) y un <strong>estilo de ruteo</strong> (curvo, recto u ortogonal). Al hacer clic sobre una conexión se abre el menú que ves a la derecha para editar todo eso o eliminarla.</p></div>
+      </article>
+<article class="feature" id="guias-inteligentes-snap" data-search="guías inteligentes + snap guías inteligentes al arrastrar un bloque, tunota muestra &lt;strong&gt;líneas guía&lt;/strong&gt; y lo &lt;strong&gt;engancha&lt;/strong&gt; a los bordes o al centro de los demás (y a la rejilla). en la captura, el «bloque b» se alinea por su borde superior con el «bloque a» y aparece la guía roja que confirma la alineación.">
+        <h3>Guías inteligentes + snap</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/05-guias-snap.png" alt="Guías inteligentes"><figcaption>Guías inteligentes</figcaption></figure>
+<p>Al arrastrar un bloque, tuNota muestra <strong>líneas guía</strong> y lo <strong>engancha</strong> a los bordes o al centro de los demás (y a la rejilla). En la captura, el «Bloque B» se alinea por su borde superior con el «Bloque A» y aparece la guía roja que confirma la alineación.</p></div>
+      </article></section>
+<section class="sec" id="3-organizar-y-actuar-sobre-los-bloques"><h2>3. Organizar y actuar sobre los bloques</h2><article class="feature" id="menu-de-tarjeta" data-search="menú de tarjeta menú de tarjeta cada bloque tiene un menú (⋯) con: marcar como &lt;strong&gt;importante&lt;/strong&gt;, &lt;strong&gt;duplicar&lt;/strong&gt;, &lt;strong&gt;traer al frente / enviar al fondo&lt;/strong&gt; (z-order), &lt;strong&gt;color/categoría&lt;/strong&gt;, acciones de &lt;strong&gt;ia&lt;/strong&gt; sobre su contenido (mejorar, resumir, insights, expandir, accionables y &lt;strong&gt;buscar en la web&lt;/strong&gt;) y &lt;strong&gt;recordatorios&lt;/strong&gt;.">
+        <h3>Menú de tarjeta</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/06-menu-tarjeta.png" alt="Menú de tarjeta"><figcaption>Menú de tarjeta</figcaption></figure>
+<p>Cada bloque tiene un menú (⋯) con: marcar como <strong>importante</strong>, <strong>duplicar</strong>, <strong>traer al frente / enviar al fondo</strong> (z-order), <strong>color/categoría</strong>, acciones de <strong>IA</strong> sobre su contenido (mejorar, resumir, insights, expandir, accionables y <strong>buscar en la web</strong>) y <strong>recordatorios</strong>.</p></div>
+      </article>
+<article class="feature" id="seleccion-multiple-alinear-y-distribuir" data-search="selección múltiple, alinear y distribuir selección y alineación arrastrando en el vacío haces una &lt;strong&gt;selección por marco&lt;/strong&gt;. con varios bloques seleccionados aparece la barra inferior para &lt;strong&gt;alinear&lt;/strong&gt;, &lt;strong&gt;distribuir&lt;/strong&gt;, &lt;strong&gt;sintetizar con ia&lt;/strong&gt; o &lt;strong&gt;eliminar&lt;/strong&gt; el grupo. los bloques también se mueven juntos.">
+        <h3>Selección múltiple, alinear y distribuir</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/07-seleccion-alinear.png" alt="Selección y alineación"><figcaption>Selección y alineación</figcaption></figure>
+<p>Arrastrando en el vacío haces una <strong>selección por marco</strong>. Con varios bloques seleccionados aparece la barra inferior para <strong>alinear</strong>, <strong>distribuir</strong>, <strong>sintetizar con IA</strong> o <strong>eliminar</strong> el grupo. Los bloques también se mueven juntos.</p></div>
+      </article></section>
+<section class="sec" id="4-contenido-enriquecido-y-multimedia"><h2>4. Contenido enriquecido y multimedia</h2><article class="feature" id="imagen-ia-buscar-o-generar" data-search="imagen ia (buscar o generar) imagen ia un bloque especial para &lt;strong&gt;buscar imágenes&lt;/strong&gt; en la web (tavily) o &lt;strong&gt;generarlas por prompt&lt;/strong&gt;. escribes una descripción, eliges el modo y seleccionas una miniatura de resultados para colocarla en el lienzo.">
+        <h3>Imagen IA (buscar o generar)</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/08-imagen-ia.png" alt="Imagen IA"><figcaption>Imagen IA</figcaption></figure>
+<p>Un bloque especial para <strong>buscar imágenes</strong> en la web (Tavily) o <strong>generarlas por prompt</strong>. Escribes una descripción, eliges el modo y seleccionas una miniatura de resultados para colocarla en el lienzo.</p></div>
+      </article>
+<article class="feature" id="diagramas-mermaid" data-search="diagramas mermaid diagrama mermaid bloques de &lt;strong&gt;diagrama mermaid&lt;/strong&gt; que se renderizan en vivo (diagramas de flujo, secuencia, etc.). incluyen herramienta de tipo de diagrama, formas rápidas, generación con ia, edición del código y exportación a png.">
+        <h3>Diagramas Mermaid</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/09-mermaid.png" alt="Diagrama Mermaid"><figcaption>Diagrama Mermaid</figcaption></figure>
+<p>Bloques de <strong>diagrama Mermaid</strong> que se renderizan en vivo (diagramas de flujo, secuencia, etc.). Incluyen herramienta de tipo de diagrama, formas rápidas, generación con IA, edición del código y exportación a PNG.</p></div>
+      </article>
+<article class="feature" id="puente-mermaid-lienzo" data-search="puente mermaid ↔ lienzo explotar mermaid a formas del lienzo un flowchart mermaid (arriba) &lt;strong&gt;explotado&lt;/strong&gt; a formas y conectores nativos (abajo): cada nodo es una forma editable —rectángulo, rombo de decisión, píldora, paralelogramo— y las flechas &lt;strong&gt;siguen a las cajas&lt;/strong&gt; cuando las arrastras (lo que el modo interactivo del svg no hacía bien). el botón &lt;strong&gt;a diagrama&lt;/strong&gt; de la barra de selección hace el camino inverso: convierte las formas y sus conexiones de vuelta en un diagrama mermaid.">
+        <h3>Puente Mermaid ↔ lienzo</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/23-mermaid-a-lienzo.png" alt="Explotar Mermaid a formas del lienzo"><figcaption>Explotar Mermaid a formas del lienzo</figcaption></figure>
+<p>Un flowchart Mermaid (arriba) <strong>explotado</strong> a formas y conectores nativos (abajo): cada nodo es una forma editable —rectángulo, rombo de decisión, píldora, paralelogramo— y las flechas <strong>siguen a las cajas</strong> cuando las arrastras (lo que el modo interactivo del SVG no hacía bien). El botón <strong>A diagrama</strong> de la barra de selección hace el camino inverso: convierte las formas y sus conexiones de vuelta en un diagrama Mermaid.</p></div>
+      </article></section>
+<section class="sec" id="5-plantillas-y-vistas"><h2>5. Plantillas y vistas</h2><article class="feature" id="plantillas-de-canvas" data-search="plantillas de canvas plantillas plantillas listas para empezar —&lt;strong&gt;business model canvas&lt;/strong&gt;, &lt;strong&gt;lean canvas&lt;/strong&gt;, &lt;strong&gt;dafo&lt;/strong&gt;, &lt;strong&gt;lluvia de ideas&lt;/strong&gt;, &lt;strong&gt;arquitectura de software&lt;/strong&gt; y &lt;strong&gt;de la idea al despliegue&lt;/strong&gt;— que colocan un conjunto de bloques organizados en el lienzo. opcionalmente puedes describir tu proyecto y que la &lt;strong&gt;ia rellene las cajas&lt;/strong&gt; por ti.">
+        <h3>Plantillas de canvas</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/10-plantillas.png" alt="Plantillas"><figcaption>Plantillas</figcaption></figure>
+<p>Plantillas listas para empezar —<strong>Business Model Canvas</strong>, <strong>Lean Canvas</strong>, <strong>DAFO</strong>, <strong>Lluvia de ideas</strong>, <strong>Arquitectura de software</strong> y <strong>De la idea al despliegue</strong>— que colocan un conjunto de bloques organizados en el lienzo. Opcionalmente puedes describir tu proyecto y que la <strong>IA rellene las cajas</strong> por ti.</p></div>
+      </article>
+<article class="feature" id="mapa-de-conocimiento" data-search="mapa de conocimiento mapa de conocimiento una vista tipo grafo de &lt;strong&gt;todo tu contenido&lt;/strong&gt;: libros, secciones, notas y documentos como nodos con &lt;strong&gt;aristas curvas&lt;/strong&gt;. se auto-encuadra, tiene zoom, muestra un contador y &lt;strong&gt;resalta los vecinos&lt;/strong&gt; al pasar el ratón. un clic en un nodo te lleva a su lienzo.">
+        <h3>Mapa de conocimiento</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/11-mapa-conocimiento.png" alt="Mapa de conocimiento"><figcaption>Mapa de conocimiento</figcaption></figure>
+<p>Una vista tipo grafo de <strong>todo tu contenido</strong>: libros, secciones, notas y documentos como nodos con <strong>aristas curvas</strong>. Se auto-encuadra, tiene zoom, muestra un contador y <strong>resalta los vecinos</strong> al pasar el ratón. Un clic en un nodo te lleva a su lienzo.</p></div>
+      </article>
+<article class="feature" id="kanban-de-ideas" data-search="kanban de ideas kanban un &lt;strong&gt;tablero kanban&lt;/strong&gt; que organiza los bloques por estado (por hacer, en curso, hecho), útil para llevar el avance de tareas sin salir de tunota.">
+        <h3>Kanban de ideas</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/12-kanban.png" alt="Kanban"><figcaption>Kanban</figcaption></figure>
+<p>Un <strong>tablero Kanban</strong> que organiza los bloques por estado (por hacer, en curso, hecho), útil para llevar el avance de tareas sin salir de tuNota.</p></div>
+      </article>
+<article class="feature" id="no-perderse-en-el-lienzo" data-search="no perderse en el lienzo ayudas de navegación mecanismos para orientarte en un lienzo infinito: cuando te alejas y &lt;strong&gt;ningún bloque está a la vista&lt;/strong&gt;, aparece el botón &lt;strong&gt;«volver al contenido»&lt;/strong&gt;. abajo a la izquierda, el &lt;strong&gt;minimapa&lt;/strong&gt; muestra todos los bloques y un recuadro con la zona que estás viendo (clic para saltar allí). en el control de zoom tienes &lt;strong&gt;centrar&lt;/strong&gt; (diana: vuelve al 100% centrado en el contenido), &lt;strong&gt;ajustar todo&lt;/strong&gt; y el interruptor del minimapa. atajos: &lt;code&gt;ctrl+0&lt;/code&gt; centra, &lt;code&gt;ctrl+1&lt;/code&gt; ajusta.">
+        <h3>No perderse en el lienzo</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/24-navegacion.png" alt="Ayudas de navegación"><figcaption>Ayudas de navegación</figcaption></figure>
+<p>Mecanismos para orientarte en un lienzo infinito: cuando te alejas y <strong>ningún bloque está a la vista</strong>, aparece el botón <strong>«Volver al contenido»</strong>. Abajo a la izquierda, el <strong>minimapa</strong> muestra todos los bloques y un recuadro con la zona que estás viendo (clic para saltar allí). En el control de zoom tienes <strong>Centrar</strong> (diana: vuelve al 100% centrado en el contenido), <strong>Ajustar todo</strong> y el interruptor del minimapa. Atajos: <code>Ctrl+0</code> centra, <code>Ctrl+1</code> ajusta.</p></div>
+      </article>
+<article class="feature" id="busqueda-global" data-search="búsqueda global búsqueda global con &lt;strong&gt;ctrl+k&lt;/strong&gt; abres la búsqueda que recorre todas las notas y bloques y te lleva al resultado. en la captura, «refuerzo» encuentra los bloques que lo mencionan.">
+        <h3>Búsqueda global</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/13-busqueda-global.png" alt="Búsqueda global"><figcaption>Búsqueda global</figcaption></figure>
+<p>Con <strong>Ctrl+K</strong> abres la búsqueda que recorre todas las notas y bloques y te lleva al resultado. En la captura, «refuerzo» encuentra los bloques que lo mencionan.</p></div>
+      </article></section>
+<section class="sec" id="6-inteligencia-artificial"><h2>6. Inteligencia artificial</h2><article class="feature" id="asistente-de-ia" data-search="asistente de ia asistente de ia un panel de &lt;strong&gt;chat&lt;/strong&gt; con acciones rápidas (resumir la nota, generar ideas, insights, accionables, título). cada respuesta se puede &lt;strong&gt;insertar&lt;/strong&gt; como bloque en el lienzo.">
+        <h3>Asistente de IA</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/14-asistente-ia.png" alt="Asistente de IA"><figcaption>Asistente de IA</figcaption></figure>
+<p>Un panel de <strong>chat</strong> con acciones rápidas (resumir la nota, generar ideas, insights, accionables, título). Cada respuesta se puede <strong>insertar</strong> como bloque en el lienzo.</p></div>
+      </article>
+<article class="feature" id="configuracion-de-ia" data-search="configuración de ia configuración de ia elige proveedor: el &lt;strong&gt;servidor&lt;/strong&gt; (usa las claves del &lt;code&gt;.env&lt;/code&gt;, sin pegar nada) con su lista de &lt;strong&gt;modelos&lt;/strong&gt;, o tu propia clave (openai, groq, openrouter, gemini, anthropic…). incluye campo de &lt;strong&gt;token del servidor&lt;/strong&gt; para el acceso protegido.">
+        <h3>Configuración de IA</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/15-config-ia.png" alt="Configuración de IA"><figcaption>Configuración de IA</figcaption></figure>
+<p>Elige proveedor: el <strong>servidor</strong> (usa las claves del <code>.env</code>, sin pegar nada) con su lista de <strong>modelos</strong>, o tu propia clave (OpenAI, Groq, OpenRouter, Gemini, Anthropic…). Incluye campo de <strong>token del servidor</strong> para el acceso protegido.</p></div>
+      </article>
+<article class="feature" id="busqueda-en-internet-con-ia" data-search="búsqueda en internet con ia búsqueda web el chip &lt;strong&gt;🌐 buscar&lt;/strong&gt; consulta internet (tavily) y la ia redacta una respuesta &lt;strong&gt;citando las fuentes&lt;/strong&gt;. también disponible como acción sobre un bloque concreto.">
+        <h3>Búsqueda en internet con IA</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/16-busqueda-web.png" alt="Búsqueda web"><figcaption>Búsqueda web</figcaption></figure>
+<p>El chip <strong>🌐 Buscar</strong> consulta internet (Tavily) y la IA redacta una respuesta <strong>citando las fuentes</strong>. También disponible como acción sobre un bloque concreto.</p></div>
+      </article></section>
+<section class="sec" id="7-personalizacion"><h2>7. Personalización</h2><article class="feature" id="paletas-de-color" data-search="paletas de color paletas de color &lt;strong&gt;11 temas&lt;/strong&gt; con &lt;strong&gt;vista previa&lt;/strong&gt; de sus colores (cozy, bosque, océano, menta, lavanda, sakura, durazno, arena, noche, pizarra, carbón) y ajuste &lt;strong&gt;color por color&lt;/strong&gt;. los cambios se aplican al instante a toda la interfaz.">
+        <h3>Paletas de color</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/17-paletas-color.png" alt="Paletas de color"><figcaption>Paletas de color</figcaption></figure>
+<p><strong>11 temas</strong> con <strong>vista previa</strong> de sus colores (Cozy, Bosque, Océano, Menta, Lavanda, Sakura, Durazno, Arena, Noche, Pizarra, Carbón) y ajuste <strong>color por color</strong>. Los cambios se aplican al instante a toda la interfaz.</p></div>
+      </article>
+<article class="feature" id="tema-oscuro-aplicado" data-search="tema oscuro aplicado tema oscuro ejemplo del tema oscuro &lt;strong&gt;«pizarra»&lt;/strong&gt; aplicado al lienzo, las tarjetas y las formas: la personalización afecta a toda la aplicación, no solo al fondo.">
+        <h3>Tema oscuro aplicado</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/18-tema-oscuro.png" alt="Tema oscuro"><figcaption>Tema oscuro</figcaption></figure>
+<p>Ejemplo del tema oscuro <strong>«Pizarra»</strong> aplicado al lienzo, las tarjetas y las formas: la personalización afecta a toda la aplicación, no solo al fondo.</p></div>
+      </article></section>
+<section class="sec" id="8-gestion-datos-y-ayuda"><h2>8. Gestión, datos y ayuda</h2><article class="feature" id="historial-de-cambios" data-search="historial de cambios historial un &lt;strong&gt;registro&lt;/strong&gt; de las acciones recientes (bloques creados/editados, temas aplicados, etc.) para saber qué ha cambiado.">
+        <h3>Historial de cambios</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/19-historial.png" alt="Historial"><figcaption>Historial</figcaption></figure>
+<p>Un <strong>registro</strong> de las acciones recientes (bloques creados/editados, temas aplicados, etc.) para saber qué ha cambiado.</p></div>
+      </article>
+<article class="feature" id="copias-de-seguridad" data-search="copias de seguridad copias de seguridad gestión de &lt;strong&gt;copias de seguridad&lt;/strong&gt;: exportar/importar tus datos y restaurar instantáneas automáticas. útil para no perder nada y migrar entre equipos.">
+        <h3>Copias de seguridad</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/20-copias-seguridad.png" alt="Copias de seguridad"><figcaption>Copias de seguridad</figcaption></figure>
+<p>Gestión de <strong>copias de seguridad</strong>: exportar/importar tus datos y restaurar instantáneas automáticas. Útil para no perder nada y migrar entre equipos.</p></div>
+      </article>
+<article class="feature" id="atajos-de-teclado" data-search="atajos de teclado atajos de teclado la chuleta de &lt;strong&gt;atajos&lt;/strong&gt; (crear bloques con una tecla, deshacer, buscar, zoom, menú radial…) que abres pulsando &lt;strong&gt;?&lt;/strong&gt;.">
+        <h3>Atajos de teclado</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/21-atajos.png" alt="Atajos de teclado"><figcaption>Atajos de teclado</figcaption></figure>
+<p>La chuleta de <strong>atajos</strong> (crear bloques con una tecla, deshacer, buscar, zoom, menú radial…) que abres pulsando <strong>?</strong>.</p></div>
+      </article>
+<article class="feature" id="integraciones-y-versiones" data-search="integraciones y versiones integraciones estado de las &lt;strong&gt;integraciones&lt;/strong&gt; y sus versiones: &lt;strong&gt;mermaid&lt;/strong&gt; (diagramas), el &lt;strong&gt;servidor local&lt;/strong&gt; (api &lt;code&gt;api/*&lt;/code&gt; para ejecutar curl y guardar en disco con &lt;code&gt;server.py&lt;/code&gt;) y &lt;strong&gt;google fonts&lt;/strong&gt; (tipografías). cada una indica si está cargada/conectada. desde el menú «⋯» también puedes &lt;strong&gt;importar markdown o pdf&lt;/strong&gt;.">
+        <h3>Integraciones y versiones</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/22-integraciones.png" alt="Integraciones"><figcaption>Integraciones</figcaption></figure>
+<p>Estado de las <strong>integraciones</strong> y sus versiones: <strong>Mermaid</strong> (diagramas), el <strong>servidor local</strong> (API <code>api/*</code> para ejecutar cURL y guardar en disco con <code>server.py</code>) y <strong>Google Fonts</strong> (tipografías). Cada una indica si está cargada/conectada. Desde el menú «⋯» también puedes <strong>importar Markdown o PDF</strong>.</p></div>
+      </article></section>
+<section class="sec" id="9-ayuda-y-showcase"><h2>9. Ayuda y showcase</h2><article class="feature" id="tour-visual-guiado" data-search="tour visual guiado tour visual una &lt;strong&gt;guía interactiva&lt;/strong&gt; que resalta cada parte de la interfaz con un foco y una tarjeta explicativa, paso a paso (anterior/siguiente/saltar, o las flechas del teclado). &lt;strong&gt;se auto-lanza en la primera visita&lt;/strong&gt; (tras la puerta de acceso, si la hay) empezando por una bienvenida; después queda disponible cuando quieras desde el menú &lt;strong&gt;«⋯» → «tour visual»&lt;/strong&gt; o el botón del estado inicial. se recuerda para no repetirse (&lt;code&gt;ui.tourseen&lt;/code&gt;).">
+        <h3>Tour visual guiado</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/25-tour.png" alt="Tour visual"><figcaption>Tour visual</figcaption></figure>
+<p>Una <strong>guía interactiva</strong> que resalta cada parte de la interfaz con un foco y una tarjeta explicativa, paso a paso (Anterior/Siguiente/Saltar, o las flechas del teclado). <strong>Se auto-lanza en la primera visita</strong> (tras la puerta de acceso, si la hay) empezando por una bienvenida; después queda disponible cuando quieras desde el menú <strong>«⋯» → «Tour visual»</strong> o el botón del estado inicial. Se recuerda para no repetirse (<code>ui.tourSeen</code>).</p></div>
+      </article>
+<article class="feature" id="pagina-de-showcase" data-search="página de showcase showcase de funcionalidades esta misma guía exportada como &lt;strong&gt;página web dinámica&lt;/strong&gt; (&lt;code&gt;docs/showcase.html&lt;/code&gt;): buscador de funcionalidades, índice lateral con scroll-spy y &lt;strong&gt;lightbox&lt;/strong&gt; para ampliar las capturas. se genera desde este markdown con &lt;code&gt;node docs/build-showcase.cjs&lt;/code&gt; y se abre desde &lt;strong&gt;«⋯» → «showcase de funcionalidades»&lt;/strong&gt;.">
+        <h3>Página de showcase</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/26-showcase.png" alt="Showcase de funcionalidades"><figcaption>Showcase de funcionalidades</figcaption></figure>
+<p>Esta misma guía exportada como <strong>página web dinámica</strong> (<code>docs/showcase.html</code>): buscador de funcionalidades, índice lateral con scroll-spy y <strong>lightbox</strong> para ampliar las capturas. Se genera desde este Markdown con <code>node docs/build-showcase.cjs</code> y se abre desde <strong>«⋯» → «Showcase de funcionalidades»</strong>.</p></div>
+      </article>
+<article class="feature" id="puerta-de-acceso-compartir-con-token" data-search="puerta de acceso (compartir con token) puerta de acceso por token cuando la instancia está &lt;strong&gt;protegida&lt;/strong&gt; (desplegada con token), al entrar aparece este recuadro pidiendo el &lt;strong&gt;token de acceso&lt;/strong&gt;. compártelo con quien quieras: lo pegan una vez, entran y usan todas las funciones; se recuerda para no volver a pedirlo. en local no aparece (el token se auto-rellena). también puedes compartir un &lt;strong&gt;enlace de confianza&lt;/strong&gt; &lt;code&gt;…/?token=el_token&lt;/code&gt; que entra directamente.">
+        <h3>Puerta de acceso (compartir con token)</h3>
+        <div class="feature-body"><figure class="shot"><img loading="lazy" src="screenshots/27-token-gate.png" alt="Puerta de acceso por token"><figcaption>Puerta de acceso por token</figcaption></figure>
+<p>Cuando la instancia está <strong>protegida</strong> (desplegada con token), al entrar aparece este recuadro pidiendo el <strong>token de acceso</strong>. Compártelo con quien quieras: lo pegan una vez, entran y usan todas las funciones; se recuerda para no volver a pedirlo. En local no aparece (el token se auto-rellena). También puedes compartir un <strong>enlace de confianza</strong> <code>…/?token=EL_TOKEN</code> que entra directamente.</p></div>
+      </article></section><p class="empty-note" id="noResults" style="display:none">Sin resultados para tu búsqueda.</p></main>
+  </div>
+  <div class="lightbox" id="lightbox"><img id="lightbox-img" alt=""></div>
+  <footer>Generado desde <code>docs/guia-features.md</code> · tuNota</footer>
+<script>
+  // Lightbox
+  var lb = document.getElementById('lightbox'), lbi = document.getElementById('lightbox-img');
+  document.querySelectorAll('figure.shot img').forEach(function(img){
+    img.addEventListener('click', function(){ lbi.src = img.src; lbi.alt = img.alt; lb.classList.add('open'); });
+  });
+  lb.addEventListener('click', function(){ lb.classList.remove('open'); });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') lb.classList.remove('open'); });
+  // Buscador
+  var q = document.getElementById('q'), feats = Array.prototype.slice.call(document.querySelectorAll('.feature')), noRes = document.getElementById('noResults');
+  q.addEventListener('input', function(){
+    var v = q.value.trim().toLowerCase(), shown = 0;
+    feats.forEach(function(f){ var hit = !v || (f.getAttribute('data-search')||'').indexOf(v) >= 0; f.style.display = hit ? '' : 'none'; if(hit) shown++; });
+    document.querySelectorAll('.sec').forEach(function(s){ var any = s.querySelector('.feature:not([style*="display: none"])'); s.style.display = (v && !any) ? 'none' : ''; });
+    noRes.style.display = shown ? 'none' : '';
+  });
+  // Scroll-spy del TOC
+  var links = {}; document.querySelectorAll('nav.toc a').forEach(function(a){ links[a.getAttribute('href').slice(1)] = a; });
+  var targets = Array.prototype.slice.call(document.querySelectorAll('.sec, .feature'));
+  var spy = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if(en.isIntersecting){ var a = links[en.target.id]; if(a){ Object.keys(links).forEach(function(k){ links[k].classList.remove('active'); }); a.classList.add('active'); } } });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  targets.forEach(function(t){ if(t.id) spy.observe(t); });
+</script>
+</body>
+</html>
