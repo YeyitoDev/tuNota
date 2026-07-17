@@ -179,6 +179,19 @@ function setCardColor(b, key) {
   save();
   applyCardColor(b, document.querySelector('.card[data-id="' + b.id + '"]'));
 }
+// Insignia de clasificación CLICKEABLE: muestra el estado y al pulsarla cicla al siguiente.
+function cycleNoteRank(b) {
+  var order = NOTE_RANKS.map(function (r) { return r.key; });
+  var i = order.indexOf(noteRank(b));
+  setNoteRank(b, order[(i + 1) % order.length]);
+}
+function rankBadge(b) {
+  var k = noteRank(b), rk = rankMeta(k);
+  var badge = h('button', { class: 'card-rank-badge rank-' + k, title: 'Clasificación: ' + rk.label + ' — clic para cambiarla',
+    onclick: function (e) { e.stopPropagation(); cycleNoteRank(b); } }, icon(rk.icon), rk.label);
+  badge.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  return badge;
+}
 // Clasifica una nota (relevant/idea/important/crucial); cambia el color de la tarjeta al instante.
 function setNoteRank(b, key) {
   b.content = b.content || {};
@@ -187,13 +200,11 @@ function setNoteRank(b, key) {
   if (el) {
     NOTE_RANKS.forEach(function (r) { el.classList.remove('rank-' + r.key); });
     el.classList.add('rank-' + b.content.rank);
-    var badge = el.querySelector('.card-rank-badge');
-    if (badge) badge.remove();
-    if (b.content.rank !== 'relevant') {
-      var rk = rankMeta(b.content.rank);
-      var head = el.querySelector('.card-head .card-spacer');
-      if (head) head.insertAdjacentElement('afterend', h('span', { class: 'card-rank-badge rank-' + b.content.rank, title: 'Clasificación: ' + rk.label }, icon(rk.icon), rk.label));
-    }
+    var old = el.querySelector('.card-rank-badge');
+    var fresh = rankBadge(b);
+    if (old) { old.replaceWith(fresh); }
+    else { var sp = el.querySelector('.card-head .card-spacer'); if (sp) sp.insertAdjacentElement('afterend', fresh); }
+    var ta = el.querySelector('.card-ta:not(.mono)'); if (ta && typeof refreshAutoText === 'function') refreshAutoText(ta); // recalcula contraste con el nuevo fondo
   }
   touchNote(b.noteId);
   logChange('Nota clasificada', rankMeta(b.content.rank).label);
