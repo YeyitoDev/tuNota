@@ -141,7 +141,7 @@ function noteRow(n) {
     gs.forEach(function (g) {
       var grow = h('div', { class: 'row group-row', title: 'Centrar en «' + g.name + '»' },
         h('span', { class: 'group-dot ' + GROUP_COLORS[g.color % GROUP_COLORS.length] }),
-        h('span', { class: 'item-name' }, g.name),
+        editable(h('span', { class: 'item-name' }, g.name), g.name, (function (grp) { return function (v) { grp.name = v; logChange('Grupo renombrado', v); save(); renderSidebar(); renderCanvas(); }; })(g)),
         h('button', { class: 'act', title: 'Guardar el grupo como plantilla', onclick: function (e) { e.stopPropagation(); saveGroupAsTemplate(g); } }, icon('layout')),
         h('button', { class: 'act danger', title: 'Disolver grupo', onclick: function (e) { e.stopPropagation(); deleteGroup(g); } }, icon('trash')));
       if (gs.length > 1) { // "Juntar con otro grupo" solo tiene sentido si hay más de uno

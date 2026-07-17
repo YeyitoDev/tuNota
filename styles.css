@@ -6358,11 +6358,20 @@ body.fc-picking .card { cursor: crosshair !important; }
 .card.rank-idea { background: #f7ead2; border-color: var(--idea-border); box-shadow: var(--shadow), inset 3px 0 0 var(--ocre); }
 .card.rank-important { background: #fbe6d1; border-color: #e6a765; box-shadow: var(--shadow), inset 3px 0 0 #e0873c; }
 .card.rank-crucial { background: #fbdfda; border-color: #e0a49c; box-shadow: var(--shadow), inset 3px 0 0 var(--danger); }
-.card-rank-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: .03em; color: #fff; }
+.card-rank-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; padding: 2px 8px; border: none; border-radius: 999px; text-transform: uppercase; letter-spacing: .03em; color: #fff; cursor: pointer; font-family: inherit; transition: filter .12s, transform .1s; }
 .card-rank-badge svg { width: 11px; height: 11px; }
+.card-rank-badge:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.card-rank-badge:active { transform: translateY(0); }
+.card-rank-badge.rank-relevant { background: #6f9257; }
 .card-rank-badge.rank-idea { background: var(--ocre); }
 .card-rank-badge.rank-important { background: #e0873c; }
 .card-rank-badge.rank-crucial { background: var(--danger); }
+
+/* ---------- Tooltips (nombre + descripción, a los 3.5 s) ---------- */
+.ui-tip { position: fixed; z-index: 7000; max-width: 260px; background: #2a2620; color: #fbf8f1; border-radius: 8px; padding: 7px 11px; box-shadow: 0 10px 28px -8px rgba(0,0,0,.5); font-size: 12.5px; line-height: 1.4; pointer-events: none; opacity: 0; transform: translateY(-3px); transition: opacity .12s ease, transform .12s ease; }
+.ui-tip.on { opacity: 1; transform: none; }
+.ui-tip-name { font-weight: 800; }
+.ui-tip-desc { margin-top: 2px; color: rgba(251,248,241,.72); font-size: 11.5px; }
 .cm-ranks { display: flex; flex-wrap: wrap; gap: 6px; }
 .rank-chip { border-left-width: 3px !important; border-left-style: solid !important; }
 .rank-chip-relevant { border-left-color: #6f9257 !important; }

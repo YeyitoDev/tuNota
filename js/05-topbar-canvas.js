@@ -661,7 +661,7 @@ function card(b) {
   if (remActive) head.appendChild(h('span', { class: 'card-remind-badge', title: fmtWhen(b.reminder.at) }, icon('clock'), fmtShort(b.reminder.at)));
   if (b.kanban) head.appendChild(h('span', { class: 'card-kanban-badge k-' + b.kanban, title: 'Kanban: ' + kanbanLabel(b.kanban) }, icon('board')));
   if (b.color && CARD_COLOR_LABEL[b.color]) head.appendChild(h('span', { class: 'card-cat-badge cat-' + b.color, title: 'Categor\u00eda: ' + CARD_COLOR_LABEL[b.color] }, CARD_COLOR_LABEL[b.color]));
-  if (isText && noteRank(b) !== 'relevant') { var _rk = rankMeta(noteRank(b)); head.appendChild(h('span', { class: 'card-rank-badge rank-' + noteRank(b), title: 'Clasificaci\u00f3n: ' + _rk.label }, icon(_rk.icon), _rk.label)); }
+  if (isText) head.appendChild(rankBadge(b)); // insignia de clasificaci\u00f3n clickeable
   if (hasMedia) {
     head.appendChild(h('span', { class: 'card-imgs' }));
     if (isText) head.appendChild(h('button', { class: 'card-fmt-btn', title: 'Formatear texto: enumerar, vi\u00f1etas, casillas\u2026', onclick: function (e) { e.stopPropagation(); openTextFormatMenu(b, el, e.currentTarget); } }, icon('format')));
