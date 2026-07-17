@@ -171,10 +171,9 @@ function groupBounds(g) {
   if (!ms.length) return null;
   var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   ms.forEach(function (b) {
-    var el = cardEl(b.id);
-    var w = el ? el.offsetWidth : (b.width || 200), hh = el ? el.offsetHeight : (b.height || 120);
+    var r = (typeof blockRect === 'function') ? blockRect(b) : { w: b.width || 200, h: b.height || 120 };
     minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
-    maxX = Math.max(maxX, b.x + w); maxY = Math.max(maxY, b.y + hh);
+    maxX = Math.max(maxX, b.x + r.w); maxY = Math.max(maxY, b.y + r.h);
   });
   return { x: minX - 18, y: minY - 46, w: (maxX - minX) + 36, h: (maxY - minY) + 64 };
 }
