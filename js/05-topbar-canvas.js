@@ -86,10 +86,11 @@ function renderTopbar() {
   var tabletBtn = h('button', { class: 'icon-btn' + (ui.tablet ? ' on' : ''), title: 'Modo tablet: escribir/dibujar con lápiz o dedo', onclick: toggleTabletMode }, icon('pen'));
   var moreBtn = h('button', { class: 'icon-btn', title: 'Más opciones', onclick: function (e) { e.stopPropagation(); openTopbarMenu(moreBtn); } }, icon('more'));
   var reviewBtn = h('button', { class: 'idea-review-top', title: 'Revisar idea: analiza el contexto (idea seleccionada o la nota) y lo consulta a un prompt especializado', onclick: function () { openIdeaReview(); } }, icon('search'), 'Revisar idea');
-  // Botón de apoyo combinado: mitad café (izq.) y mitad corazón (der.); al elegir, abre Yape/Stripe.
-  var supportBtn = h('div', { class: 'support-btn', title: 'Invítame un cafecito o mándame un poco de amor' },
-    h('button', { class: 'support-half support-coffee', title: 'Invítame un cafecito', onclick: function () { openDonate('coffee'); } }, icon('coffee'), h('span', { class: 'support-lbl' }, 'Un cafecito')),
-    h('button', { class: 'support-half support-heart', title: 'Mándame un poco de amor', onclick: function () { openDonate('heart'); } }, icon('heart'), h('span', { class: 'support-lbl' }, 'Un poco de amor')));
+  // Botón de apoyo: por el momento solo «cafecito». (La opción de corazón queda comentada.)
+  var supportBtn = h('div', { class: 'support-btn support-solo', title: 'Invítame un cafecito' },
+    h('button', { class: 'support-half support-coffee', title: 'Invítame un cafecito', onclick: function () { openDonate('coffee'); } }, icon('coffee'), h('span', { class: 'support-lbl' }, 'Un cafecito'))
+    // , h('button', { class: 'support-half support-heart', title: 'Mándame un poco de amor', onclick: function () { openDonate('heart'); } }, icon('heart'), h('span', { class: 'support-lbl' }, 'Un poco de amor'))
+  );
   var ai = h('button', { class: 'ai-btn' + (aiReady() ? ' ready' : ''), title: aiReady() ? 'Asistente IA' : 'Configurar IA (API key)', onclick: openAI }, icon('spark'), 'IA');
   bar.appendChild(left);
   bar.appendChild(hint);

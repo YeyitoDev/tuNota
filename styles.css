@@ -6406,6 +6406,8 @@ body.fc-picking .card { cursor: crosshair !important; }
 .support-half .support-lbl { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0; transition: max-width .22s ease, opacity .2s ease; }
 .support-half:hover { filter: brightness(1.09); }
 .support-half:hover .support-lbl { max-width: 90px; opacity: 1; }
+/* Botón solo (sin mitad de corazón): la etiqueta «Un cafecito» siempre visible. */
+.support-solo .support-lbl { max-width: 90px; opacity: 1; }
 .support-coffee:hover svg { animation: heart-beat 1.4s ease-in-out infinite; }
 .support-heart:hover svg { animation: heart-beat 1.2s ease-in-out infinite; }
 
