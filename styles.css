@@ -6298,10 +6298,25 @@ body.fc-picking .card { cursor: crosshair !important; }
 .guide-panel { border-radius: 16px; border: 1px solid var(--border); animation: pop 0.16s ease-out; }
 
 /* ---------- Bloque idea: botón «Revisar idea» + panel de validación ---------- */
-.idea-review-row { display: flex; justify-content: flex-end; padding: 4px 2px 0; }
-.idea-review-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--idea-border); background: rgba(255, 255, 255, 0.55); color: var(--fg); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
-.idea-review-btn:hover { background: var(--ocre); color: #fff; border-color: var(--ocre); }
-.idea-review-btn svg { width: 13px; height: 13px; }
+/* Botón destacado del topbar: lupa grande + «Revisar idea». */
+.idea-review-top {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: none; border-radius: 999px; cursor: pointer;
+  padding: 7px 16px 7px 14px; font: inherit; font-size: 13px; font-weight: 800; color: #fff;
+  background: linear-gradient(120deg, var(--sage), #6f8256);
+  box-shadow: 0 4px 14px -4px rgba(94, 107, 80, 0.6);
+  flex: none;
+}
+.idea-review-top svg { width: 19px; height: 19px; stroke-width: 2.6; }
+.idea-review-top:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.idea-review-top:active { transform: translateY(0); }
+@media (max-width: 900px) { .idea-review-top span, .idea-review-top { font-size: 0; gap: 0; padding: 8px; } .idea-review-top svg { width: 20px; height: 20px; } }
+/* Panel de revisión: campo editable de la idea + botón de consulta. */
+.idea-rev-src { padding: 10px 18px 2px; color: var(--muted); font-size: 12.5px; }
+.idea-rev-input { margin: 6px 18px; width: calc(100% - 36px); min-height: 74px; resize: vertical; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--fg); font: inherit; font-size: 14px; line-height: 1.5; box-sizing: border-box; }
+.idea-rev-run { display: flex; justify-content: flex-end; padding: 0 18px 6px; }
+.idea-rev-go { display: inline-flex; align-items: center; gap: 7px; }
+.idea-rev-go svg { width: 16px; height: 16px; }
 #ideaRevOverlay { justify-content: center; align-items: center; background: rgba(30, 26, 22, 0.45); backdrop-filter: blur(2px); }
 .idea-rev-panel { width: min(680px, 94vw); max-height: min(86vh, 860px); border-radius: 16px; border: 1px solid var(--border); animation: pop 0.16s ease-out; }
 .idea-rev-quote { margin: 0; padding: 10px 18px; font-family: Fraunces, serif; font-size: 16px; border-left: 4px solid var(--ocre); background: var(--idea-bg); color: var(--fg); }

@@ -85,6 +85,7 @@ function renderTopbar() {
   var kanBtn = h('button', { class: 'icon-btn', title: 'Kanban de ideas', onclick: openKanban }, icon('board'));
   var tabletBtn = h('button', { class: 'icon-btn' + (ui.tablet ? ' on' : ''), title: 'Modo tablet: escribir/dibujar con lápiz o dedo', onclick: toggleTabletMode }, icon('pen'));
   var moreBtn = h('button', { class: 'icon-btn', title: 'Más opciones', onclick: function (e) { e.stopPropagation(); openTopbarMenu(moreBtn); } }, icon('more'));
+  var reviewBtn = h('button', { class: 'idea-review-top', title: 'Revisar idea: analiza el contexto (idea seleccionada o la nota) y lo consulta a un prompt especializado', onclick: function () { openIdeaReview(); } }, icon('search'), 'Revisar idea');
   var donateBtn = h('button', { class: 'donate-btn', title: 'Apoya tuNota con una donación (Yape)', onclick: openDonate }, icon('heart'), 'Apóyame');
   var ai = h('button', { class: 'ai-btn' + (aiReady() ? ' ready' : ''), title: aiReady() ? 'Asistente IA' : 'Configurar IA (API key)', onclick: openAI }, icon('spark'), 'IA');
   bar.appendChild(left);
@@ -96,6 +97,7 @@ function renderTopbar() {
   if (featureOn('kanban')) bar.appendChild(kanBtn);
   if (featureOn('tablet')) bar.appendChild(tabletBtn);
   bar.appendChild(moreBtn);
+  if (featureOn('ai') && featureOn('ideaReview')) bar.appendChild(reviewBtn);
   if (featureOn('donate')) bar.appendChild(donateBtn);
   if (featureOn('ai')) bar.appendChild(ai);
 }
@@ -814,14 +816,6 @@ function textBody(b) {
   requestAnimationFrame(function () { refreshAutoText(ta); autoGrowNote(ta); }); // contraste + ajuste de alto al contenido
   var hlinks = h('div', { class: 'card-hlinks' });          // chips de hipervínculo (texto → bloque/nota)
   renderHlinksInto(hlinks, b);
-  if (isIdea && featureOn('ai') && featureOn('ideaReview')) {
-    // Las ideas se validan: búsqueda web + veredicto de la IA elegida.
-    var revRow = h('div', { class: 'idea-review-row' },
-      h('button', { class: 'idea-review-btn', title: 'Validar la idea: busca evidencia en internet y tu IA da un veredicto con riesgos y próximos pasos',
-        onclick: function (e) { e.stopPropagation(); openIdeaReview(b); } }, icon('search'), 'Revisar idea'));
-    revRow.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-    return [ta, hlinks, h('div', { class: 'card-media' }), revRow];
-  }
   return [ta, hlinks, h('div', { class: 'card-media' })];
 }
 // Tipos de letra disponibles para el texto libre (usa las fuentes cargadas + las del sistema).
