@@ -297,6 +297,8 @@ body {
 #main {
   flex: 1;
   min-width: 0;
+  min-height: 0; /* clave en PWA: permite que #canvas ocupe el alto real y no empuje los
+                    controles de abajo (zoom/centrar/minimapa) hacia arriba con las notas */
   display: flex;
   flex-direction: column;
 }
@@ -802,6 +804,11 @@ body.panning {
 /* Notas de texto/idea con alto auto-adaptable: la tarjeta crece con el contenido. */
 .card.note-auto { height: auto !important; }
 .card.note-auto .card-ta { flex: none; overflow: hidden; min-height: 22px; }
+/* Nota con tamaño manual (alto fijo elegido por el usuario): el texto se desplaza dentro. */
+.card.note-manual .card-ta { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+/* Las notas/ideas usan el tirador propio (ancho + alto); sin el redimensionador nativo del
+   navegador, que ocupaba la esquina y capturaba el arrastre antes que nuestro tirador. */
+.card.note-auto, .card.note-manual { resize: none; }
 
 .empty-state {
   position: absolute;
@@ -2837,7 +2844,18 @@ body.curl-resizing {
 }
 .note-tab .icon { width: 13px; height: 13px; flex: none; }
 .note-tab:hover { background: var(--secondary); color: var(--fg); }
-.note-tab.active { background: var(--secondary); color: var(--fg); border-color: var(--primary); }
+/* Hoja actual: fondo destacado (solo esta pestaña) para identificarla de un vistazo. */
+.note-tab.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 2px 8px -2px rgba(58, 51, 44, 0.28);
+}
+.note-tab.active .icon { color: #fff; }
+.note-tab.active:hover { background: var(--primary); color: #fff; }
+.note-tab.active .note-tab-close { color: rgba(255, 255, 255, 0.85); }
+.note-tab.active .note-tab-close:hover { background: rgba(255, 255, 255, 0.22); color: #fff; }
 .note-tab-title { overflow: hidden; text-overflow: ellipsis; }
 .note-tab-close {
   display: inline-flex;
@@ -3554,6 +3572,16 @@ body.curl-resizing {
   height: auto;
   background: none;
   color: var(--ocre);
+}
+.graph-node.k-group {
+  background: rgba(138, 154, 123, 0.16);
+  border-color: rgba(138, 154, 123, 0.55);
+}
+.graph-node.k-group .gn-dot {
+  width: auto;
+  height: auto;
+  background: none;
+  color: var(--sage);
 }
 
 /* ---------- Tablero Kanban ---------- */
@@ -6270,10 +6298,25 @@ body.fc-picking .card { cursor: crosshair !important; }
 .guide-panel { border-radius: 16px; border: 1px solid var(--border); animation: pop 0.16s ease-out; }
 
 /* ---------- Bloque idea: botón «Revisar idea» + panel de validación ---------- */
-.idea-review-row { display: flex; justify-content: flex-end; padding: 4px 2px 0; }
-.idea-review-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--idea-border); background: rgba(255, 255, 255, 0.55); color: var(--fg); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
-.idea-review-btn:hover { background: var(--ocre); color: #fff; border-color: var(--ocre); }
-.idea-review-btn svg { width: 13px; height: 13px; }
+/* Botón destacado del topbar: lupa grande + «Revisar idea». */
+.idea-review-top {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: none; border-radius: 999px; cursor: pointer;
+  padding: 7px 16px 7px 14px; font: inherit; font-size: 13px; font-weight: 800; color: #fff;
+  background: linear-gradient(120deg, var(--sage), #6f8256);
+  box-shadow: 0 4px 14px -4px rgba(94, 107, 80, 0.6);
+  flex: none;
+}
+.idea-review-top svg { width: 19px; height: 19px; stroke-width: 2.6; }
+.idea-review-top:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.idea-review-top:active { transform: translateY(0); }
+@media (max-width: 900px) { .idea-review-top span, .idea-review-top { font-size: 0; gap: 0; padding: 8px; } .idea-review-top svg { width: 20px; height: 20px; } }
+/* Panel de revisión: campo editable de la idea + botón de consulta. */
+.idea-rev-src { padding: 10px 18px 2px; color: var(--muted); font-size: 12.5px; }
+.idea-rev-input { margin: 6px 18px; width: calc(100% - 36px); min-height: 74px; resize: vertical; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--fg); font: inherit; font-size: 14px; line-height: 1.5; box-sizing: border-box; }
+.idea-rev-run { display: flex; justify-content: flex-end; padding: 0 18px 6px; }
+.idea-rev-go { display: inline-flex; align-items: center; gap: 7px; }
+.idea-rev-go svg { width: 16px; height: 16px; }
 #ideaRevOverlay { justify-content: center; align-items: center; background: rgba(30, 26, 22, 0.45); backdrop-filter: blur(2px); }
 .idea-rev-panel { width: min(680px, 94vw); max-height: min(86vh, 860px); border-radius: 16px; border: 1px solid var(--border); animation: pop 0.16s ease-out; }
 .idea-rev-quote { margin: 0; padding: 10px 18px; font-family: Fraunces, serif; font-size: 16px; border-left: 4px solid var(--ocre); background: var(--idea-bg); color: var(--fg); }
@@ -6283,3 +6326,94 @@ body.fc-picking .card { cursor: crosshair !important; }
 .idea-rev-body h2 { font-family: Fraunces, serif; font-size: 16px; margin: 14px 0 4px; }
 .idea-rev-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 10px 18px 16px; border-top: 1px solid var(--border); }
 .idea-rev-actions:empty { display: none; }
+
+/* ---------- Botón de donación destacado en el topbar ---------- */
+.donate-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: none; border-radius: 999px; cursor: pointer;
+  padding: 7px 15px; font: inherit; font-size: 13px; font-weight: 800; color: #fff;
+  background: linear-gradient(120deg, #ff4d8d, #b0329b);
+  box-shadow: 0 4px 14px -4px rgba(176, 50, 155, 0.6);
+  flex: none;
+}
+.donate-btn svg { width: 15px; height: 15px; fill: currentColor; stroke: none; animation: heart-beat 1.7s ease-in-out infinite; }
+.donate-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.donate-btn:active { transform: translateY(0); }
+@keyframes heart-beat { 0%, 70%, 100% { transform: scale(1); } 35% { transform: scale(1.22); } }
+@media (max-width: 900px) { .donate-btn span, .donate-btn { font-size: 0; gap: 0; padding: 8px; } .donate-btn svg { font-size: 15px; } }
+
+/* ---------- Panel de control de funcionalidades ---------- */
+#featCtlOverlay { justify-content: center; align-items: center; background: rgba(30, 26, 22, 0.45); backdrop-filter: blur(2px); }
+.feat-panel { width: min(460px, 94vw); max-height: min(84vh, 640px); border-radius: 16px; border: 1px solid var(--border); animation: pop 0.16s ease-out; }
+.feat-intro { margin: 0; padding: 10px 18px 4px; color: var(--muted); font-size: 12.5px; }
+.feat-body { flex: 1; overflow-y: auto; padding: 8px 18px; }
+.feat-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.feat-name { font-size: 13.5px; font-weight: 600; }
+.feat-toggle input { width: 18px; height: 18px; accent-color: var(--sage); cursor: pointer; }
+.feat-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 12px 18px 16px; border-top: 1px solid var(--border); }
+
+/* ---------- Clasificación de notas por tono ---------- */
+/* Tintes opacos (no color-mix) para que el contraste automático del texto los lea bien. */
+.card.rank-relevant { background: #e9f0e1; border-color: #b9cbab; box-shadow: var(--shadow), inset 3px 0 0 #6f9257; }
+.card.rank-idea { background: #f7ead2; border-color: var(--idea-border); box-shadow: var(--shadow), inset 3px 0 0 var(--ocre); }
+.card.rank-important { background: #fbe6d1; border-color: #e6a765; box-shadow: var(--shadow), inset 3px 0 0 #e0873c; }
+.card.rank-crucial { background: #fbdfda; border-color: #e0a49c; box-shadow: var(--shadow), inset 3px 0 0 var(--danger); }
+.card-rank-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: .03em; color: #fff; }
+.card-rank-badge svg { width: 11px; height: 11px; }
+.card-rank-badge.rank-idea { background: var(--ocre); }
+.card-rank-badge.rank-important { background: #e0873c; }
+.card-rank-badge.rank-crucial { background: var(--danger); }
+.cm-ranks { display: flex; flex-wrap: wrap; gap: 6px; }
+.rank-chip { border-left-width: 3px !important; border-left-style: solid !important; }
+.rank-chip-relevant { border-left-color: #6f9257 !important; }
+.rank-chip-idea { border-left-color: var(--ocre) !important; }
+.rank-chip-important { border-left-color: #e0873c !important; }
+.rank-chip-crucial { border-left-color: var(--danger) !important; }
+.rank-chip.on { outline: 2px solid var(--fg); outline-offset: 1px; }
+
+/* ---------- Botón «analizar con IA» (robot) + panel de resultado bajo la nota ---------- */
+.analyze-emoji { font-size: 13px; line-height: 1; }
+.card-analyze-btn.busy { opacity: 1 !important; pointer-events: none; }
+.card-analyze-btn.busy .analyze-emoji { display: inline-block; animation: robotPulse .9s ease-in-out infinite; }
+@keyframes robotPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+@keyframes analyzeSpin { to { transform: rotate(360deg); } }
+.note-analysis-robot { font-size: 13px; line-height: 1; }
+.note-analysis-loading { display: flex; align-items: center; }
+.note-analysis-loading.err { color: var(--danger); font-style: normal; }
+.note-spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--sage); border-radius: 50%; display: inline-block; flex: none; margin-right: 8px; animation: analyzeSpin .8s linear infinite; }
+.note-analysis { margin: 6px 10px 10px; border: 1px solid var(--border); border-radius: 10px; background: #fbf8f1; color: #2a2620; overflow: hidden; }
+.note-analysis-body { color: #2a2620; }
+.note-analysis-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border-bottom: 1px solid var(--border); }
+.note-analysis-head svg { width: 13px; height: 13px; }
+.note-analysis-x { border: none; background: none; color: var(--muted); cursor: pointer; padding: 0; display: inline-flex; }
+.note-analysis-x:hover { color: var(--fg); }
+.note-analysis-x svg { width: 13px; height: 13px; }
+.note-analysis-body { padding: 8px 12px; font-size: 12.5px; line-height: 1.5; max-height: 260px; overflow-y: auto; }
+.note-analysis-body h2, .note-analysis-body h3 { font-family: Fraunces, serif; font-size: 14px; margin: 8px 0 3px; }
+.note-analysis-loading { color: var(--muted); font-style: italic; }
+.note-analysis.anim-in { animation: analysisIn .34s cubic-bezier(.22,1,.36,1); }
+.note-analysis.anim-out { animation: analysisOut .18s ease-in forwards; }
+@keyframes analysisIn { from { opacity: 0; transform: translateY(-8px) scaleY(.9); } to { opacity: 1; transform: none; } }
+@keyframes analysisOut { to { opacity: 0; transform: translateY(-6px); } }
+
+/* ---------- Botón de apoyo combinado (café / corazón) ---------- */
+.support-btn { display: inline-flex; align-items: stretch; border-radius: 999px; overflow: hidden; box-shadow: 0 4px 14px -4px rgba(58,51,44,.35); flex: none; }
+.support-half { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; padding: 7px 13px; font: inherit; font-size: 12.5px; font-weight: 800; color: #fff; transition: filter .15s, transform .12s; }
+.support-coffee { background: linear-gradient(120deg, #cf9146, #a5691f); }
+.support-heart { background: linear-gradient(120deg, #ff4d8d, #b0329b); }
+.support-half svg { width: 17px; height: 17px; flex: none; }
+.support-heart svg { fill: currentColor; stroke: none; }
+.support-half .support-lbl { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0; transition: max-width .22s ease, opacity .2s ease; }
+.support-half:hover { filter: brightness(1.09); }
+.support-half:hover .support-lbl { max-width: 90px; opacity: 1; }
+.support-coffee:hover svg { animation: heart-beat 1.4s ease-in-out infinite; }
+.support-heart:hover svg { animation: heart-beat 1.2s ease-in-out infinite; }
+
+/* ---------- Modal de apoyo: pestañas Yape / Stripe ---------- */
+.donate-tabs { display: flex; gap: 8px; justify-content: center; margin: 4px 0 16px; }
+.donate-tab { border: 1px solid rgba(255,255,255,.4); background: transparent; color: rgba(255,255,255,.85); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.donate-tab.on { background: #fff; color: #4e1560; border-color: #fff; }
+.donate-pane { display: flex; flex-direction: column; align-items: center; }
+.donate-stripe-btn { display: inline-flex; align-items: center; gap: 8px; background: #635bff; color: #fff; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 22px; border-radius: 12px; margin: 6px 0 12px; }
+.donate-stripe-btn svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
+.donate-stripe-btn:hover { filter: brightness(1.08); }

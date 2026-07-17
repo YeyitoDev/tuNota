@@ -174,7 +174,7 @@ function templateBlockContent(spec) {
     return { text: spec.text || '', style: st };
   }
   if (spec.type === 'mermaid') return { text: spec.text || '' };
-  if (spec.type === 'idea') return { text: spec.text || '' };
+  if (spec.type === 'idea') return { text: spec.text || '', rank: 'idea' };
   if (spec.type === 'shape') return { text: spec.text || '', shape: spec.shape || 'rect' };
   return { text: spec.text || '', images: [] };
 }
@@ -200,7 +200,7 @@ function insertTemplate(tpl, aiDesc) {
     var b = {
       id: uid(),
       noteId: ui.currentNoteId,
-      type: spec.type,
+      type: spec.type === 'idea' ? 'text' : spec.type,   // 'idea' pasa a nota clasificada como idea
       x: Math.round(o.x + spec.x),
       y: Math.round(o.y + spec.y),
       width: spec.w,

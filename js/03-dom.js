@@ -35,6 +35,7 @@ var S = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width
 var I = {
   chevron: S + '<polyline points="9 18 15 12 9 6"/></svg>',
   heart: S + '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+  coffee: S + '<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>',
   chevronDown: S + '<polyline points="6 9 12 15 18 9"/></svg>',
   plus: S + '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
   minus: S + '<line x1="5" y1="12" x2="19" y2="12"/></svg>',
@@ -133,9 +134,28 @@ var TYPE_META = {
   draw: { label: 'Dibujo', icon: 'pencil', cls: 'draw' },
 };
 function typeMeta(t) { return TYPE_META[t] || TYPE_META.text; }
+
+// ---------- Clasificación de notas por tono (importancia) ----------
+// Toda nota nace como "relevant" (verde). El usuario o la IA la reclasifican; el color
+// de la tarjeta cambia según el tono. Sustituye al antiguo tipo de bloque "idea".
+var NOTE_RANKS = [
+  { key: 'relevant', label: 'Relevante', icon: 'leaf', hint: 'Información relevante, no tan importante (por defecto)' },
+  { key: 'idea', label: 'Idea', icon: 'bulb', hint: 'Una idea a desarrollar' },
+  { key: 'important', label: 'Importante', icon: 'star', hint: 'Merece atención' },
+  { key: 'crucial', label: 'Crucial', icon: 'bell', hint: 'Prioridad máxima' },
+];
+function rankMeta(k) { for (var i = 0; i < NOTE_RANKS.length; i++) if (NOTE_RANKS[i].key === k) return NOTE_RANKS[i]; return NOTE_RANKS[0]; }
+// El tipo legado 'idea' se comporta como una nota clasificada como idea.
+function noteRank(b) {
+  if (!b) return 'relevant';
+  var r = b.content && b.content.rank;
+  if (!r && b.type === 'idea') r = 'idea';
+  return r || 'relevant';
+}
+
 // Atajos de una tecla para crear bloques bajo el cursor
 var QUICK_KEYS = {
-  t: 'text', f: 'freetext', i: 'idea', b: 'table', c: 'code',
+  t: 'text', f: 'freetext', b: 'table', c: 'code',
   p: 'python', j: 'json', u: 'curl', m: 'markdown', d: 'mermaid', x: 'image', k: 'draw',
 };
 
@@ -158,6 +178,26 @@ function setCardColor(b, key) {
   logChange('Color de tarjeta', key ? CARD_COLOR_LABEL[key] : 'Sin color');
   save();
   applyCardColor(b, document.querySelector('.card[data-id="' + b.id + '"]'));
+}
+// Clasifica una nota (relevant/idea/important/crucial); cambia el color de la tarjeta al instante.
+function setNoteRank(b, key) {
+  b.content = b.content || {};
+  b.content.rank = key || 'relevant';
+  var el = document.querySelector('.card[data-id="' + b.id + '"]');
+  if (el) {
+    NOTE_RANKS.forEach(function (r) { el.classList.remove('rank-' + r.key); });
+    el.classList.add('rank-' + b.content.rank);
+    var badge = el.querySelector('.card-rank-badge');
+    if (badge) badge.remove();
+    if (b.content.rank !== 'relevant') {
+      var rk = rankMeta(b.content.rank);
+      var head = el.querySelector('.card-head .card-spacer');
+      if (head) head.insertAdjacentElement('afterend', h('span', { class: 'card-rank-badge rank-' + b.content.rank, title: 'Clasificación: ' + rk.label }, icon(rk.icon), rk.label));
+    }
+  }
+  touchNote(b.noteId);
+  logChange('Nota clasificada', rankMeta(b.content.rank).label);
+  save();
 }
 function applyCardColor(b, el) {
   if (!el) return;

@@ -936,6 +936,7 @@ function aiBlockText(b) {
   return c.text || '';
 }
 function aiCanActOn(b) {
+  if (typeof featureOn === 'function' && !featureOn('ai')) return false;
   if (['text', 'idea', 'freetext', 'markdown', 'table'].indexOf(b.type) < 0) return false;
   return !!aiBlockText(b).trim();
 }
@@ -1323,97 +1324,210 @@ function aiStructureIdea(b) {
   });
 }
 
-// ---------- Revisar idea: validación con búsqueda web + la IA elegida ----------
-// Desde el botón «Revisar idea» del bloque idea: busca evidencia en internet (si
-// la búsqueda del servidor está habilitada) y pide a la IA un veredicto honesto.
+// ---------- Revisar idea: consulta a un prompt especializado tras analizar el contexto ----------
+// Se dispara desde el botón «Revisar idea» del topbar (la lupa). Toma el contexto —el
+// bloque de idea/texto seleccionado o, si no hay, el contenido de la nota actual—, lo
+// deja editable y lo consulta a un analista especializado (con evidencia web si está
+// disponible). El resultado se puede insertar en el lienzo.
 function closeIdeaReview() { var o = document.getElementById('ideaRevOverlay'); if (o) o.remove(); }
-function openIdeaReview(b) {
-  var idea = ((b.content && b.content.text) || '').trim();
-  if (!idea) { toast('Escribe primero tu idea en el bloque.', 'warn'); return; }
+// Decide qué contexto revisar: bloque seleccionado (idea/texto/markdown) o la nota actual.
+function ideaReviewContext() {
+  var blk = null;
+  var ids = Object.keys(selectedIds || {}).filter(function (id) { return getBlockById(id); });
+  if (ids.length === 1) {
+    var one = getBlockById(ids[0]);
+    if (one && ['idea', 'text', 'freetext', 'markdown'].indexOf(one.type) >= 0) blk = one;
+  }
+  if (!blk && ui.currentNoteId) {
+    var ideas = blocksOf(ui.currentNoteId).filter(function (b) { return b.type === 'idea'; });
+    if (ideas.length === 1) blk = ideas[0];
+  }
+  var text = blk ? ((blk.content && blk.content.text) || '') : currentNoteText();
+  return { block: blk, text: (text || '').trim(), fromNote: !blk };
+}
+// Posición en el mundo (coordenadas del lienzo) del centro de la vista actual.
+function centerWorldPos() {
+  var wrap = document.getElementById('canvas');
+  if (!wrap || typeof toContent !== 'function') return { x: 120, y: 120 };
+  var r = wrap.getBoundingClientRect();
+  var p = toContent(r.left + r.width / 2, r.top + r.height / 2);
+  return { x: Math.max(0, p.x - 200), y: Math.max(0, p.y - 40) };
+}
+function openIdeaReview(sourceBlock, prefillText) {
   if (!aiReady()) { toast('Configura tu IA (proveedor, clave y modelo) para revisar la idea.', 'warn'); openAI(); return; }
+  var ctx = (sourceBlock === undefined && prefillText === undefined)
+    ? ideaReviewContext()
+    : { block: sourceBlock || null, text: (prefillText != null ? prefillText : (sourceBlock && sourceBlock.content && sourceBlock.content.text) || ''), fromNote: !sourceBlock };
+  var srcBlock = ctx.block;
   closeIdeaReview();
   var overlay = h('div', { class: 'overlay', id: 'ideaRevOverlay', onclick: function (e) { if (e.target === overlay) closeIdeaReview(); } });
-  var status = h('div', { class: 'idea-rev-status' }, searchReady() ? 'Buscando evidencia en internet…' : 'Analizando con tu IA (sin búsqueda web: entra el token del servidor para activarla)…');
+  var input = h('textarea', { class: 'idea-rev-input', placeholder: 'Escribe o pega la idea a revisar… (se analiza el contexto y se consulta a un prompt especializado)' });
+  input.value = ctx.text || '';
+  input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run(); } });
+  var runBtn = h('button', { class: 'tour-btn idea-rev-go', onclick: function () { run(); } }, icon('search'), 'Revisar idea');
+  var status = h('div', { class: 'idea-rev-status' }); status.style.display = 'none';
   var body = h('div', { class: 'idea-rev-body' });
   var actions = h('div', { class: 'idea-rev-actions' });
   var panel = h('div', { class: 'log-panel idea-rev-panel' },
     h('div', { class: 'log-head' },
-      h('div', { class: 'log-title' }, icon('bulb'), 'Revisar idea'),
+      h('div', { class: 'log-title' }, icon('search'), 'Revisar idea'),
       h('button', { class: 'icon-btn', title: 'Cerrar', onclick: closeIdeaReview }, icon('x'))),
-    h('blockquote', { class: 'idea-rev-quote' }, idea),
+    h('div', { class: 'idea-rev-src' }, srcBlock ? 'Contexto: el bloque seleccionado.' : 'Contexto: la nota actual. Edita la idea si quieres.'),
+    input,
+    h('div', { class: 'idea-rev-run' }, runBtn),
     status, body, actions);
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
+  input.focus();
 
-  var sources = [];
-  var pre = searchReady()
-    ? webSearch(idea, { max_results: 5, include_answer: true }).then(function (d) {
-        sources = (d && d.results) || [];
-        return (d && d.answer) || '';
-      }).catch(function () { return ''; }) // sin red/sin resultados: seguimos solo con la IA
-    : Promise.resolve('');
-  pre.then(function (webAnswer) {
-    status.textContent = 'Analizando la idea con tu IA…';
-    var ctx = sources.length
-      ? '\n\nEvidencia de la web:\n' + sources.map(function (s, i) {
-          return '[' + (i + 1) + '] ' + (s.title || '') + ' — ' + String(s.content || '').slice(0, 300) + ' (' + s.url + ')';
-        }).join('\n') + (webAnswer ? '\nResumen del buscador: ' + webAnswer : '')
-      : '';
-    return callAI([
-      { role: 'system', content: 'Eres un analista pragmático y honesto que valida ideas en español, sin adular. Responde SOLO en Markdown con exactamente estas secciones: "## Veredicto" (nota 1-10 y una frase directa), "## Fortalezas" (3 viñetas), "## Riesgos" (3 viñetas), "## Competencia o alternativas" (qué ya existe), "## Cómo validarla barato" (3 pasos concretos que se puedan hacer esta semana). ' + (ctx ? 'Apóyate en la evidencia de la web y cítala como [n].' : 'No hay búsqueda web disponible: razona con tu conocimiento y dilo en el veredicto.') },
-      { role: 'user', content: 'Idea a validar: ' + idea + ctx },
-    ]);
-  }).then(function (res) {
-    status.remove();
-    var md = String(res || '').trim();
-    if (!md) { body.textContent = 'La IA devolvió una respuesta vacía.'; return; }
-    if (sources.length) {
-      md += '\n\n## Fuentes\n' + sources.map(function (s, i) {
-        return (i + 1) + '. [' + (s.title || s.url) + '](' + s.url + ')';
-      }).join('\n');
-    }
-    body.innerHTML = renderMarkdown(md);
-    actions.appendChild(h('button', { class: 'tour-btn', onclick: function () { insertIdeaReview(b, md); } }, 'Insertar en el lienzo'));
-    actions.appendChild(h('button', { class: 'tour-btn ghost', title: 'Crea un bloque Imagen IA enlazado, listo para buscar imágenes de la idea', onclick: function () { insertIdeaImages(b, idea); } }, 'Buscar imágenes'));
-  }).catch(function (e) {
-    status.remove();
-    body.textContent = 'No se pudo revisar la idea: ' + ((e && e.message) || e);
-  });
+  function run() {
+    var idea = input.value.trim();
+    if (!idea) { toast('Escribe la idea a revisar.', 'warn'); input.focus(); return; }
+    body.innerHTML = ''; actions.innerHTML = '';
+    runBtn.disabled = true;
+    status.style.display = '';
+    status.textContent = searchReady() ? 'Buscando evidencia en internet…' : 'Analizando con tu IA…';
+    var sources = [];
+    var pre = searchReady()
+      ? webSearch(idea, { max_results: 5, include_answer: true }).then(function (d) {
+          sources = (d && d.results) || [];
+          return (d && d.answer) || '';
+        }).catch(function () { return ''; })
+      : Promise.resolve('');
+    pre.then(function (webAnswer) {
+      status.textContent = 'Analizando la idea con tu IA…';
+      var extra = sources.length
+        ? '\n\nEvidencia de la web:\n' + sources.map(function (s, i) {
+            return '[' + (i + 1) + '] ' + (s.title || '') + ' — ' + String(s.content || '').slice(0, 300) + ' (' + s.url + ')';
+          }).join('\n') + (webAnswer ? '\nResumen del buscador: ' + webAnswer : '')
+        : '';
+      return callAI([
+        { role: 'system', content: 'Eres un analista pragmático y honesto que valida ideas en español, sin adular. Primero analiza el contexto que te dan; luego responde SOLO en Markdown con exactamente estas secciones: "## Veredicto" (nota 1-10 y una frase directa), "## Fortalezas" (3 viñetas), "## Riesgos" (3 viñetas), "## Competencia o alternativas" (qué ya existe), "## Cómo validarla barato" (3 pasos concretos para esta semana). ' + (extra ? 'Apóyate en la evidencia de la web y cítala como [n].' : 'No hay búsqueda web disponible: razona con tu conocimiento y dilo en el veredicto.') },
+        { role: 'user', content: 'Idea/contexto a validar:\n' + idea + extra },
+      ]);
+    }).then(function (res) {
+      runBtn.disabled = false; status.style.display = 'none';
+      var md = String(res || '').trim();
+      if (!md) { body.textContent = 'La IA devolvió una respuesta vacía.'; return; }
+      if (sources.length) {
+        md += '\n\n## Fuentes\n' + sources.map(function (s, i) {
+          return (i + 1) + '. [' + (s.title || s.url) + '](' + s.url + ')';
+        }).join('\n');
+      }
+      body.innerHTML = renderMarkdown(md);
+      actions.innerHTML = '';
+      actions.appendChild(h('button', { class: 'tour-btn', onclick: function () { insertIdeaReview(srcBlock, md); } }, 'Insertar en el lienzo'));
+      actions.appendChild(h('button', { class: 'tour-btn ghost', title: 'Crea un bloque Imagen IA, listo para buscar imágenes de la idea', onclick: function () { insertIdeaImages(srcBlock, idea); } }, 'Buscar imágenes'));
+    }).catch(function (e) {
+      runBtn.disabled = false; status.style.display = 'none';
+      body.textContent = 'No se pudo revisar la idea: ' + ((e && e.message) || e);
+    });
+  }
 }
-// Inserta el informe como bloque Markdown enlazado a la idea.
-function insertIdeaReview(b, md) {
+// Inserta el informe como bloque Markdown; si viene de un bloque, lo enlaza.
+function insertIdeaReview(sourceBlock, md) {
   var t = now();
+  var noteId = sourceBlock ? sourceBlock.noteId : ui.currentNoteId;
+  if (!noteId) { toast('Abre una nota para insertar la revisión.', 'warn'); return; }
+  var pos = sourceBlock ? { x: sourceBlock.x + (sourceBlock.width || 260) + 56, y: sourceBlock.y } : centerWorldPos();
   var mb = {
-    id: uid(), noteId: b.noteId, type: 'markdown',
-    x: b.x + (b.width || 260) + 56, y: b.y, width: 430, height: 380,
+    id: uid(), noteId: noteId, type: 'markdown',
+    x: pos.x, y: pos.y, width: 430, height: 380,
     content: { text: '# Revisión de la idea\n\n' + md }, createdAt: t, updatedAt: t,
   };
   data.blocks.push(mb);
-  data.links.push({ id: uid(), noteId: b.noteId, a: b.id, b: mb.id, label: 'validación', createdAt: t });
-  touchNote(b.noteId);
+  if (sourceBlock) data.links.push({ id: uid(), noteId: sourceBlock.noteId, a: sourceBlock.id, b: mb.id, label: 'validación', createdAt: t });
+  touchNote(noteId);
   logChange('Idea revisada con IA', snippet(md));
   save();
   renderCanvas();
   closeIdeaReview();
   cardEnterAnim(cardEl(mb.id));
   focusBlock(mb.id);
-  toast('Revisión insertada junto a la idea.', 'ok');
+  toast('Revisión insertada en el lienzo.', 'ok');
 }
-// Crea un bloque "Imagen IA" enlazado, precargado con la idea como búsqueda.
-function insertIdeaImages(b, idea) {
+// Crea un bloque "Imagen IA" precargado con la idea; si viene de un bloque, lo enlaza.
+function insertIdeaImages(sourceBlock, idea) {
   var t = now();
+  var noteId = sourceBlock ? sourceBlock.noteId : ui.currentNoteId;
+  if (!noteId) { toast('Abre una nota para crear el bloque de imágenes.', 'warn'); return; }
+  var pos = sourceBlock ? { x: sourceBlock.x, y: sourceBlock.y + (sourceBlock.height || 130) + 56 } : centerWorldPos();
   var ib = {
-    id: uid(), noteId: b.noteId, type: 'aiimage',
-    x: b.x, y: b.y + (b.height || 130) + 56, width: 320, height: 260,
+    id: uid(), noteId: noteId, type: 'aiimage',
+    x: pos.x, y: pos.y, width: 320, height: 260,
     content: { prompt: idea.slice(0, 120), mode: 'search', images: [] }, createdAt: t, updatedAt: t,
   };
   data.blocks.push(ib);
-  data.links.push({ id: uid(), noteId: b.noteId, a: b.id, b: ib.id, createdAt: t });
-  touchNote(b.noteId);
+  if (sourceBlock) data.links.push({ id: uid(), noteId: sourceBlock.noteId, a: sourceBlock.id, b: ib.id, createdAt: t });
+  touchNote(noteId);
   save();
   renderCanvas();
   closeIdeaReview();
   cardEnterAnim(cardEl(ib.id));
   focusBlock(ib.id);
   toast('Bloque de imágenes creado: pulsa Buscar.', 'ok');
+}
+
+// ---------- Clasificar + analizar una nota con IA (salida bajo la nota, tipo cURL) ----------
+// Construye el panel de análisis que se muestra debajo de la nota (solo si ya hay análisis).
+// Cabecera del panel de análisis (robot + título + cerrar).
+function noteAnalysisHead(b) {
+  return h('div', { class: 'note-analysis-head' },
+    h('span', { class: 'note-analysis-robot' }, '🤖'), h('span', { class: 'note-analysis-title' }, 'Análisis IA'),
+    h('span', { class: 'card-spacer' }),
+    h('button', { class: 'note-analysis-x', title: 'Quitar análisis', onclick: function (e) {
+      e.stopPropagation(); b.content.analysis = ''; touchNote(b.noteId); save();
+      var p = cardEl(b.id) && cardEl(b.id).querySelector('.note-analysis'); if (p) { p.classList.add('anim-out'); setTimeout(function () { renderCanvas(); }, 180); }
+    } }, icon('x')));
+}
+function buildNoteAnalysis(b) {
+  var just = b.content && b.content._justAnalyzed;
+  if (just) delete b.content._justAnalyzed;
+  var wrap = h('div', { class: 'note-analysis' + (just ? ' anim-in' : '') });
+  wrap.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  wrap.addEventListener('wheel', function (e) { e.stopPropagation(); });
+  var body = h('div', { class: 'note-analysis-body' });
+  body.innerHTML = renderMarkdown(b.content.analysis || '');
+  wrap.appendChild(noteAnalysisHead(b));
+  wrap.appendChild(body);
+  return wrap;
+}
+// Ejecuta el análisis: muestra al instante un recuadro adyacente «pensando» (círculo de carga)
+// y, cuando la IA responde, lo rellena con el análisis y clasifica la nota (color).
+function analyzeNote(b, el, btn) {
+  if (!aiReady()) { toast('Configura tu IA para clasificar y analizar la nota.', 'warn'); openAI(); return; }
+  var text = ((b.content && b.content.text) || '').trim();
+  if (!text) { toast('Escribe algo en la nota primero.', 'warn'); return; }
+  b.content = b.content || {};
+  if (!el) el = cardEl(b.id);
+  // Recuadro de feedback inmediato (estilo bloque cURL): «Buscando información…» + círculo.
+  var prev = el && el.querySelector('.note-analysis'); if (prev) prev.remove();
+  var loadBody = h('div', { class: 'note-analysis-body' },
+    h('div', { class: 'note-analysis-loading' }, h('span', { class: 'note-spinner' }), 'Buscando información…'));
+  var panel = h('div', { class: 'note-analysis anim-in' }, noteAnalysisHead(b), loadBody);
+  panel.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  if (el) el.appendChild(panel);
+  if (btn) btn.classList.add('busy');
+  callAI([
+    { role: 'system', content: 'Clasificas y analizas una nota en español. Devuelve SOLO un objeto JSON válido con dos claves: "clasificacion" (exactamente uno de: relevant, idea, important, crucial — según su importancia real) y "analisis" (Markdown breve: una frase de resumen, 2-3 puntos clave y, si aplica, un siguiente paso). Sé honesto, sin adular.' },
+    { role: 'user', content: 'Nota:\n' + text },
+  ]).then(function (res) {
+    if (btn) btn.classList.remove('busy');
+    var parsed = aiParseJSON(res) || {};
+    var rank = ['relevant', 'idea', 'important', 'crucial'].indexOf(parsed.clasificacion) >= 0 ? parsed.clasificacion : noteRank(b);
+    var md = (parsed.analisis || String(res || '').trim()) || 'Sin análisis.';
+    b.content.analysis = md;
+    b.content._justAnalyzed = true;       // para animar la aparición del panel al re-renderizar
+    b.content.rank = rank;                 // clasificación → color
+    touchNote(b.noteId);
+    logChange('Nota analizada con IA', rankMeta(rank).label);
+    save();
+    renderCanvas();
+    var card = cardEl(b.id); if (card) { var p = card.querySelector('.note-analysis'); if (p) p.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+    toast('Nota clasificada como «' + rankMeta(rank).label + '».', 'ok');
+  }).catch(function (e) {
+    if (btn) btn.classList.remove('busy');
+    loadBody.innerHTML = '';
+    loadBody.appendChild(h('div', { class: 'note-analysis-loading err' }, 'No se pudo analizar: ' + ((e && e.message) || e)));
+  });
 }

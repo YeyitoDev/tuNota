@@ -46,6 +46,39 @@ function initState() {
   // Sincronización con Apple (CalDAV) y Google Drive.
   if (!ui.apple || typeof ui.apple !== 'object') ui.apple = { id: '', password: '', autoSync: false };
   if (!ui.drive || typeof ui.drive !== 'object') ui.drive = { clientId: '', autoSync: false, fileId: '' };
+  // Control de funcionalidades (usuario maestro): overrides locales sobre los valores por defecto.
+  if (!ui.features || typeof ui.features !== 'object') ui.features = {};
+  if (typeof ui.master !== 'boolean') ui.master = false;
+}
+
+// ---------- Control de funcionalidades (feature flags + usuario maestro) ----------
+// Permite ocultar funciones aún en pulido sin tocar el código. El "usuario maestro"
+// (quien conoce el código maestro o tiene el token del servidor) puede alternarlas;
+// para el público rige el valor por defecto de cada una.
+// CAMBIA este código antes de publicar (queda visible en el JS del cliente; solo
+// controla qué se MUESTRA en ese navegador, no da acceso a datos ajenos).
+var MASTER_CODE = 'tunota-maestro-2026';
+var FEATURE_DEFS = [
+  { key: 'ai', label: 'Asistente de IA (con clave propia)', def: true },
+  { key: 'ideaReview', label: 'Revisar idea (validación con IA)', def: false },
+  { key: 'diagrams', label: 'Formas y diagramas', def: true },
+  { key: 'graph', label: 'Mapa de conocimiento', def: true },
+  { key: 'kanban', label: 'Kanban de ideas', def: true },
+  { key: 'templates', label: 'Plantillas de canvas', def: true },
+  { key: 'sync', label: 'Sincronización (Apple · Drive)', def: true },
+  { key: 'telegram', label: 'Enviar por Telegram', def: true },
+  { key: 'tablet', label: 'Modo tablet (lápiz)', def: true },
+  { key: 'donate', label: 'Botón de donación (Yape)', def: true },
+];
+function featureDefault(key) {
+  for (var i = 0; i < FEATURE_DEFS.length; i++) if (FEATURE_DEFS[i].key === key) return FEATURE_DEFS[i].def;
+  return true;
+}
+function isMaster() { return !!(ui && (ui.master || ui.token)); }
+function featureOn(key) {
+  // El maestro puede alternar; para todos rige su override local si existe.
+  if (ui && ui.features && Object.prototype.hasOwnProperty.call(ui.features, key)) return !!ui.features[key];
+  return featureDefault(key);
 }
 
 // ---------- API del backend: token Bearer + descubrimiento de capacidades ----------

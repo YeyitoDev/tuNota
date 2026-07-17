@@ -1039,7 +1039,6 @@ function openRadial(cx, cy) {
   var opts = [
     { type: 'text', label: 'Nota', icon: 'grip' },
     { type: 'freetext', label: 'Texto', icon: 'type' },
-    { type: 'idea', label: 'Idea', icon: 'bulb' },
     { type: 'table', label: 'Tabla', icon: 'table' },
     { type: 'code', label: 'C\u00f3digo', icon: 'code' },
     { type: 'python', label: 'Python', icon: 'python' },

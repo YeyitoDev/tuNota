@@ -1,0 +1,25 @@
+# Entorno de pruebas: corre los tests unitarios en cada push que NO sea a main y en
+# los PR hacia main. No despliega nada (test es local).
+name: Pruebas (test)
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # El package-lock.json se generó en macOS; en Linux npm omite el binario nativo de
+      # rollup (@rollup/rollup-linux-x64-gnu) por el bug de dependencias opcionales de npm.
+      # Regenerarlo en el runner instala el binario correcto para esta plataforma.
+      - run: rm -f package-lock.json
+      - run: npm install --no-audit --no-fund
+      - run: npm test
