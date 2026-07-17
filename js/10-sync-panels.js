@@ -58,7 +58,10 @@ var openWins = {};
 var poppedIds = {};
 var winWatch = null;
 function getBlockById(id) { return data.blocks.find(function (x) { return x.id === id; }); }
-function cardEl(id) { return canvasContentEl ? canvasContentEl.querySelector('.card[data-id="' + id + '"]') : null; }
+function cardEl(id) {
+  if (typeof _measureCache !== 'undefined' && _measureCache && _measureCache[id]) return _measureCache[id].el;
+  return canvasContentEl ? canvasContentEl.querySelector('.card[data-id="' + id + '"]') : null;
+}
 
 function popOut(id) {
   var ex = openWins[id];

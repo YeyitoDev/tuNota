@@ -6,6 +6,30 @@
 var SNAP_T = 6; // tolerancia de enganche en coordenadas de contenido
 // Calcula el desplazamiento de enganche del bloque principal contra los demás
 // (bordes izq/centro/der y arriba/centro/abajo) y, si no hay, a la rejilla de 20px.
+// ---------- Caché de medidas para arrastre/selección fluidos ----------
+// Durante un arrastre o un marco de selección, el tamaño de las tarjetas NO cambia.
+// Medir el DOM (offsetWidth/Height) una sola vez al empezar evita reflujos sincrónicos
+// repetidos por fotograma (la causa principal de los tirones). Mientras la caché está
+// activa, cardEl() y blockRect() la usan en lugar de tocar el layout.
+var _measureCache = null; // { id: { el, w, h } } o null cuando no hay interacción activa
+function buildMeasureCache() {
+  var c = {};
+  if (canvasContentEl) Array.prototype.forEach.call(canvasContentEl.querySelectorAll('.card'), function (el) {
+    var id = el.getAttribute('data-id');
+    if (id) c[id] = { el: el, w: el.offsetWidth, h: el.offsetHeight };
+  });
+  _measureCache = c;
+  return c;
+}
+function clearMeasureCache() { _measureCache = null; }
+// Rectángulo {x,y,w,h} de un bloque; usa la caché si está activa (sin forzar layout).
+function blockRect(b) {
+  var c = _measureCache && _measureCache[b.id];
+  if (c) return { x: b.x, y: b.y, w: c.w, h: c.h };
+  var el = cardEl(b.id);
+  return { x: b.x, y: b.y, w: el ? el.offsetWidth : (b.width || 200), h: el ? el.offsetHeight : (b.height || 120) };
+}
+
 function snapDrag(prim, others) {
   var res = { dx: 0, dy: 0, v: null, h: null };
   var pxs = [prim.x, prim.x + prim.w / 2, prim.x + prim.w];
@@ -142,6 +166,8 @@ function attachDragHandler(head, el, b) {
     var starts = {};
     groupIds.forEach(function (id) { var blk = getBlockById(id); starts[id] = { x: blk.x, y: blk.y }; });
     var sx = e.clientX, sy = e.clientY, moved = false, dropEl = null;
+    // Se miden una sola vez, al primer movimiento real (los tamaños no cambian al arrastrar).
+    var primC = null, othersStatic = null, rafId = 0, lastEv = null;
     var findTarget = function (cx, cy) {
       el.style.pointerEvents = 'none';
       var under = document.elementFromPoint(cx, cy);
@@ -149,18 +175,21 @@ function attachDragHandler(head, el, b) {
       var c = under && under.closest ? under.closest('.card') : null;
       return c && c !== el ? c : null;
     };
-    var move = function (ev) {
-      moved = true;
+    var doMove = function (ev) {
+      if (!moved) {
+        moved = true;
+        buildMeasureCache();
+        var pc = _measureCache[b.id];
+        primC = pc ? { w: pc.w, h: pc.h } : { w: b.width || 200, h: b.height || 120 };
+        // Los bloques NO seleccionados no se mueven: sus rectángulos son fijos durante el arrastre.
+        othersStatic = blocksOf(ui.currentNoteId).filter(function (o) { return !selectedIds[o.id] && o.id !== b.id; }).map(blockRect);
+      }
       var z = getView().zoom || 1;
       var ddx = (ev.clientX - sx) / z, ddy = (ev.clientY - sy) / z;
       // Guías inteligentes: engancha el bloque principal a los demás (y a la rejilla)
       // y aplica el mismo desplazamiento a todo el grupo.
-      var el0 = cardEl(b.id);
-      var pw = el0 ? el0.offsetWidth : (b.width || 200), ph = el0 ? el0.offsetHeight : (b.height || 120);
-      var prim = { x: Math.max(0, starts[b.id].x + ddx), y: Math.max(0, starts[b.id].y + ddy), w: pw, h: ph };
-      var others = blocksOf(ui.currentNoteId).filter(function (o) { return !selectedIds[o.id] && o.id !== b.id; })
-        .map(function (o) { var oe = cardEl(o.id); return { x: o.x, y: o.y, w: oe ? oe.offsetWidth : (o.width || 200), h: oe ? oe.offsetHeight : (o.height || 120) }; });
-      var snap = snapDrag(prim, others);
+      var prim = { x: Math.max(0, starts[b.id].x + ddx), y: Math.max(0, starts[b.id].y + ddy), w: primC.w, h: primC.h };
+      var snap = snapDrag(prim, othersStatic);
       ddx += snap.dx; ddy += snap.dy;
       drawSnapGuides(snap);
       groupIds.forEach(function (id) {
@@ -180,9 +209,13 @@ function attachDragHandler(head, el, b) {
         }
       }
     };
+    // Throttle: como máximo un recálculo por fotograma (~60fps), aunque el ratón dispare más.
+    var move = function (ev) { lastEv = ev; if (rafId) return; rafId = requestAnimationFrame(function () { rafId = 0; if (lastEv) doMove(lastEv); }); };
     var up = function (ev) {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
       document.removeEventListener('mousemove', move);
       document.removeEventListener('mouseup', up);
+      clearMeasureCache();
       clearGuides();
       if (dropEl) dropEl.classList.remove('merge-target');
       if (single && moved) {
@@ -208,8 +241,12 @@ function selectLink(id) { selectedLinkId = id; selectedIds = {}; refreshSelectio
 function clearSelection() { selectedIds = {}; if (selectedLinkId) { selectedLinkId = null; drawLinks(); } refreshSelectionUI(); }
 function refreshSelectionUI() {
   if (canvasContentEl) {
-    Array.prototype.forEach.call(canvasContentEl.querySelectorAll('.card'), function (el) {
-      el.classList.toggle('selected', !!selectedIds[el.getAttribute('data-id')]);
+    // Durante el marco de selección reutiliza los elementos cacheados (evita querySelectorAll por fotograma).
+    var els = _measureCache
+      ? Object.keys(_measureCache).map(function (k) { return _measureCache[k].el; })
+      : canvasContentEl.querySelectorAll('.card');
+    Array.prototype.forEach.call(els, function (el) {
+      if (el) el.classList.toggle('selected', !!selectedIds[el.getAttribute('data-id')]);
     });
   }
   updateSelInfo();
@@ -321,11 +358,10 @@ function selectInRect(left, top, w, hgt, additive, base) {
   var rl = left, rt = top, rr = left + w, rb = top + hgt;
   var next = additive ? Object.assign({}, base) : {};
   blocksOf(ui.currentNoteId).forEach(function (b) {
-    // Usa el tamaño REAL renderizado (no el guardado, que puede estar desfasado tras auto-crecer),
-    // para que la selección coincida con lo que se ve.
-    var el = cardEl(b.id);
-    var bw = el ? el.offsetWidth : (b.width || 200), bh = el ? el.offsetHeight : (b.height || 120);
-    var bl = b.x, bt = b.y, br = b.x + bw, bb = b.y + bh;
+    // Usa el tamaño REAL renderizado (cacheado durante el marco) para que la selección
+    // coincida con lo que se ve, sin volver a medir el DOM en cada fotograma.
+    var r = blockRect(b);
+    var bl = b.x, bt = b.y, br = b.x + r.w, bb = b.y + r.h;
     if (!(br < rl || bl > rr || bb < rt || bt > rb)) next[b.id] = true;
   });
   selectedIds = next;
@@ -347,10 +383,7 @@ function setLinkMode(on) {
     hint.remove();
   }
 }
-function rectOf(b) {
-  var el = cardEl(b.id);
-  return { x: b.x, y: b.y, w: el ? el.offsetWidth : (b.width || 200), h: el ? el.offsetHeight : (b.height || 120) };
-}
+function rectOf(b) { return blockRect(b); }
 function centerOf(b) {
   var r = rectOf(b);
   return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
@@ -419,9 +452,9 @@ function drawLinks() {
   if (!svg) return;
   var maxX = 600, maxY = 400;
   blocksOf(ui.currentNoteId).forEach(function (b) {
-    var el = cardEl(b.id);
-    maxX = Math.max(maxX, b.x + (el ? el.offsetWidth : (b.width || 200)));
-    maxY = Math.max(maxY, b.y + (el ? el.offsetHeight : (b.height || 120)));
+    var r = blockRect(b);
+    maxX = Math.max(maxX, b.x + r.w);
+    maxY = Math.max(maxY, b.y + r.h);
   });
   svg.setAttribute('width', String(maxX + 60));
   svg.setAttribute('height', String(maxY + 60));
@@ -567,20 +600,23 @@ function attachMarquee(wrap) {
     var p1 = toContent(startX, startY);
     var ctrl = e.ctrlKey || e.metaKey, shift = e.shiftKey;
     var base = Object.assign({}, selectedIds);
-    var rectEl = null, moved = false;
-    var move = function (ev) {
+    var rectEl = null, moved = false, rafId = 0, lastEv = null;
+    var doMove = function (ev) {
       var ddx = ev.clientX - startX, ddy = ev.clientY - startY;
       if (!moved && Math.abs(ddx) < 4 && Math.abs(ddy) < 4) return;
-      moved = true;
+      if (!moved) { moved = true; buildMeasureCache(); } // mide los bloques una sola vez
       if (!rectEl) { rectEl = h('div', { class: 'marquee' }); canvasContentEl.appendChild(rectEl); }
       var p2 = toContent(ev.clientX, ev.clientY);
       var left = Math.min(p1.x, p2.x), top = Math.min(p1.y, p2.y), w = Math.abs(p2.x - p1.x), hgt = Math.abs(p2.y - p1.y);
       rectEl.style.left = left + 'px'; rectEl.style.top = top + 'px'; rectEl.style.width = w + 'px'; rectEl.style.height = hgt + 'px';
       selectInRect(left, top, w, hgt, shift, base);
     };
+    var move = function (ev) { lastEv = ev; if (rafId) return; rafId = requestAnimationFrame(function () { rafId = 0; if (lastEv) doMove(lastEv); }); };
     var up = function () {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
       document.removeEventListener('mousemove', move);
       document.removeEventListener('mouseup', up);
+      clearMeasureCache();
       if (rectEl) rectEl.remove();
       if (!moved) {
         if (ctrl) openRadial(startX, startY);
