@@ -12,6 +12,14 @@ function normalizeData() {
   data.log = data.log || [];
   if (!Array.isArray(data.links)) data.links = [];
   if (!Array.isArray(data.groups)) data.groups = [];
+  // Migración: el tipo 'idea' pasa a ser una nota clasificada como idea (sin perder datos).
+  (data.blocks || []).forEach(function (b) {
+    if (b && b.type === 'idea') {
+      b.type = 'text';
+      b.content = b.content || {};
+      if (!b.content.rank) b.content.rank = 'idea';
+    }
+  });
 }
 function serverSave() {
   if (!SERVER || !window.fetch) return;

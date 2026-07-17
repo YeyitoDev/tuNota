@@ -14,8 +14,8 @@ function seed() {
     createdAt: t, updatedAt: t,
   };
   var b2 = {
-    id: uid(), noteId: note.id, type: 'idea', x: 392, y: 130, width: 244, height: 132,
-    content: { text: 'Las "ideas" usan un color c\u00e1lido. \u00c1brelas con el men\u00fa (Ctrl+clic o Alt).' },
+    id: uid(), noteId: note.id, type: 'text', x: 392, y: 130, width: 244, height: 132,
+    content: { text: 'Clasifica cada nota (Relevante \u00b7 Idea \u00b7 Importante \u00b7 Crucial) y su color cambia. Usa \u2728 para clasificar y analizar con IA.', rank: 'idea' },
     createdAt: t, updatedAt: t,
   };
   return {
@@ -512,7 +512,21 @@ function openCardMenu(b, anchor) {
     gRow.appendChild(h('button', { class: 'cm-chip', title: 'Meter este bloque en el grupo', onclick: function () { addBlockToGroup(g, b.id); closeCardMenu(); } }, '→ ' + g.name));
   });
   pop.appendChild(gRow);
-  if (b.type === 'text' || b.type === 'idea' || b.type === 'image' || b.type === 'freeimage') {
+  if (b.type === 'text') {
+    pop.appendChild(h('div', { class: 'cm-sep' }));
+    pop.appendChild(h('div', { class: 'cm-label' }, icon('leaf'), 'Clasificaci\u00f3n'));
+    var rankRow = h('div', { class: 'cm-quick cm-ranks' });
+    NOTE_RANKS.forEach(function (rk) {
+      var on = noteRank(b) === rk.key;
+      rankRow.appendChild(h('button', {
+        class: 'cm-chip rank-chip rank-chip-' + rk.key + (on ? ' on' : ''),
+        title: rk.hint,
+        onclick: function () { setNoteRank(b, rk.key); closeCardMenu(); },
+      }, icon(rk.icon), rk.label));
+    });
+    pop.appendChild(rankRow);
+  }
+  if (b.type === 'text' || b.type === 'image' || b.type === 'freeimage') {
     pop.appendChild(h('div', { class: 'cm-sep' }));
     pop.appendChild(h('div', { class: 'cm-label' }, icon('leaf'), 'Color / categor\u00eda'));
     var sw = h('div', { class: 'cm-colors' });
@@ -545,7 +559,7 @@ function openCardMenu(b, anchor) {
         onclick: function () { closeCardMenu(); aiWebSearchBlock(b); },
       }, '🌐 Buscar en la web'));
     }
-    if (b.type === 'idea') {
+    if (noteRank(b) === 'idea') {
       aiRow.appendChild(h('button', {
         class: 'cm-chip cm-chip-idea',
         title: 'La IA elige la metodología (Design Thinking, Lean Startup, Game Design, Marketing) y desarrolla la idea en fases numeradas y agrupadas',
@@ -690,8 +704,8 @@ function renderKanbanBody() {
       var addIt = function () {
         var v = inp.value.trim();
         if (!v || !ui.currentNoteId) return;
-        var nb = addBlock(ui.currentNoteId, 'idea', 36 + Math.round(Math.random() * 140), 36 + Math.round(Math.random() * 120));
-        nb.content = nb.content || {}; nb.content.text = v;
+        var nb = addBlock(ui.currentNoteId, 'text', 36 + Math.round(Math.random() * 140), 36 + Math.round(Math.random() * 120));
+        nb.content = nb.content || {}; nb.content.text = v; nb.content.rank = 'idea';
         addToKanban(nb);
         inp.value = '';
       };

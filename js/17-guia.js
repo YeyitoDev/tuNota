@@ -105,23 +105,50 @@ function guideLightbox(src, alt) {
   document.body.appendChild(lb);
 }
 
-// ---------- Apoyar tuNota (donación con Yape) ----------
+// ---------- Apoyar tuNota (Yape para Perú · Stripe/Apple Pay para el resto) ----------
+// Enlace de pago de Stripe (soporta tarjeta, Apple Pay y Google Pay automáticamente).
+// Pega aquí tu Payment Link de Stripe (https://buy.stripe.com/…) cuando lo tengas.
+var STRIPE_LINK = '';
 function closeDonate() { var o = document.getElementById('donateOverlay'); if (o) o.remove(); }
-function openDonate() {
+function openDonate(pref) {
   closeDonate();
+  var heart = pref === 'coffee' ? icon('coffee') : icon('heart');
+  var title = pref === 'coffee' ? 'Invítame un cafecito' : 'Apoya tuNota';
   var overlay = h('div', { class: 'overlay', id: 'donateOverlay', onclick: function (e) { if (e.target === overlay) closeDonate(); } });
+
+  // --- Yape (Perú) ---
   var qr = h('img', { class: 'donate-qr', src: 'public/yape-qr.png', alt: 'QR de Yape',
     onerror: function () { this.replaceWith(h('div', { class: 'donate-qr-missing' }, 'QR no disponible todavía. Busca «Sergio Martin Ramos Manrique» en Yape.')); } });
+  var yapePane = h('div', { class: 'donate-pane', 'data-pane': 'yape' },
+    h('div', { class: 'donate-qr-frame' }, qr),
+    h('div', { class: 'donate-pill' }, 'Escanea con Yape'),
+    h('p', { class: 'donate-small' }, 'Yape opera en soles (S/) y solo dentro de Perú. ¡Gracias! 💜'));
+
+  // --- Stripe (tarjeta / Apple Pay / Google Pay) ---
+  var stripeBtn = STRIPE_LINK
+    ? h('a', { class: 'donate-stripe-btn', href: STRIPE_LINK, target: '_blank', rel: 'noopener' }, icon('heart'), 'Pagar con tarjeta o  Apple Pay')
+    : h('div', { class: 'donate-qr-missing' }, 'Pago con tarjeta / Apple Pay: en cuanto configure Stripe. (Pega tu Payment Link en STRIPE_LINK).');
+  var stripePane = h('div', { class: 'donate-pane', 'data-pane': 'stripe', style: { display: 'none' } },
+    h('p', { class: 'donate-text' }, 'Paga con tarjeta, Apple Pay o Google Pay desde cualquier país (procesado por Stripe).'),
+    stripeBtn,
+    h('p', { class: 'donate-small' }, 'Pago seguro con Stripe · Apple Pay y Google Pay aparecen automáticamente en tu dispositivo.'));
+
+  // --- Pestañas Yape / Tarjeta ---
+  function selectTab(which) {
+    Array.prototype.forEach.call(card.querySelectorAll('.donate-tab'), function (t) { t.classList.toggle('on', t.getAttribute('data-tab') === which); });
+    yapePane.style.display = which === 'yape' ? '' : 'none';
+    stripePane.style.display = which === 'stripe' ? '' : 'none';
+  }
+  var tabs = h('div', { class: 'donate-tabs' },
+    h('button', { class: 'donate-tab on', 'data-tab': 'yape', onclick: function () { selectTab('yape'); } }, 'Yape (Perú)'),
+    h('button', { class: 'donate-tab', 'data-tab': 'stripe', onclick: function () { selectTab('stripe'); } }, 'Tarjeta · Apple Pay'));
+
   var card = h('div', { class: 'donate-card' },
     h('button', { class: 'icon-btn donate-close', title: 'Cerrar', onclick: closeDonate }, icon('x')),
-    h('div', { class: 'donate-heart' }, icon('heart')),
-    h('h2', { class: 'donate-title' }, 'Apoya tuNota'),
-    h('p', { class: 'donate-text' }, 'tuNota es gratis y sin anuncios. Si te resulta útil, puedes invitarme un café con Yape :D'),
-    h('div', { class: 'donate-qr-frame' }, qr),
-    h('div', { class: 'donate-pill' }, 'Paga aquí con Yape'),
-    // h('div', { class: 'donate-name' }, 'Sergio Martin Ramos Manrique'),
-    h('p', { class: 'donate-small' }, 'Yape opera en soles (S/) y solo dentro de Perú. ¡Gracias! 💜')
-  );
+    h('div', { class: 'donate-heart' }, heart),
+    h('h2', { class: 'donate-title' }, title),
+    h('p', { class: 'donate-text' }, 'tuNota es gratis y sin anuncios. Si te resulta útil, invítame algo :)'),
+    tabs, yapePane, stripePane);
   overlay.appendChild(card);
   document.body.appendChild(overlay);
 }

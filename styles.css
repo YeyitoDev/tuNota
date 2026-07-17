@@ -6351,3 +6351,63 @@ body.fc-picking .card { cursor: crosshair !important; }
 .feat-name { font-size: 13.5px; font-weight: 600; }
 .feat-toggle input { width: 18px; height: 18px; accent-color: var(--sage); cursor: pointer; }
 .feat-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 12px 18px 16px; border-top: 1px solid var(--border); }
+
+/* ---------- Clasificación de notas por tono ---------- */
+/* Tintes opacos (no color-mix) para que el contraste automático del texto los lea bien. */
+.card.rank-relevant { background: #e9f0e1; border-color: #b9cbab; box-shadow: var(--shadow), inset 3px 0 0 #6f9257; }
+.card.rank-idea { background: #f7ead2; border-color: var(--idea-border); box-shadow: var(--shadow), inset 3px 0 0 var(--ocre); }
+.card.rank-important { background: #fbe6d1; border-color: #e6a765; box-shadow: var(--shadow), inset 3px 0 0 #e0873c; }
+.card.rank-crucial { background: #fbdfda; border-color: #e0a49c; box-shadow: var(--shadow), inset 3px 0 0 var(--danger); }
+.card-rank-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: .03em; color: #fff; }
+.card-rank-badge svg { width: 11px; height: 11px; }
+.card-rank-badge.rank-idea { background: var(--ocre); }
+.card-rank-badge.rank-important { background: #e0873c; }
+.card-rank-badge.rank-crucial { background: var(--danger); }
+.cm-ranks { display: flex; flex-wrap: wrap; gap: 6px; }
+.rank-chip { border-left-width: 3px !important; border-left-style: solid !important; }
+.rank-chip-relevant { border-left-color: #6f9257 !important; }
+.rank-chip-idea { border-left-color: var(--ocre) !important; }
+.rank-chip-important { border-left-color: #e0873c !important; }
+.rank-chip-crucial { border-left-color: var(--danger) !important; }
+.rank-chip.on { outline: 2px solid var(--fg); outline-offset: 1px; }
+
+/* ---------- Botón «analizar con IA» de la nota + panel de resultado bajo la nota ---------- */
+.card-analyze-btn.busy { pointer-events: none; opacity: .7; }
+.card-analyze-btn.busy svg { animation: analyzeSpin 1s linear infinite; }
+@keyframes analyzeSpin { to { transform: rotate(360deg); } }
+.note-analysis { margin: 6px 10px 10px; border: 1px solid var(--border); border-radius: 10px; background: #fbf8f1; color: #2a2620; overflow: hidden; }
+.note-analysis-body { color: #2a2620; }
+.note-analysis-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border-bottom: 1px solid var(--border); }
+.note-analysis-head svg { width: 13px; height: 13px; }
+.note-analysis-x { border: none; background: none; color: var(--muted); cursor: pointer; padding: 0; display: inline-flex; }
+.note-analysis-x:hover { color: var(--fg); }
+.note-analysis-x svg { width: 13px; height: 13px; }
+.note-analysis-body { padding: 8px 12px; font-size: 12.5px; line-height: 1.5; max-height: 260px; overflow-y: auto; }
+.note-analysis-body h2, .note-analysis-body h3 { font-family: Fraunces, serif; font-size: 14px; margin: 8px 0 3px; }
+.note-analysis-loading { color: var(--muted); font-style: italic; }
+.note-analysis.anim-in { animation: analysisIn .34s cubic-bezier(.22,1,.36,1); }
+.note-analysis.anim-out { animation: analysisOut .18s ease-in forwards; }
+@keyframes analysisIn { from { opacity: 0; transform: translateY(-8px) scaleY(.9); } to { opacity: 1; transform: none; } }
+@keyframes analysisOut { to { opacity: 0; transform: translateY(-6px); } }
+
+/* ---------- Botón de apoyo combinado (café / corazón) ---------- */
+.support-btn { display: inline-flex; align-items: stretch; border-radius: 999px; overflow: hidden; box-shadow: 0 4px 14px -4px rgba(58,51,44,.35); flex: none; }
+.support-half { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; padding: 7px 13px; font: inherit; font-size: 12.5px; font-weight: 800; color: #fff; transition: filter .15s, transform .12s; }
+.support-coffee { background: linear-gradient(120deg, #cf9146, #a5691f); }
+.support-heart { background: linear-gradient(120deg, #ff4d8d, #b0329b); }
+.support-half svg { width: 17px; height: 17px; flex: none; }
+.support-heart svg { fill: currentColor; stroke: none; }
+.support-half .support-lbl { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0; transition: max-width .22s ease, opacity .2s ease; }
+.support-half:hover { filter: brightness(1.09); }
+.support-half:hover .support-lbl { max-width: 90px; opacity: 1; }
+.support-coffee:hover svg { animation: heart-beat 1.4s ease-in-out infinite; }
+.support-heart:hover svg { animation: heart-beat 1.2s ease-in-out infinite; }
+
+/* ---------- Modal de apoyo: pestañas Yape / Stripe ---------- */
+.donate-tabs { display: flex; gap: 8px; justify-content: center; margin: 4px 0 16px; }
+.donate-tab { border: 1px solid rgba(255,255,255,.4); background: transparent; color: rgba(255,255,255,.85); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.donate-tab.on { background: #fff; color: #4e1560; border-color: #fff; }
+.donate-pane { display: flex; flex-direction: column; align-items: center; }
+.donate-stripe-btn { display: inline-flex; align-items: center; gap: 8px; background: #635bff; color: #fff; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 22px; border-radius: 12px; margin: 6px 0 12px; }
+.donate-stripe-btn svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
+.donate-stripe-btn:hover { filter: brightness(1.08); }

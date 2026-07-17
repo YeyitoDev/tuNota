@@ -6,7 +6,6 @@
 var DBL_TYPES = [
   { key: 'freetext', label: 'Texto libre', hint: 'texto libre' },
   { key: 'text', label: 'Nota', hint: 'una nota' },
-  { key: 'idea', label: 'Idea', hint: 'una idea' },
 ];
 function dblType() { return (typeof ui !== 'undefined' && ui && ui.dblType) || 'freetext'; }
 function dblTypeHint() {
@@ -86,7 +85,10 @@ function renderTopbar() {
   var tabletBtn = h('button', { class: 'icon-btn' + (ui.tablet ? ' on' : ''), title: 'Modo tablet: escribir/dibujar con lápiz o dedo', onclick: toggleTabletMode }, icon('pen'));
   var moreBtn = h('button', { class: 'icon-btn', title: 'Más opciones', onclick: function (e) { e.stopPropagation(); openTopbarMenu(moreBtn); } }, icon('more'));
   var reviewBtn = h('button', { class: 'idea-review-top', title: 'Revisar idea: analiza el contexto (idea seleccionada o la nota) y lo consulta a un prompt especializado', onclick: function () { openIdeaReview(); } }, icon('search'), 'Revisar idea');
-  var donateBtn = h('button', { class: 'donate-btn', title: 'Apoya tuNota con una donación (Yape)', onclick: openDonate }, icon('heart'), 'Apóyame');
+  // Botón de apoyo combinado: mitad café (izq.) y mitad corazón (der.); al elegir, abre Yape/Stripe.
+  var supportBtn = h('div', { class: 'support-btn', title: 'Invítame un cafecito o mándame un corazón' },
+    h('button', { class: 'support-half support-coffee', title: 'Invítame un cafecito', onclick: function () { openDonate('coffee'); } }, icon('coffee'), h('span', { class: 'support-lbl' }, 'Un café')),
+    h('button', { class: 'support-half support-heart', title: 'Mándame un corazón', onclick: function () { openDonate('heart'); } }, icon('heart'), h('span', { class: 'support-lbl' }, 'Un corazón')));
   var ai = h('button', { class: 'ai-btn' + (aiReady() ? ' ready' : ''), title: aiReady() ? 'Asistente IA' : 'Configurar IA (API key)', onclick: openAI }, icon('spark'), 'IA');
   bar.appendChild(left);
   bar.appendChild(hint);
@@ -98,7 +100,7 @@ function renderTopbar() {
   if (featureOn('tablet')) bar.appendChild(tabletBtn);
   bar.appendChild(moreBtn);
   if (featureOn('ai') && featureOn('ideaReview')) bar.appendChild(reviewBtn);
-  if (featureOn('donate')) bar.appendChild(donateBtn);
+  if (featureOn('donate')) bar.appendChild(supportBtn);
   if (featureOn('ai')) bar.appendChild(ai);
 }
 
@@ -623,7 +625,7 @@ function card(b) {
   var isMono = b.type === 'code' || b.type === 'json' || b.type === 'curl' || b.type === 'python';
   var hasMedia = isText || isImage || isFreeImage;
   var el = h('div', {
-    class: 'card' + (meta.cls ? ' ' + meta.cls : '') + (b.color ? ' card-c-' + b.color : '') + (selectedIds[b.id] ? ' selected' : '') + (b.reminder && !b.reminder.done ? ' reminder-on' : '') + (b.important ? ' important' : '') + (isImage && b.content && b.content.desc ? ' has-desc' : ''),
+    class: 'card' + (meta.cls ? ' ' + meta.cls : '') + (isText ? ' rank-' + noteRank(b) : '') + (b.color ? ' card-c-' + b.color : '') + (selectedIds[b.id] ? ' selected' : '') + (b.reminder && !b.reminder.done ? ' reminder-on' : '') + (b.important ? ' important' : '') + (isImage && b.content && b.content.desc ? ' has-desc' : ''),
     'data-id': b.id,
     style: { left: b.x + 'px', top: b.y + 'px', width: b.width + 'px', height: b.height + 'px', zIndex: String(++topZ) },
   });
@@ -657,9 +659,11 @@ function card(b) {
   if (remActive) head.appendChild(h('span', { class: 'card-remind-badge', title: fmtWhen(b.reminder.at) }, icon('clock'), fmtShort(b.reminder.at)));
   if (b.kanban) head.appendChild(h('span', { class: 'card-kanban-badge k-' + b.kanban, title: 'Kanban: ' + kanbanLabel(b.kanban) }, icon('board')));
   if (b.color && CARD_COLOR_LABEL[b.color]) head.appendChild(h('span', { class: 'card-cat-badge cat-' + b.color, title: 'Categor\u00eda: ' + CARD_COLOR_LABEL[b.color] }, CARD_COLOR_LABEL[b.color]));
+  if (isText && noteRank(b) !== 'relevant') { var _rk = rankMeta(noteRank(b)); head.appendChild(h('span', { class: 'card-rank-badge rank-' + noteRank(b), title: 'Clasificaci\u00f3n: ' + _rk.label }, icon(_rk.icon), _rk.label)); }
   if (hasMedia) {
     head.appendChild(h('span', { class: 'card-imgs' }));
     if (isText) head.appendChild(h('button', { class: 'card-fmt-btn', title: 'Formatear texto: enumerar, vi\u00f1etas, casillas\u2026', onclick: function (e) { e.stopPropagation(); openTextFormatMenu(b, el, e.currentTarget); } }, icon('format')));
+    if (isText) head.appendChild(h('button', { class: 'card-analyze-btn', title: 'Clasificar y analizar la nota con IA', onclick: function (e) { e.stopPropagation(); analyzeNote(b, el, e.currentTarget); } }, icon('spark')));
     if (isImage) head.appendChild(h('button', { class: 'card-desc-btn', title: 'A\u00f1adir/editar una descripci\u00f3n al lado de la imagen', onclick: function (e) { e.stopPropagation(); toggleImageDesc(b, el); } }, icon('type')));
     head.appendChild(h('button', { class: 'card-img-btn', title: 'Insertar imagen (o pega con Ctrl+V)', onclick: function (e) { e.stopPropagation(); pickImagesFor(b, el); } }, icon('image')));
     head.appendChild(h('button', { class: 'card-dl-all', title: 'Descargar todas las imágenes', onclick: function (e) { e.stopPropagation(); downloadAllCardImages(b); } }, icon('download')));
@@ -816,7 +820,9 @@ function textBody(b) {
   requestAnimationFrame(function () { refreshAutoText(ta); autoGrowNote(ta); }); // contraste + ajuste de alto al contenido
   var hlinks = h('div', { class: 'card-hlinks' });          // chips de hipervínculo (texto → bloque/nota)
   renderHlinksInto(hlinks, b);
-  return [ta, hlinks, h('div', { class: 'card-media' })];
+  var out = [ta, hlinks, h('div', { class: 'card-media' })];
+  if (b.content && b.content.analysis && typeof buildNoteAnalysis === 'function') out.push(buildNoteAnalysis(b));
+  return out;
 }
 // Tipos de letra disponibles para el texto libre (usa las fuentes cargadas + las del sistema).
 var FREE_FONTS = [
