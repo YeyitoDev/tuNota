@@ -60,7 +60,7 @@ function initState() {
 var MASTER_CODE = 'tunota-maestro-2026';
 var FEATURE_DEFS = [
   { key: 'ai', label: 'Asistente de IA (con clave propia)', def: true },
-  { key: 'ideaReview', label: 'Revisar idea (validación con IA)', def: true },
+  { key: 'ideaReview', label: 'Revisar idea (validación con IA)', def: false },
   { key: 'diagrams', label: 'Formas y diagramas', def: true },
   { key: 'graph', label: 'Mapa de conocimiento', def: true },
   { key: 'kanban', label: 'Kanban de ideas', def: true },

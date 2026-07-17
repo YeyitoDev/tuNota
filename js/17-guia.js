@@ -113,7 +113,7 @@ function closeDonate() { var o = document.getElementById('donateOverlay'); if (o
 function openDonate(pref) {
   closeDonate();
   var heart = pref === 'coffee' ? icon('coffee') : icon('heart');
-  var title = pref === 'coffee' ? 'Invítame un cafecito' : 'Apoya tuNota';
+  var title = pref === 'coffee' ? 'Invítame un cafecito' : 'Mándame un poco de amor';
   var overlay = h('div', { class: 'overlay', id: 'donateOverlay', onclick: function (e) { if (e.target === overlay) closeDonate(); } });
 
   // --- Yape (Perú) ---
@@ -147,7 +147,7 @@ function openDonate(pref) {
     h('button', { class: 'icon-btn donate-close', title: 'Cerrar', onclick: closeDonate }, icon('x')),
     h('div', { class: 'donate-heart' }, heart),
     h('h2', { class: 'donate-title' }, title),
-    h('p', { class: 'donate-text' }, 'tuNota es gratis y sin anuncios. Si te resulta útil, invítame algo :)'),
+    h('p', { class: 'donate-text' }, 'tuNota es gratis y sin anuncios. Si te resulta útil, invítame un cafecito o mándame un poco de amor :)'),
     tabs, yapePane, stripePane);
   overlay.appendChild(card);
   document.body.appendChild(overlay);

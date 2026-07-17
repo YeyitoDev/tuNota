@@ -78,6 +78,7 @@ function renderTopbar() {
   var left = h('div', { class: 'tb-left' }, sidebarBtn, crumb, title);
   var hint = h('div', { class: 'hint' }, icon('cursor'), 'Doble clic crea ' + dblTypeHint() + ' \u00b7 pulsa ? para ver los atajos');
   var searchBtn = h('button', { class: 'icon-btn', title: 'Buscar en todo (' + MOD + '+K)', onclick: openSearch }, icon('search'));
+  var fitBtn = h('button', { class: 'icon-btn', title: 'Ver todo el lienzo (recupera el zoom y los controles)', onclick: function () { if (typeof fitView === 'function') fitView(); } }, icon('fit'));
   var tplBtn = h('button', { class: 'icon-btn', title: 'Plantillas de canvas (BMC, DAFO, arquitectura…)', onclick: openTemplates }, icon('layout'));
   var shapeBtn = h('button', { class: 'icon-btn', title: 'Formas para diagramar (rectángulo, elipse, rombo…)', onclick: function (e) { e.stopPropagation(); openShapePalette(shapeBtn); } }, icon('shapes'));
   var graphBtn = h('button', { class: 'icon-btn', title: 'Mapa de conocimiento (grafo)', onclick: openGraph }, icon('graph'));
@@ -86,13 +87,14 @@ function renderTopbar() {
   var moreBtn = h('button', { class: 'icon-btn', title: 'Más opciones', onclick: function (e) { e.stopPropagation(); openTopbarMenu(moreBtn); } }, icon('more'));
   var reviewBtn = h('button', { class: 'idea-review-top', title: 'Revisar idea: analiza el contexto (idea seleccionada o la nota) y lo consulta a un prompt especializado', onclick: function () { openIdeaReview(); } }, icon('search'), 'Revisar idea');
   // Botón de apoyo combinado: mitad café (izq.) y mitad corazón (der.); al elegir, abre Yape/Stripe.
-  var supportBtn = h('div', { class: 'support-btn', title: 'Invítame un cafecito o mándame un corazón' },
-    h('button', { class: 'support-half support-coffee', title: 'Invítame un cafecito', onclick: function () { openDonate('coffee'); } }, icon('coffee'), h('span', { class: 'support-lbl' }, 'Un café')),
-    h('button', { class: 'support-half support-heart', title: 'Mándame un corazón', onclick: function () { openDonate('heart'); } }, icon('heart'), h('span', { class: 'support-lbl' }, 'Un corazón')));
+  var supportBtn = h('div', { class: 'support-btn', title: 'Invítame un cafecito o mándame un poco de amor' },
+    h('button', { class: 'support-half support-coffee', title: 'Invítame un cafecito', onclick: function () { openDonate('coffee'); } }, icon('coffee'), h('span', { class: 'support-lbl' }, 'Un cafecito')),
+    h('button', { class: 'support-half support-heart', title: 'Mándame un poco de amor', onclick: function () { openDonate('heart'); } }, icon('heart'), h('span', { class: 'support-lbl' }, 'Un poco de amor')));
   var ai = h('button', { class: 'ai-btn' + (aiReady() ? ' ready' : ''), title: aiReady() ? 'Asistente IA' : 'Configurar IA (API key)', onclick: openAI }, icon('spark'), 'IA');
   bar.appendChild(left);
   bar.appendChild(hint);
   bar.appendChild(searchBtn);
+  bar.appendChild(fitBtn);
   if (featureOn('templates')) bar.appendChild(tplBtn);
   if (featureOn('diagrams')) bar.appendChild(shapeBtn);
   if (featureOn('graph')) bar.appendChild(graphBtn);
@@ -663,7 +665,7 @@ function card(b) {
   if (hasMedia) {
     head.appendChild(h('span', { class: 'card-imgs' }));
     if (isText) head.appendChild(h('button', { class: 'card-fmt-btn', title: 'Formatear texto: enumerar, vi\u00f1etas, casillas\u2026', onclick: function (e) { e.stopPropagation(); openTextFormatMenu(b, el, e.currentTarget); } }, icon('format')));
-    if (isText) head.appendChild(h('button', { class: 'card-analyze-btn', title: 'Clasificar y analizar la nota con IA', onclick: function (e) { e.stopPropagation(); analyzeNote(b, el, e.currentTarget); } }, icon('spark')));
+    if (isText) head.appendChild(h('button', { class: 'card-fmt-btn card-analyze-btn', title: 'Analizar y clasificar la nota con IA', onclick: function (e) { e.stopPropagation(); analyzeNote(b, el, e.currentTarget); } }, h('span', { class: 'analyze-emoji' }, '\ud83e\udd16')));
     if (isImage) head.appendChild(h('button', { class: 'card-desc-btn', title: 'A\u00f1adir/editar una descripci\u00f3n al lado de la imagen', onclick: function (e) { e.stopPropagation(); toggleImageDesc(b, el); } }, icon('type')));
     head.appendChild(h('button', { class: 'card-img-btn', title: 'Insertar imagen (o pega con Ctrl+V)', onclick: function (e) { e.stopPropagation(); pickImagesFor(b, el); } }, icon('image')));
     head.appendChild(h('button', { class: 'card-dl-all', title: 'Descargar todas las imágenes', onclick: function (e) { e.stopPropagation(); downloadAllCardImages(b); } }, icon('download')));

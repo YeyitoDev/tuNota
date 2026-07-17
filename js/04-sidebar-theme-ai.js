@@ -1470,6 +1470,16 @@ function insertIdeaImages(sourceBlock, idea) {
 
 // ---------- Clasificar + analizar una nota con IA (salida bajo la nota, tipo cURL) ----------
 // Construye el panel de análisis que se muestra debajo de la nota (solo si ya hay análisis).
+// Cabecera del panel de análisis (robot + título + cerrar).
+function noteAnalysisHead(b) {
+  return h('div', { class: 'note-analysis-head' },
+    h('span', { class: 'note-analysis-robot' }, '🤖'), h('span', { class: 'note-analysis-title' }, 'Análisis IA'),
+    h('span', { class: 'card-spacer' }),
+    h('button', { class: 'note-analysis-x', title: 'Quitar análisis', onclick: function (e) {
+      e.stopPropagation(); b.content.analysis = ''; touchNote(b.noteId); save();
+      var p = cardEl(b.id) && cardEl(b.id).querySelector('.note-analysis'); if (p) { p.classList.add('anim-out'); setTimeout(function () { renderCanvas(); }, 180); }
+    } }, icon('x')));
+}
 function buildNoteAnalysis(b) {
   var just = b.content && b.content._justAnalyzed;
   if (just) delete b.content._justAnalyzed;
@@ -1478,23 +1488,26 @@ function buildNoteAnalysis(b) {
   wrap.addEventListener('wheel', function (e) { e.stopPropagation(); });
   var body = h('div', { class: 'note-analysis-body' });
   body.innerHTML = renderMarkdown(b.content.analysis || '');
-  wrap.appendChild(h('div', { class: 'note-analysis-head' },
-    icon('spark'), h('span', { class: 'note-analysis-title' }, 'Análisis IA'),
-    h('span', { class: 'card-spacer' }),
-    h('button', { class: 'note-analysis-x', title: 'Quitar análisis', onclick: function (e) {
-      e.stopPropagation(); b.content.analysis = ''; touchNote(b.noteId); save();
-      var p = cardEl(b.id) && cardEl(b.id).querySelector('.note-analysis'); if (p) { p.classList.add('anim-out'); setTimeout(function () { renderCanvas(); }, 180); }
-    } }, icon('x'))));
+  wrap.appendChild(noteAnalysisHead(b));
   wrap.appendChild(body);
   return wrap;
 }
-// Ejecuta el análisis: la IA clasifica la nota (color) y devuelve un análisis breve.
+// Ejecuta el análisis: muestra al instante un recuadro adyacente «pensando» (círculo de carga)
+// y, cuando la IA responde, lo rellena con el análisis y clasifica la nota (color).
 function analyzeNote(b, el, btn) {
   if (!aiReady()) { toast('Configura tu IA para clasificar y analizar la nota.', 'warn'); openAI(); return; }
   var text = ((b.content && b.content.text) || '').trim();
   if (!text) { toast('Escribe algo en la nota primero.', 'warn'); return; }
+  b.content = b.content || {};
+  if (!el) el = cardEl(b.id);
+  // Recuadro de feedback inmediato (estilo bloque cURL): «Buscando información…» + círculo.
+  var prev = el && el.querySelector('.note-analysis'); if (prev) prev.remove();
+  var loadBody = h('div', { class: 'note-analysis-body' },
+    h('div', { class: 'note-analysis-loading' }, h('span', { class: 'note-spinner' }), 'Buscando información…'));
+  var panel = h('div', { class: 'note-analysis anim-in' }, noteAnalysisHead(b), loadBody);
+  panel.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  if (el) el.appendChild(panel);
   if (btn) btn.classList.add('busy');
-  toast('Analizando la nota con IA…', 'info');
   callAI([
     { role: 'system', content: 'Clasificas y analizas una nota en español. Devuelve SOLO un objeto JSON válido con dos claves: "clasificacion" (exactamente uno de: relevant, idea, important, crucial — según su importancia real) y "analisis" (Markdown breve: una frase de resumen, 2-3 puntos clave y, si aplica, un siguiente paso). Sé honesto, sin adular.' },
     { role: 'user', content: 'Nota:\n' + text },
@@ -1503,9 +1516,8 @@ function analyzeNote(b, el, btn) {
     var parsed = aiParseJSON(res) || {};
     var rank = ['relevant', 'idea', 'important', 'crucial'].indexOf(parsed.clasificacion) >= 0 ? parsed.clasificacion : noteRank(b);
     var md = (parsed.analisis || String(res || '').trim()) || 'Sin análisis.';
-    b.content = b.content || {};
     b.content.analysis = md;
-    b.content._justAnalyzed = true;       // para animar la aparición del panel
+    b.content._justAnalyzed = true;       // para animar la aparición del panel al re-renderizar
     b.content.rank = rank;                 // clasificación → color
     touchNote(b.noteId);
     logChange('Nota analizada con IA', rankMeta(rank).label);
@@ -1515,6 +1527,7 @@ function analyzeNote(b, el, btn) {
     toast('Nota clasificada como «' + rankMeta(rank).label + '».', 'ok');
   }).catch(function (e) {
     if (btn) btn.classList.remove('busy');
-    toast('No se pudo analizar: ' + ((e && e.message) || e), 'warn');
+    loadBody.innerHTML = '';
+    loadBody.appendChild(h('div', { class: 'note-analysis-loading err' }, 'No se pudo analizar: ' + ((e && e.message) || e)));
   });
 }

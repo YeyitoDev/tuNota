@@ -6371,10 +6371,16 @@ body.fc-picking .card { cursor: crosshair !important; }
 .rank-chip-crucial { border-left-color: var(--danger) !important; }
 .rank-chip.on { outline: 2px solid var(--fg); outline-offset: 1px; }
 
-/* ---------- Botón «analizar con IA» de la nota + panel de resultado bajo la nota ---------- */
-.card-analyze-btn.busy { pointer-events: none; opacity: .7; }
-.card-analyze-btn.busy svg { animation: analyzeSpin 1s linear infinite; }
+/* ---------- Botón «analizar con IA» (robot) + panel de resultado bajo la nota ---------- */
+.analyze-emoji { font-size: 13px; line-height: 1; }
+.card-analyze-btn.busy { opacity: 1 !important; pointer-events: none; }
+.card-analyze-btn.busy .analyze-emoji { display: inline-block; animation: robotPulse .9s ease-in-out infinite; }
+@keyframes robotPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
 @keyframes analyzeSpin { to { transform: rotate(360deg); } }
+.note-analysis-robot { font-size: 13px; line-height: 1; }
+.note-analysis-loading { display: flex; align-items: center; }
+.note-analysis-loading.err { color: var(--danger); font-style: normal; }
+.note-spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--sage); border-radius: 50%; display: inline-block; flex: none; margin-right: 8px; animation: analyzeSpin .8s linear infinite; }
 .note-analysis { margin: 6px 10px 10px; border: 1px solid var(--border); border-radius: 10px; background: #fbf8f1; color: #2a2620; overflow: hidden; }
 .note-analysis-body { color: #2a2620; }
 .note-analysis-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border-bottom: 1px solid var(--border); }
