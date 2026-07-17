@@ -48,6 +48,8 @@ body {
 #app {
   display: flex;
   height: 100vh;
+  height: 100dvh; /* PWA/standalone: la altura dinámica cuenta bien el área visible (evita que los
+                     controles de abajo —zoom, minimapa, "¿dónde estoy?"— queden fuera de pantalla) */
   overflow: hidden;
 }
 
@@ -432,7 +434,9 @@ body.panning {
 .zoom-ctl {
   position: absolute;
   right: 16px;
+  right: calc(16px + env(safe-area-inset-right, 0px));
   bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 50; /* siempre visible por encima del contenido del lienzo */
   display: flex;
   align-items: center;
@@ -513,7 +517,9 @@ body.panning {
 .mini-map {
   position: absolute;
   left: 14px;
+  left: calc(14px + env(safe-area-inset-left, 0px));
   bottom: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   width: 156px;
   height: 108px;
   z-index: 30;
@@ -793,6 +799,9 @@ body.panning {
 .card-ta::placeholder {
   color: var(--muted2);
 }
+/* Notas de texto/idea con alto auto-adaptable: la tarjeta crece con el contenido. */
+.card.note-auto { height: auto !important; }
+.card.note-auto .card-ta { flex: none; overflow: hidden; min-height: 22px; }
 
 .empty-state {
   position: absolute;
@@ -1545,6 +1554,163 @@ body.panning {
 .sync-btn:hover { background: var(--secondary); }
 .sync-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 .sync-btn.primary:hover { filter: brightness(1.06); background: var(--primary); }
+
+/* ---------- Bloque "lienzo": portal a un lienzo (nota) anidado ---------- */
+.card.canvas .card-head > .icon { color: var(--primary); }
+.canvas-portal {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  padding: 6px 12px 12px;
+}
+.portal-open,
+.portal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+.portal-open .icon,
+.portal-btn .icon { width: 16px; height: 16px; flex: none; }
+.portal-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portal-arrow { font-size: 17px; line-height: 1; }
+.portal-open:hover { background: color-mix(in srgb, var(--primary) 20%, transparent); }
+.portal-btn {
+  color: var(--muted);
+  border-color: var(--border);
+  border-style: dashed;
+  background: transparent;
+  justify-content: center;
+}
+.portal-btn:hover { background: var(--secondary); color: var(--fg); }
+/* Botón "guardar grupo como plantilla" (cabecera del grupo y fila del árbol) */
+.group-tpl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  padding: 2px;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0.85;
+}
+.group-tpl:hover { background: var(--secondary); color: var(--primary); }
+.group-tpl .icon { width: 14px; height: 14px; }
+
+/* ---------- Editor de imágenes (doble clic sobre una imagen) ---------- */
+.imed-overlay {
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 16, 12, 0.78);
+  backdrop-filter: blur(2px);
+}
+.imed-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 95vw;
+  height: 93vh;
+  max-width: 1500px;
+}
+.imed-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+}
+.imed-tool {
+  min-width: 34px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--fg);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.imed-tool.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.imed-tool:hover { background: var(--secondary); }
+.imed-tool.on:hover { background: var(--primary); }
+.imed-btn {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.imed-btn:hover { background: var(--secondary); }
+.imed-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.imed-btn.primary:hover { filter: brightness(1.06); background: var(--primary); }
+.imed-btn.ghost { color: var(--muted); }
+.imed-color { width: 34px; height: 32px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: none; cursor: pointer; }
+.imed-size { width: 96px; }
+.imed-sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+.imed-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.imed-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: #fff;
+  box-shadow: 0 12px 44px rgba(0, 0, 0, 0.45);
+  border-radius: 4px;
+  touch-action: none;
+  cursor: crosshair;
+}
+.imed-textlayer { position: absolute; inset: 0; pointer-events: none; }
+.imed-text-input {
+  position: absolute;
+  transform: translateY(-2px);
+  pointer-events: auto;
+  min-width: 130px;
+  padding: 2px 5px;
+  border: 1px dashed var(--primary);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.92);
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.25;
+  resize: none;
+  outline: none;
+  overflow: hidden;
+}
 
 .text-card-resize {
   position: absolute;
@@ -2507,6 +2673,7 @@ body.curl-resizing {
   position: fixed;
   left: 50%;
   bottom: 22px;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   display: flex;
   align-items: center;
@@ -2619,6 +2786,75 @@ body.curl-resizing {
 .sel-mmd .icon { width: 14px; height: 14px; }
 .sel-mmd:hover { background: color-mix(in srgb, var(--sage) 14%, transparent); }
 .sel-mmd:active { transform: scale(0.96); }
+.sel-flow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border: 1px solid var(--ocre);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ocre);
+  cursor: pointer;
+  transition: background 0.14s ease, transform 0.14s ease;
+}
+.sel-flow .icon { width: 14px; height: 14px; }
+.sel-flow:hover { background: color-mix(in srgb, var(--ocre) 14%, transparent); }
+.sel-flow:active { transform: scale(0.96); }
+
+/* ---------- Barra de pestañas (lienzos abiertos/recientes) ---------- */
+.note-tabs {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-bottom: 1px solid var(--border);
+  background: var(--topbar, rgba(253, 250, 243, 0.72));
+  scrollbar-width: thin;
+  flex: none;
+}
+.note-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 210px;
+  padding: 5px 6px 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.note-tab .icon { width: 13px; height: 13px; flex: none; }
+.note-tab:hover { background: var(--secondary); color: var(--fg); }
+.note-tab.active { background: var(--secondary); color: var(--fg); border-color: var(--primary); }
+.note-tab-title { overflow: hidden; text-overflow: ellipsis; }
+.note-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: var(--muted2);
+  font-size: 14px;
+  line-height: 1;
+}
+.note-tab-close:hover { background: rgba(193, 75, 63, 0.14); color: var(--danger); }
+
+/* Relaciones entre lienzos (hojas) en el mapa de conocimiento */
+.graph-rel { fill: none; stroke: var(--primary); stroke-width: 2; stroke-dasharray: 6 5; opacity: 0.8; }
+.graph-rel-link { stroke: var(--ocre); }
 
 /* ---------- Menu radial (Alt) ---------- */
 .radial {
@@ -5187,6 +5423,7 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
 .link-path.link-t-dep { stroke: var(--ocre); }
 .link-path.link-t-block { stroke: var(--danger); stroke-dasharray: 7 5; }
 .link-path.link-t-flow { stroke: var(--sage); }
+.link-path.link-selected { stroke-width: 3.5px; filter: drop-shadow(0 0 3px var(--primary)); }
 .link-t-chip.t-dep.on { border-color: var(--ocre); color: var(--ocre); }
 .link-t-chip.t-block.on { border-color: var(--danger); color: var(--danger); }
 .link-t-chip.t-flow.on { border-color: var(--sage); color: var(--sage); }
@@ -5408,19 +5645,27 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
   border: 1.5px solid;
   pointer-events: none;
 }
-.group-area .group-head { pointer-events: auto; }
+.group-head { pointer-events: auto; }
 .group-area.g-sage { background: rgba(138, 154, 123, 0.10); border-color: rgba(138, 154, 123, 0.45); }
 .group-area.g-blue { background: rgba(79, 132, 196, 0.08); border-color: rgba(79, 132, 196, 0.4); }
 .group-area.g-ocre { background: rgba(217, 163, 90, 0.10); border-color: rgba(217, 163, 90, 0.45); }
 .group-area.g-lila { background: rgba(157, 114, 214, 0.08); border-color: rgba(157, 114, 214, 0.4); }
 .group-area.g-rose { background: rgba(207, 98, 149, 0.08); border-color: rgba(207, 98, 149, 0.4); }
 .group-head {
+  position: absolute; /* hermano de las tarjetas, colocado por JS (left/top/width) y con z-index sobre ellas */
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 7px;
   padding: 6px 12px;
   cursor: grab;
   user-select: none;
+  /* Fondo esmerilado sutil: la cabecera flota sobre las tarjetas, así sus botones y el nombre son
+     siempre legibles y clicables aunque una tarjeta quede debajo de la franja del título. */
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border-radius: 14px 14px 10px 10px;
 }
 .group-head:active { cursor: grabbing; }
 .group-name { font-size: 12.5px; font-weight: 800; color: var(--fg); opacity: 0.75; }
@@ -5453,6 +5698,15 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
   opacity: 0.65;
 }
 .group-edit:hover { color: var(--primary); opacity: 1; }
+.group-merge {
+  border: none; background: none;
+  color: var(--muted);
+  cursor: pointer; padding: 0 2px;
+  opacity: 0.65;
+  display: inline-flex; align-items: center;
+}
+.group-merge:hover { color: var(--primary); opacity: 1; }
+.group-merge .icon { width: 14px; height: 14px; }
 .group-del {
   border: none; background: none;
   color: var(--muted); font-size: 15px; line-height: 1;
@@ -5535,7 +5789,9 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
 .float-chat-btn {
   position: absolute;
   right: 16px;
+  right: calc(16px + env(safe-area-inset-right, 0px));
   bottom: 64px;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   z-index: 50;
   width: 42px; height: 42px;
   border-radius: 50%;
@@ -5968,3 +6224,62 @@ body.fc-picking .card { cursor: crosshair !important; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Tour: puntos de progreso y CTA ---------- */
+.tour-dots { display: flex; gap: 5px; margin-bottom: 8px; }
+.tour-dot { width: 8px; height: 8px; border-radius: 50%; border: none; padding: 0; cursor: pointer; background: var(--border); transition: background 0.15s, transform 0.15s; }
+.tour-dot.done { background: var(--muted2); }
+.tour-dot.on { background: var(--primary); transform: scale(1.3); }
+.tour-count { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; color: var(--muted); align-self: center; }
+.tour-cta { display: block; width: 100%; margin: 10px 0 2px; background: var(--sage); }
+
+/* ---------- Guía de funciones (documento in-app) ---------- */
+.guide-panel { width: min(980px, 94vw); height: min(86vh, 900px); display: flex; flex-direction: column; }
+.guide-search { flex: 1; max-width: 260px; margin: 0 10px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--fg); font: inherit; font-size: 13px; }
+.guide-main { display: flex; flex: 1; min-height: 0; }
+.guide-toc { width: 200px; flex-shrink: 0; overflow-y: auto; padding: 12px 8px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px; }
+.guide-toc-item { text-align: left; background: none; border: none; border-radius: 8px; padding: 7px 10px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.guide-toc-item:hover { background: var(--secondary); color: var(--fg); }
+.guide-body { flex: 1; overflow-y: auto; padding: 14px 22px 30px; }
+.guide-sec-title { position: sticky; top: -14px; background: var(--card); z-index: 1; padding: 10px 0 6px; }
+.guide-item { margin: 0 0 22px; }
+.guide-item-title { margin: 0 0 4px; font-family: Fraunces, serif; font-size: 17px; }
+.guide-item-body { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; color: var(--fg); }
+.guide-img { max-width: 100%; border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); cursor: zoom-in; }
+.guide-lightbox { position: fixed; inset: 0; z-index: 6000; background: rgba(20, 16, 12, 0.82); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+.guide-lightbox img { max-width: 94vw; max-height: 92vh; border-radius: 10px; box-shadow: var(--shadow-lg); }
+@media (max-width: 720px) { .guide-toc { display: none; } .guide-search { max-width: 150px; } }
+
+/* ---------- Apoyar tuNota (Yape) ---------- */
+.donate-card { position: relative; width: min(360px, 92vw); max-height: 92vh; overflow-y: auto; background: linear-gradient(160deg, #742284, #4e1560); border-radius: 22px; padding: 26px 24px 22px; text-align: center; color: #fff; box-shadow: var(--shadow-lg); animation: pop 0.16s ease-out; }
+.donate-close { position: absolute; top: 10px; right: 10px; color: rgba(255, 255, 255, 0.8); }
+.donate-close:hover { color: #fff; background: rgba(255, 255, 255, 0.12); }
+.donate-heart { color: #2fd5c8; }
+.donate-heart svg { width: 30px; height: 30px; }
+.donate-title { margin: 4px 0 8px; font-family: Fraunces, serif; font-size: 24px; color: #fff; }
+.donate-text { margin: 0 0 16px; font-size: 13.5px; line-height: 1.55; color: rgba(255, 255, 255, 0.9); }
+.donate-qr-frame { background: #fff; border-radius: 16px; padding: 14px; margin: 0 auto 14px; width: fit-content; }
+.donate-qr { display: block; width: 220px; max-width: 70vw; height: auto; }
+.donate-qr-missing { width: 220px; max-width: 70vw; padding: 30px 14px; font-size: 13px; color: #4e1560; }
+.donate-pill { display: inline-block; background: #2fd5c8; color: #24123a; font-weight: 800; font-size: 13px; padding: 7px 18px; border-radius: 999px; margin-bottom: 10px; }
+.donate-name { font-weight: 700; font-size: 15px; margin-bottom: 10px; }
+.donate-small { margin: 0; font-size: 11.5px; color: rgba(255, 255, 255, 0.65); }
+
+/* La guía y la donación se centran como documento/tarjeta (el overlay base es un drawer lateral). */
+#guideOverlay, #donateOverlay { justify-content: center; align-items: center; background: rgba(30, 26, 22, 0.45); backdrop-filter: blur(2px); }
+.guide-panel { border-radius: 16px; border: 1px solid var(--border); animation: pop 0.16s ease-out; }
+
+/* ---------- Bloque idea: botón «Revisar idea» + panel de validación ---------- */
+.idea-review-row { display: flex; justify-content: flex-end; padding: 4px 2px 0; }
+.idea-review-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--idea-border); background: rgba(255, 255, 255, 0.55); color: var(--fg); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.idea-review-btn:hover { background: var(--ocre); color: #fff; border-color: var(--ocre); }
+.idea-review-btn svg { width: 13px; height: 13px; }
+#ideaRevOverlay { justify-content: center; align-items: center; background: rgba(30, 26, 22, 0.45); backdrop-filter: blur(2px); }
+.idea-rev-panel { width: min(680px, 94vw); max-height: min(86vh, 860px); border-radius: 16px; border: 1px solid var(--border); animation: pop 0.16s ease-out; }
+.idea-rev-quote { margin: 0; padding: 10px 18px; font-family: Fraunces, serif; font-size: 16px; border-left: 4px solid var(--ocre); background: var(--idea-bg); color: var(--fg); }
+.idea-rev-status { padding: 14px 18px; color: var(--muted); font-size: 13.5px; }
+.idea-rev-status::after { content: '…'; animation: pulse 1.2s infinite; }
+.idea-rev-body { flex: 1; overflow-y: auto; padding: 6px 18px 12px; font-size: 13.5px; line-height: 1.55; }
+.idea-rev-body h2 { font-family: Fraunces, serif; font-size: 16px; margin: 14px 0 4px; }
+.idea-rev-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 10px 18px 16px; border-top: 1px solid var(--border); }
+.idea-rev-actions:empty { display: none; }

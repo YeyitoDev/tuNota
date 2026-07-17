@@ -2,11 +2,12 @@
 FROM python:3.12-alpine
 
 WORKDIR /app
-COPY server.py index.html note.html note.js styles.css ./
+COPY server.py index.html note.html note.js styles.css manifest.json sw.js legal.html LICENSE ./
 COPY js ./js
 COPY public ./public
-# Guía visual/showcase (docs/showcase.html + capturas) para servirla desde la app.
-COPY docs ./docs
+# Solo lo público de docs/: showcase y capturas (los planes internos no se despliegan).
+COPY docs/showcase.html ./docs/showcase.html
+COPY docs/screenshots ./docs/screenshots
 
 EXPOSE 8080
 CMD ["python", "server.py"]

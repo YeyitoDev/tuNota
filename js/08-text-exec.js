@@ -120,6 +120,7 @@ function applyLineTransform(b, ta, fn, label) {
   touchNote(b.noteId);
   logChange('Texto: ' + label, snippet(ta.value));
   save();
+  if (typeof autoGrowNote === 'function') autoGrowNote(ta); // el auto-formato cambia el nº de líneas → reajusta el alto
   if (ta.isConnected) ta.focus();
 }
 // Menú del botón de formato de un bloque de texto: elige la transformación.

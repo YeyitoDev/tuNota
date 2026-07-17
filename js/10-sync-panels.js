@@ -553,6 +553,21 @@ function renderGraph(world, svg, stage) {
     el.addEventListener('click', function (ev) { ev.stopPropagation(); onGraphNodeClick(n); });
     world.appendChild(el);
   });
+  // Aristas de relación entre lienzos (portales / hipervínculos), con flecha.
+  var notePos = {};
+  nodes.forEach(function (nn) { if (nn.kind === 'note' && nn.noteId) notePos[nn.noteId] = nn; });
+  var defs = document.createElementNS(SVGNS, 'defs');
+  defs.innerHTML = '<marker id="graphRelArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#c2745b"/></marker>';
+  svg.appendChild(defs);
+  noteRelations().forEach(function (r) {
+    var a = notePos[r.from], b2 = notePos[r.to];
+    if (!a || !b2) return;
+    var p = document.createElementNS(SVGNS, 'path');
+    p.setAttribute('d', 'M' + (cx + a._x) + ',' + (cy + a._y) + ' L' + (cx + b2._x) + ',' + (cy + b2._y));
+    p.setAttribute('class', 'graph-rel graph-rel-' + r.kind);
+    p.setAttribute('marker-end', 'url(#graphRelArrow)');
+    svg.appendChild(p);
+  });
   var docs = nodes.filter(function (n) { return n.kind === 'doc'; }).length;
   var notes = nodes.filter(function (n) { return n.kind === 'note'; }).length;
   var countEl = document.getElementById('graphCount');
@@ -618,6 +633,23 @@ function setupGraphNav(world, stage, nodes) {
 function renderAll() {
   renderSidebar();
   renderTopbar();
+  if (typeof renderNoteTabs === 'function') renderNoteTabs();
   renderCanvas();
   applySidebar();
+}
+// Relaciones entre lienzos (hojas): portales de sub-lienzo (bloque 'canvas'), hijos (parentId)
+// e hipervínculos de texto a otra nota. Para dibujarlas sobre el mapa de conocimiento.
+function noteRelations() {
+  var edges = [], seen = {};
+  function add(from, to, kind) {
+    if (!from || !to || from === to || !getNote(from) || !getNote(to)) return;
+    var key = from + '>' + to; if (seen[key]) return; seen[key] = 1;
+    edges.push({ from: from, to: to, kind: kind });
+  }
+  (data.blocks || []).forEach(function (b) {
+    if (b.type === 'canvas' && b.content && b.content.noteRef) add(b.noteId, b.content.noteRef, 'portal');
+    if (b.content && b.content.hlinks) b.content.hlinks.forEach(function (hl) { if (hl.type === 'note') add(b.noteId, hl.target, 'link'); });
+  });
+  (data.notes || []).forEach(function (n) { if (n.parentId) add(n.parentId, n.id, 'portal'); });
+  return edges;
 }

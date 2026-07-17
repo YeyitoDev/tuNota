@@ -352,8 +352,9 @@ function pickImagesFor(b, cardEl) {
 }
 function cardFigure(b, index, cardEl) {
   var it = b.content.images[index];
-  var img = h('img', { src: imgItemSrc(it), alt: '' });
+  var img = h('img', { src: imgItemSrc(it), alt: '', title: 'Doble clic para editar: dibujar, señalar, notas, formas, recortar…' });
   setupImageDrag(img, b);
+  img.addEventListener('dblclick', function (e) { e.stopPropagation(); e.preventDefault(); openImageEditor(b, index); });
   var w = imgItemW(it);
   if (w) img.style.width = w + 'px';
   var del = h('button', { class: 'fig-del', title: 'Quitar imagen', onclick: function (e) { e.stopPropagation(); removeCardImage(b, index, cardEl); } }, icon('trash'));
@@ -387,6 +388,185 @@ function startImgResize(e, b, index, img, cardEl) {
   }
   document.addEventListener('mousemove', move);
   document.addEventListener('mouseup', up);
+}
+// ---------- Editor de imágenes (doble clic): dibujar, señalar, notas, formas, recortar, duplicar ----------
+var _imedUndoFn = null;
+function closeImageEditor() {
+  var o = document.getElementById('imgEditor');
+  if (o) o.remove();
+  _imedUndoFn = null;
+  document.removeEventListener('keydown', _imedKey, true);
+}
+function _imedKey(e) {
+  if (!document.getElementById('imgEditor')) return;
+  var a = document.activeElement;
+  if (a && a.classList && a.classList.contains('imed-text-input')) return; // deja escribir la nota
+  if (e.key === 'Escape') { closeImageEditor(); }
+  else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); e.stopPropagation(); if (_imedUndoFn) _imedUndoFn(); }
+}
+function openImageEditor(b, index) {
+  if (!b.content || !b.content.images || !b.content.images[index]) return;
+  closeImageEditor();
+  var img = new Image();
+  img.onload = function () { buildImageEditor(b, index, img); };
+  img.onerror = function () { toast('No se pudo abrir la imagen para editar.', 'warn'); };
+  img.src = imgItemSrc(b.content.images[index]);
+}
+function buildImageEditor(b, index, baseImg) {
+  var it = b.content.images[index];
+  var W = baseImg.naturalWidth || baseImg.width || 800, H = baseImg.naturalHeight || baseImg.height || 600;
+  var st = { tool: 'draw', color: '#e0392b', size: Math.max(3, Math.round(Math.max(W, H) / 320)), annos: [], cur: null, crop: null, dragCrop: false, sel: null, moving: null };
+  var canvas = h('canvas', { class: 'imed-canvas', width: String(W), height: String(H) });
+  var ctx = canvas.getContext('2d');
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  var textLayer = h('div', { class: 'imed-textlayer' });
+  var stage = h('div', { class: 'imed-stage' }, canvas, textLayer);
+
+  function head(x1, y1, x2, y2, size) {
+    var ang = Math.atan2(y2 - y1, x2 - x1), hl = Math.max(11, size * 3.5);
+    ctx.beginPath(); ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - hl * Math.cos(ang - 0.5), y2 - hl * Math.sin(ang - 0.5));
+    ctx.lineTo(x2 - hl * Math.cos(ang + 0.5), y2 - hl * Math.sin(ang + 0.5));
+    ctx.closePath(); ctx.fill();
+  }
+  function drawAnno(a) {
+    ctx.strokeStyle = a.color; ctx.fillStyle = a.color; ctx.lineWidth = a.size;
+    if (a.type === 'draw') { if (a.points.length < 1) return; ctx.beginPath(); ctx.moveTo(a.points[0].x, a.points[0].y); for (var i = 1; i < a.points.length; i++) ctx.lineTo(a.points[i].x, a.points[i].y); ctx.stroke(); }
+    else if (a.type === 'arrow') { ctx.beginPath(); ctx.moveTo(a.x1, a.y1); ctx.lineTo(a.x2, a.y2); ctx.stroke(); head(a.x1, a.y1, a.x2, a.y2, a.size); }
+    else if (a.type === 'rect') { ctx.strokeRect(Math.min(a.x, a.x + a.w), Math.min(a.y, a.y + a.h), Math.abs(a.w), Math.abs(a.h)); }
+    else if (a.type === 'ellipse') { ctx.beginPath(); ctx.ellipse(a.x + a.w / 2, a.y + a.h / 2, Math.abs(a.w) / 2, Math.abs(a.h) / 2, 0, 0, Math.PI * 2); ctx.stroke(); }
+    else if (a.type === 'text') { ctx.font = '700 ' + a.fs + 'px Nunito, system-ui, sans-serif'; ctx.textBaseline = 'top'; ctx.lineWidth = Math.max(3, a.fs / 6); String(a.text).split('\n').forEach(function (ln, i) { var y = a.y + i * a.fs * 1.25; ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.strokeText(ln, a.x, y); ctx.fillStyle = a.color; ctx.fillText(ln, a.x, y); }); }
+  }
+  function redraw() {
+    ctx.clearRect(0, 0, W, H); ctx.drawImage(baseImg, 0, 0, W, H);
+    st.annos.forEach(drawAnno);
+    if (st.cur) drawAnno(st.cur);
+    if (st.tool === 'move' && st.sel && st.annos.indexOf(st.sel) >= 0) {
+      var sb = annoBBox(st.sel), sp = Math.max(6, W / 200);
+      ctx.save(); ctx.strokeStyle = 'rgba(59,130,246,0.95)'; ctx.lineWidth = Math.max(1.5, W / 500); ctx.setLineDash([W / 80, W / 110]);
+      ctx.strokeRect(sb.x - sp, sb.y - sp, sb.w + sp * 2, sb.h + sp * 2); ctx.restore();
+    }
+    if (st.crop) {
+      var c = st.crop, x = Math.min(c.x, c.x + c.w), y = Math.min(c.y, c.y + c.h), w = Math.abs(c.w), hh = Math.abs(c.h);
+      ctx.save(); ctx.fillStyle = 'rgba(20,16,12,0.45)'; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.rect(x, y, w, hh); ctx.fill('evenodd');
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, W / 400); ctx.setLineDash([W / 60, W / 90]); ctx.strokeRect(x, y, w, hh); ctx.restore();
+    }
+  }
+  function toImg(ev) { var r = canvas.getBoundingClientRect(); return { x: (ev.clientX - r.left) / r.width * W, y: (ev.clientY - r.top) / r.height * H }; }
+  _imedUndoFn = function () { if (st.annos.length) { st.sel = null; st.annos.pop(); redraw(); } };
+
+  // Caja envolvente de una anotación (coordenadas de imagen) para seleccionarla/moverla.
+  function annoBBox(a) {
+    if (a.type === 'text') {
+      ctx.font = '700 ' + a.fs + 'px Nunito, system-ui, sans-serif';
+      var w = 0; String(a.text).split('\n').forEach(function (ln) { w = Math.max(w, ctx.measureText(ln).width); });
+      return { x: a.x, y: a.y, w: w, h: String(a.text).split('\n').length * a.fs * 1.25 };
+    }
+    if (a.type === 'rect' || a.type === 'ellipse') return { x: Math.min(a.x, a.x + a.w), y: Math.min(a.y, a.y + a.h), w: Math.abs(a.w), h: Math.abs(a.h) };
+    if (a.type === 'arrow') return { x: Math.min(a.x1, a.x2), y: Math.min(a.y1, a.y2), w: Math.abs(a.x2 - a.x1), h: Math.abs(a.y2 - a.y1) };
+    if (a.type === 'draw') {
+      var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      a.points.forEach(function (p) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); });
+      return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    }
+    return { x: 0, y: 0, w: 0, h: 0 };
+  }
+  function hitAnno(p) {
+    for (var i = st.annos.length - 1; i >= 0; i--) {
+      var a = st.annos[i], b = annoBBox(a), pad = Math.max(12, (a.size || 6) * 1.5);
+      if (p.x >= b.x - pad && p.x <= b.x + b.w + pad && p.y >= b.y - pad && p.y <= b.y + b.h + pad) return a;
+    }
+    return null;
+  }
+  function moveAnno(a, dx, dy) {
+    if (a.type === 'draw') a.points.forEach(function (p) { p.x += dx; p.y += dy; });
+    else if (a.type === 'arrow') { a.x1 += dx; a.y1 += dy; a.x2 += dx; a.y2 += dy; }
+    else { a.x += dx; a.y += dy; } // rect, ellipse, text
+  }
+
+  var down = false;
+  canvas.addEventListener('pointerdown', function (ev) {
+    ev.preventDefault(); try { canvas.setPointerCapture(ev.pointerId); } catch (e) {}
+    var p = toImg(ev);
+    if (st.tool === 'move') {
+      st.sel = hitAnno(p);
+      if (st.sel) { down = true; st.moving = { a: st.sel, lastX: p.x, lastY: p.y }; }
+      redraw(); return;
+    }
+    if (st.tool === 'text') { addTextAt(ev, p); return; }
+    down = true;
+    if (st.tool === 'draw') st.cur = { type: 'draw', color: st.color, size: st.size, points: [p] };
+    else if (st.tool === 'arrow') st.cur = { type: 'arrow', color: st.color, size: st.size, x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+    else if (st.tool === 'rect') st.cur = { type: 'rect', color: st.color, size: st.size, x: p.x, y: p.y, w: 0, h: 0 };
+    else if (st.tool === 'ellipse') st.cur = { type: 'ellipse', color: st.color, size: st.size, x: p.x, y: p.y, w: 0, h: 0 };
+    else if (st.tool === 'crop') { st.crop = { x: p.x, y: p.y, w: 0, h: 0 }; st.dragCrop = true; }
+    redraw();
+  });
+  canvas.addEventListener('pointermove', function (ev) {
+    if (!down) return; var p = toImg(ev);
+    if (st.moving) { moveAnno(st.moving.a, p.x - st.moving.lastX, p.y - st.moving.lastY); st.moving.lastX = p.x; st.moving.lastY = p.y; redraw(); return; }
+    if (st.cur) { if (st.cur.type === 'draw') st.cur.points.push(p); else if (st.cur.type === 'arrow') { st.cur.x2 = p.x; st.cur.y2 = p.y; } else { st.cur.w = p.x - st.cur.x; st.cur.h = p.y - st.cur.y; } }
+    else if (st.dragCrop && st.crop) { st.crop.w = p.x - st.crop.x; st.crop.h = p.y - st.crop.y; }
+    redraw();
+  });
+  canvas.addEventListener('pointerup', function () {
+    down = false; st.dragCrop = false; st.moving = null;
+    if (st.cur) { var a = st.cur; st.cur = null; var ok = a.type === 'draw' ? a.points.length > 1 : (a.type === 'arrow' ? Math.hypot(a.x2 - a.x1, a.y2 - a.y1) > 5 : Math.abs(a.w) > 5 && Math.abs(a.h) > 5); if (ok) st.annos.push(a); }
+    redraw();
+  });
+  function addTextAt(ev, p) {
+    var sr = stage.getBoundingClientRect();
+    var scale = canvas.getBoundingClientRect().width / W, fs = Math.max(16, st.size * 6);
+    var inp = h('textarea', { class: 'imed-text-input', rows: '1' });
+    inp.style.left = (ev.clientX - sr.left) + 'px'; inp.style.top = (ev.clientY - sr.top) + 'px';
+    inp.style.color = st.color; inp.style.fontSize = Math.max(11, Math.round(fs * scale)) + 'px';
+    textLayer.appendChild(inp); setTimeout(function () { inp.focus(); }, 0);
+    function commit() { var t = inp.value.replace(/\s+$/, ''); if (inp.parentNode) inp.remove(); if (t) { st.annos.push({ type: 'text', color: st.color, x: p.x, y: p.y, fs: fs, text: t }); redraw(); } }
+    inp.addEventListener('blur', commit);
+    inp.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inp.blur(); } if (e.key === 'Escape') { inp.value = ''; inp.blur(); } });
+  }
+  function setTool(t) { st.tool = t; Array.prototype.forEach.call(toolbar.querySelectorAll('.imed-tool'), function (x) { x.classList.toggle('on', x.getAttribute('data-tool') === t); }); if (t !== 'crop') st.crop = null; if (t !== 'move') st.sel = null; canvas.style.cursor = (t === 'text' ? 'text' : (t === 'move' ? 'move' : 'crosshair')); redraw(); }
+  function toolBtn(t, label, title) { var btn = h('button', { class: 'imed-tool' + (st.tool === t ? ' on' : ''), title: title, 'data-tool': t, onclick: function () { setTool(t); } }, label); return btn; }
+  var color = h('input', { type: 'color', class: 'imed-color', value: st.color, title: 'Color' }); color.addEventListener('input', function () { st.color = color.value; });
+  var size = h('input', { type: 'range', class: 'imed-size', min: '1', max: '48', value: String(st.size), title: 'Grosor' }); size.addEventListener('input', function () { st.size = +size.value; });
+  function composite() { var c = st.crop; st.crop = null; redraw(); st.crop = c; return canvas; }
+  function applyCrop() {
+    if (!st.crop || Math.abs(st.crop.w) < 8 || Math.abs(st.crop.h) < 8) { toast('Elige ✂ y marca sobre la imagen el área a recortar.', 'warn'); return; }
+    var c = st.crop, x = Math.round(Math.min(c.x, c.x + c.w)), y = Math.round(Math.min(c.y, c.y + c.h)), w = Math.round(Math.abs(c.w)), hh = Math.round(Math.abs(c.h));
+    var src = composite(), tmp = document.createElement('canvas'); tmp.width = w; tmp.height = hh;
+    tmp.getContext('2d').drawImage(src, x, y, w, hh, 0, 0, w, hh);
+    var ni = new Image(); ni.onload = function () { baseImg = ni; W = w; H = hh; canvas.width = W; canvas.height = H; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; st.annos = []; setTool('draw'); }; ni.src = tmp.toDataURL('image/png');
+  }
+  function doDownload() { var a = h('a', { href: composite().toDataURL('image/png'), download: imageFileName(b, '.png') }); document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 500); }
+  function apply() {
+    var url = composite().toDataURL('image/png');
+    pushUndo('Editar imagen'); var ref = storeBlob(url), oldW = imgItemW(it);
+    b.content.images[index] = oldW ? { src: ref, w: oldW } : { src: ref };
+    touchNote(b.noteId); logChange('Imagen editada', ''); save();
+    var el = cardEl(b.id); if (el) { updateCardMedia(el, b); if (typeof fitImageCard === 'function') fitImageCard(el, b); drawLinks(); }
+    closeImageEditor();
+  }
+  var toolbar = h('div', { class: 'imed-tools' },
+    toolBtn('move', '✥', 'Mover: arrastra un texto o anotación ya colocado'),
+    toolBtn('draw', '✏️', 'Dibujar'), toolBtn('arrow', '↗', 'Flecha / señalar un punto'),
+    toolBtn('rect', '▭', 'Rectángulo'), toolBtn('ellipse', '◯', 'Elipse'),
+    toolBtn('text', 'T', 'Nota de texto sobre la imagen'), toolBtn('crop', '✂', 'Recortar (marca el área)'),
+    h('span', { class: 'imed-sep' }), color, size,
+    h('button', { class: 'imed-btn', title: 'Deshacer (Ctrl+Z)', onclick: function () { _imedUndoFn(); } }, '⟲'),
+    h('button', { class: 'imed-btn', title: 'Aplicar el recorte marcado', onclick: applyCrop }, 'Recortar'),
+    h('span', { class: 'imed-sep' }),
+    h('button', { class: 'imed-btn', title: 'Descargar la imagen editada', onclick: doDownload }, '⬇'),
+    h('button', { class: 'imed-btn', title: 'Duplicar el bloque de imagen', onclick: function () { duplicateBlock(b); closeImageEditor(); } }, 'Duplicar'),
+    h('span', { class: 'card-spacer' }),
+    h('button', { class: 'imed-btn ghost', title: 'Cerrar sin guardar (Esc)', onclick: closeImageEditor }, 'Cancelar'),
+    h('button', { class: 'imed-btn primary', title: 'Guardar los cambios en la imagen', onclick: apply }, '✓ Aplicar')
+  );
+  var overlay = h('div', { class: 'overlay imed-overlay', id: 'imgEditor' });
+  overlay.appendChild(h('div', { class: 'imed-panel' }, toolbar, stage));
+  document.body.appendChild(overlay);
+  canvas.style.cursor = 'crosshair';
+  redraw();
+  document.addEventListener('keydown', _imedKey, true);
 }
 function insertAtCursor(ta, text) {
   var s = ta.selectionStart, e = ta.selectionEnd;
