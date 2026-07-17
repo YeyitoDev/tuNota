@@ -144,6 +144,10 @@ function noteRow(n) {
         h('span', { class: 'item-name' }, g.name),
         h('button', { class: 'act', title: 'Guardar el grupo como plantilla', onclick: function (e) { e.stopPropagation(); saveGroupAsTemplate(g); } }, icon('layout')),
         h('button', { class: 'act danger', title: 'Disolver grupo', onclick: function (e) { e.stopPropagation(); deleteGroup(g); } }, icon('trash')));
+      if (gs.length > 1) { // "Juntar con otro grupo" solo tiene sentido si hay más de uno
+        var mBtn = h('button', { class: 'act', title: 'Juntar con otro grupo…', onclick: function (e) { e.stopPropagation(); goToGroup(n.id, g); openGroupMergePicker(g, mBtn); } }, icon('shapes'));
+        grow.insertBefore(mBtn, grow.lastChild); // antes del botón de disolver
+      }
       grow.addEventListener('click', function (e) { e.stopPropagation(); goToGroup(n.id, g); });
       kids.appendChild(grow);
     });
@@ -292,9 +296,15 @@ function aiConfig() {
     key: ui.ai.apiKey || '',
   };
 }
+// ¿Autorizado a usar las CLAVES DEL SERVIDOR (IA/búsqueda del dueño)? Si el
+// servidor exige token, solo con el token puesto; el resto usa su propia clave.
+function backendAuthOk() { return !BACKEND.tokenRequired || !!(ui && ui.token); }
+function searchReady() { return !!(BACKEND.search && backendAuthOk()); }
+var NEED_TOKEN_MSG = 'La IA del servidor requiere el TOKEN DE ACCESO (panel de IA → icono de llave). Sin token puedes usar tu propia clave: OpenAI, Gemini, Claude, Groq…';
+var NEED_TOKEN_SEARCH = 'La búsqueda web usa las claves del servidor y requiere el token de acceso; sin él, la IA razona sin internet.';
 function aiReady() {
   var c = aiConfig();
-  if (c.style === 'backend') return !!(BACKEND.ai && c.model);
+  if (c.style === 'backend') return !!(BACKEND.ai && backendAuthOk() && c.model);
   return !!(c.key && c.baseUrl && c.model);
 }
 function aiHandleJSON(r) {
@@ -325,6 +335,7 @@ function callAI(messages) {
   var c = aiConfig();
   if (c.style === 'backend') {
     if (!BACKEND.ai) return Promise.reject(new Error('El servidor no tiene IA configurada (.env OPENCODE-API).'));
+    if (!backendAuthOk()) return Promise.reject(new Error(NEED_TOKEN_MSG));
     return apiFetch(c.baseUrl || 'api/ai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -339,7 +350,9 @@ function callAI(messages) {
     // Muchos proveedores (OpenAI, OpenCode…) bloquean las llamadas directas del navegador
     // por CORS. Si hay servidor, enrutamos por él (proxy /api/ai con tu clave: sin CORS y
     // con User-Agent). Si no, intento directo (funciona con proveedores que permiten CORS).
-    if (typeof SERVER !== 'undefined' && SERVER) {
+    // El proxy con tu clave (override) NO exige el token del servidor: basta con
+    // que el servidor esté vivo (BACKEND.up), aunque /api/data esté protegido.
+    if (BACKEND.up || (typeof SERVER !== 'undefined' && SERVER)) {
       return apiFetch('api/ai', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(Object.assign(aiBody(c.model, messages), { override: { baseUrl: c.baseUrl, key: c.key } })),
@@ -432,6 +445,7 @@ function strokesToCanvas(strokes, scale) {
 function callAIVision(prompt, dataUrl) {
   var c = aiConfig();
   if (c.style === 'backend' && !BACKEND.ai) return Promise.reject(new Error('El servidor no tiene IA configurada.'));
+  if (c.style === 'backend' && !backendAuthOk()) return Promise.reject(new Error(NEED_TOKEN_MSG));
   if (c.style !== 'backend' && (!c.key || !c.baseUrl)) return Promise.reject(new Error('Configura un proveedor de IA con visión.'));
   var messages = [
     { role: 'system', content: 'Eres un asistente que transcriebe texto manuscrito. Responde ÚNICAMENTE con el texto reconocido, sin comentarios, sin explicaciones, manteniendo saltos de línea si los hay.' },
@@ -447,7 +461,7 @@ function callAIVision(prompt, dataUrl) {
     }).then(aiHandleJSON).then(aiPickContent);
   }
   if (c.style === 'openai') {
-    if (typeof SERVER !== 'undefined' && SERVER) {
+    if (BACKEND.up || (typeof SERVER !== 'undefined' && SERVER)) {
       return apiFetch('api/ai', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(Object.assign(aiBody(c.model, messages), { override: { baseUrl: c.baseUrl, key: c.key } })),
@@ -533,6 +547,7 @@ function recognizeSelectedInk() {
 // ---------- Búsqueda web (Tavily, vía servidor) ----------
 function webSearch(query, opts) {
   if (!BACKEND.search) return Promise.reject(new Error('El servidor no tiene búsqueda web (.env TAVILY).'));
+  if (!backendAuthOk()) return Promise.reject(new Error(NEED_TOKEN_SEARCH));
   var body = { query: query, max_results: 5, search_depth: 'basic', include_answer: true };
   if (opts) Object.keys(opts).forEach(function (k) { body[k] = opts[k]; });
   return apiFetch('api/search', {
@@ -549,7 +564,7 @@ function webResultsMd(res) {
 function aiWebSearch(query) {
   query = (query || '').trim();
   if (!query) { pushAIMsg('system-note', 'Escribe primero qué quieres buscar.'); return; }
-  if (!BACKEND.search) { pushAIMsg('system-note', 'El servidor no tiene búsqueda web. Configura TAVILY en el archivo .env.'); return; }
+  if (!searchReady()) { pushAIMsg('system-note', BACKEND.search ? NEED_TOKEN_SEARCH : 'El servidor no tiene búsqueda web. Configura TAVILY en el archivo .env.'); return; }
   pushAIMsg('user', '🌐 Buscar en internet: ' + query);
   var log = aiLogEl();
   var thinking = h('div', { class: 'ai-msg bot thinking' }, 'Buscando en internet…');
@@ -595,7 +610,7 @@ function aiWebSearchFromInput() {
 // Busca en internet a partir del contenido de un bloque y crea un bloque enlazado
 // con el resumen y las fuentes (usa la IA si está disponible, si no lista las fuentes).
 function aiWebSearchBlock(b) {
-  if (!BACKEND.search) { toast('El servidor no tiene búsqueda web (configura TAVILY en .env).', 'warn'); return; }
+  if (!searchReady()) { toast(BACKEND.search ? NEED_TOKEN_SEARCH : 'El servidor no tiene búsqueda web (configura TAVILY en .env).', 'warn'); return; }
   var text = aiBlockText(b).trim();
   if (!text) { toast('El bloque no tiene texto que buscar.', 'warn'); return; }
   var query = text.replace(/\s+/g, ' ').slice(0, 200);
@@ -647,6 +662,7 @@ function aiWebSearchBlock(b) {
 // ---------- Imágenes: buscar (Tavily) o generar (backend /api/image) ----------
 function imageSearchWeb(prompt) {
   if (!BACKEND.search) return Promise.reject(new Error('El servidor no tiene búsqueda web (.env TAVILY).'));
+  if (!backendAuthOk()) return Promise.reject(new Error(NEED_TOKEN_SEARCH));
   return apiFetch('api/search', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: prompt, max_results: 8, include_images: true, include_image_descriptions: true, search_depth: 'basic', include_answer: false }),
@@ -695,7 +711,9 @@ function openAI() {
   var settings = h('div', { class: 'ai-settings' + (showSettings ? ' open' : '') });
   var provSel = h('select', { class: 'ai-input' });
   Object.keys(AI_PROVIDERS).forEach(function (k) {
-    var o = h('option', { value: k }, AI_PROVIDERS[k].label);
+    var lbl = AI_PROVIDERS[k].label;
+    if (k === 'backend' && BACKEND.tokenRequired && !ui.token) lbl += ' — requiere token de acceso';
+    var o = h('option', { value: k }, lbl);
     if (ui.ai.provider === k) o.selected = true;
     provSel.appendChild(o);
   });
@@ -1103,6 +1121,9 @@ function showTokenGate() {
 // Decide si mostrar la puerta: solo si el servidor exige token y no logramos entrar.
 // Devuelve true si la mostró (para que el arranque no lance el tour por encima).
 function maybeShowTokenGate() {
+  // En modo público la app entra libre: el token solo habilita la IA/búsqueda del
+  // servidor (cada visitante usa su propia clave; nadie gasta las del dueño).
+  if (BACKEND.publicMode) return false;
   if (BACKEND.tokenRequired && (typeof SERVER === 'undefined' || !SERVER)) { showTokenGate(); return true; }
   return false;
 }
@@ -1300,4 +1321,99 @@ function aiStructureIdea(b) {
     if (el) el.classList.remove('ai-busy');
     toast('IA: ' + ((e && e.message) || e), 'warn');
   });
+}
+
+// ---------- Revisar idea: validación con búsqueda web + la IA elegida ----------
+// Desde el botón «Revisar idea» del bloque idea: busca evidencia en internet (si
+// la búsqueda del servidor está habilitada) y pide a la IA un veredicto honesto.
+function closeIdeaReview() { var o = document.getElementById('ideaRevOverlay'); if (o) o.remove(); }
+function openIdeaReview(b) {
+  var idea = ((b.content && b.content.text) || '').trim();
+  if (!idea) { toast('Escribe primero tu idea en el bloque.', 'warn'); return; }
+  if (!aiReady()) { toast('Configura tu IA (proveedor, clave y modelo) para revisar la idea.', 'warn'); openAI(); return; }
+  closeIdeaReview();
+  var overlay = h('div', { class: 'overlay', id: 'ideaRevOverlay', onclick: function (e) { if (e.target === overlay) closeIdeaReview(); } });
+  var status = h('div', { class: 'idea-rev-status' }, searchReady() ? 'Buscando evidencia en internet…' : 'Analizando con tu IA (sin búsqueda web: entra el token del servidor para activarla)…');
+  var body = h('div', { class: 'idea-rev-body' });
+  var actions = h('div', { class: 'idea-rev-actions' });
+  var panel = h('div', { class: 'log-panel idea-rev-panel' },
+    h('div', { class: 'log-head' },
+      h('div', { class: 'log-title' }, icon('bulb'), 'Revisar idea'),
+      h('button', { class: 'icon-btn', title: 'Cerrar', onclick: closeIdeaReview }, icon('x'))),
+    h('blockquote', { class: 'idea-rev-quote' }, idea),
+    status, body, actions);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  var sources = [];
+  var pre = searchReady()
+    ? webSearch(idea, { max_results: 5, include_answer: true }).then(function (d) {
+        sources = (d && d.results) || [];
+        return (d && d.answer) || '';
+      }).catch(function () { return ''; }) // sin red/sin resultados: seguimos solo con la IA
+    : Promise.resolve('');
+  pre.then(function (webAnswer) {
+    status.textContent = 'Analizando la idea con tu IA…';
+    var ctx = sources.length
+      ? '\n\nEvidencia de la web:\n' + sources.map(function (s, i) {
+          return '[' + (i + 1) + '] ' + (s.title || '') + ' — ' + String(s.content || '').slice(0, 300) + ' (' + s.url + ')';
+        }).join('\n') + (webAnswer ? '\nResumen del buscador: ' + webAnswer : '')
+      : '';
+    return callAI([
+      { role: 'system', content: 'Eres un analista pragmático y honesto que valida ideas en español, sin adular. Responde SOLO en Markdown con exactamente estas secciones: "## Veredicto" (nota 1-10 y una frase directa), "## Fortalezas" (3 viñetas), "## Riesgos" (3 viñetas), "## Competencia o alternativas" (qué ya existe), "## Cómo validarla barato" (3 pasos concretos que se puedan hacer esta semana). ' + (ctx ? 'Apóyate en la evidencia de la web y cítala como [n].' : 'No hay búsqueda web disponible: razona con tu conocimiento y dilo en el veredicto.') },
+      { role: 'user', content: 'Idea a validar: ' + idea + ctx },
+    ]);
+  }).then(function (res) {
+    status.remove();
+    var md = String(res || '').trim();
+    if (!md) { body.textContent = 'La IA devolvió una respuesta vacía.'; return; }
+    if (sources.length) {
+      md += '\n\n## Fuentes\n' + sources.map(function (s, i) {
+        return (i + 1) + '. [' + (s.title || s.url) + '](' + s.url + ')';
+      }).join('\n');
+    }
+    body.innerHTML = renderMarkdown(md);
+    actions.appendChild(h('button', { class: 'tour-btn', onclick: function () { insertIdeaReview(b, md); } }, 'Insertar en el lienzo'));
+    actions.appendChild(h('button', { class: 'tour-btn ghost', title: 'Crea un bloque Imagen IA enlazado, listo para buscar imágenes de la idea', onclick: function () { insertIdeaImages(b, idea); } }, 'Buscar imágenes'));
+  }).catch(function (e) {
+    status.remove();
+    body.textContent = 'No se pudo revisar la idea: ' + ((e && e.message) || e);
+  });
+}
+// Inserta el informe como bloque Markdown enlazado a la idea.
+function insertIdeaReview(b, md) {
+  var t = now();
+  var mb = {
+    id: uid(), noteId: b.noteId, type: 'markdown',
+    x: b.x + (b.width || 260) + 56, y: b.y, width: 430, height: 380,
+    content: { text: '# Revisión de la idea\n\n' + md }, createdAt: t, updatedAt: t,
+  };
+  data.blocks.push(mb);
+  data.links.push({ id: uid(), noteId: b.noteId, a: b.id, b: mb.id, label: 'validación', createdAt: t });
+  touchNote(b.noteId);
+  logChange('Idea revisada con IA', snippet(md));
+  save();
+  renderCanvas();
+  closeIdeaReview();
+  cardEnterAnim(cardEl(mb.id));
+  focusBlock(mb.id);
+  toast('Revisión insertada junto a la idea.', 'ok');
+}
+// Crea un bloque "Imagen IA" enlazado, precargado con la idea como búsqueda.
+function insertIdeaImages(b, idea) {
+  var t = now();
+  var ib = {
+    id: uid(), noteId: b.noteId, type: 'aiimage',
+    x: b.x, y: b.y + (b.height || 130) + 56, width: 320, height: 260,
+    content: { prompt: idea.slice(0, 120), mode: 'search', images: [] }, createdAt: t, updatedAt: t,
+  };
+  data.blocks.push(ib);
+  data.links.push({ id: uid(), noteId: b.noteId, a: b.id, b: ib.id, createdAt: t });
+  touchNote(b.noteId);
+  save();
+  renderCanvas();
+  closeIdeaReview();
+  cardEnterAnim(cardEl(ib.id));
+  focusBlock(ib.id);
+  toast('Bloque de imágenes creado: pulsa Buscar.', 'ok');
 }

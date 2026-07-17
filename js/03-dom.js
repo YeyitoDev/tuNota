@@ -29,9 +29,12 @@ function appendChild(e, c) {
 }
 
 // ---------- Iconos ----------
+// Basados en Feather Icons (© Cole Bennett y colaboradores, MIT) y Lucide
+// (© Lucide Contributors, ISC). Avisos completos en legal.html#creditos.
 var S = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
 var I = {
   chevron: S + '<polyline points="9 18 15 12 9 6"/></svg>',
+  heart: S + '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
   chevronDown: S + '<polyline points="6 9 12 15 18 9"/></svg>',
   plus: S + '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
   minus: S + '<line x1="5" y1="12" x2="19" y2="12"/></svg>',
@@ -253,7 +256,7 @@ function outlineParse(line) {
   var indent = (/^(\s*)/.exec(line) || ['', ''])[1];
   var level = Math.floor(indent.replace(/\t/g, '  ').length / 2);
   var rest = line.slice(indent.length), m;
-  if ((m = /^(\d+(?:\.\d+)*)[.)]\s+(.*)$/.exec(rest))) return { list: true, kind: 'ordered', level: level, text: m[2] };
+  if ((m = /^(\d+(?:\.\d+)*)[.)]\s+(.*)$/.exec(rest))) return { list: true, kind: 'ordered', level: level, num: parseInt(m[1], 10) || 1, text: m[2] };
   if ((m = /^[-*+•·◦▪‣–—▸]\s+\[([ xX])\]\s+(.*)$/.exec(rest))) return { list: true, kind: 'task', level: level, checked: m[1] !== ' ', text: m[2] };
   if ((m = /^[-*+•·◦▪‣–—▸]\s+(.*)$/.exec(rest))) return { list: true, kind: 'bullet', level: level, text: m[1] };
   return { list: false, level: level, text: rest };
@@ -274,6 +277,9 @@ function outlineClamp(items) {
 function outlineRender(items, dotted) {
   outlineClamp(items);
   var counters = [];
+  // Respeta el número inicial de la lista: si empiezas en "4.", continúa 5, 6… (no reinicia en 1).
+  var first = items[0];
+  if (first && first.kind === 'ordered' && first.level === 0 && first.num > 1) counters[0] = first.num - 1;
   return items.map(function (it) {
     var L = it.level;
     counters[L] = (counters[L] || 0) + 1;

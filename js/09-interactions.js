@@ -69,6 +69,56 @@ function connectedComponent(id) {
   }
   return Object.keys(seen);
 }
+// ---------- Auto-ordenar (flujograma): coloca los bloques en niveles según sus conexiones ----------
+function autoLayoutFlow(ids) {
+  ids = (ids || []).filter(getBlockById);
+  if (ids.length < 2) { toast('Selecciona o conecta al menos 2 bloques para auto-ordenarlos.', 'warn'); return; }
+  var inSet = {}; ids.forEach(function (id) { inSet[id] = true; });
+  var links = (data.links || []).filter(function (l) { return inSet[l.a] && inSet[l.b] && l.a !== l.b; });
+  var adj = {}, indeg = {};
+  ids.forEach(function (id) { adj[id] = []; indeg[id] = 0; });
+  links.forEach(function (l) { adj[l.a].push(l.b); indeg[l.b]++; });
+  // Capa de cada bloque = camino más largo desde una raíz (orden topológico de Kahn).
+  var layer = {}; ids.forEach(function (id) { layer[id] = 0; });
+  var indeg2 = Object.assign({}, indeg);
+  var queue = ids.filter(function (id) { return indeg2[id] === 0; });
+  if (!queue.length) queue = [ids[0]]; // ciclo: arranca en el primero
+  var seen = {}, guard = 0;
+  while (queue.length && guard++ < ids.length * 6) {
+    var cur = queue.shift();
+    if (seen[cur]) continue; seen[cur] = true;
+    adj[cur].forEach(function (n) { layer[n] = Math.max(layer[n], layer[cur] + 1); if (--indeg2[n] <= 0) queue.push(n); });
+  }
+  var byLayer = {};
+  ids.forEach(function (id) { (byLayer[layer[id]] = byLayer[layer[id]] || []).push(id); });
+  var Wd = function (id) { var el = cardEl(id); return el ? el.offsetWidth : (getBlockById(id).width || 180); };
+  var Hd = function (id) { var el = cardEl(id); return el ? el.offsetHeight : (getBlockById(id).height || 110); };
+  var vGap = 80, hGap = 56, minX = Infinity, minY = Infinity;
+  ids.forEach(function (id) { var b = getBlockById(id); minX = Math.min(minX, b.x); minY = Math.min(minY, b.y); });
+  var startX = Math.max(40, Math.round(minX)), startY = Math.max(40, Math.round(minY));
+  var rows = Object.keys(byLayer).map(Number).sort(function (a, b) { return a - b; }).map(function (L) {
+    var row = byLayer[L].slice().sort(function (a, b) { return getBlockById(a).x - getBlockById(b).x; });
+    var totalW = row.reduce(function (s, id) { return s + Wd(id); }, 0) + Math.max(0, row.length - 1) * hGap;
+    return { ids: row, totalW: totalW, rowH: Math.max.apply(null, row.map(Hd)) };
+  });
+  var maxW = Math.max.apply(null, rows.map(function (r) { return r.totalW; }));
+  pushUndo('Auto-ordenar');
+  var y = startY;
+  rows.forEach(function (r) {
+    var x = startX + Math.round((maxW - r.totalW) / 2); // centra cada nivel
+    r.ids.forEach(function (id) { var b = getBlockById(id); b.x = Math.round(x); b.y = Math.round(y + (r.rowH - Hd(id)) / 2); x += Wd(id) + hGap; });
+    y += r.rowH + vGap;
+  });
+  touchNote(getBlockById(ids[0]).noteId);
+  logChange('Auto-ordenado', ids.length + ' bloques · ' + rows.length + ' niveles');
+  save(); renderCanvas();
+  toast('Auto-ordenado en ' + rows.length + ' nivel(es).', 'ok');
+}
+function autoLayoutSelection() {
+  var ids = Object.keys(selectedIds).filter(getBlockById);
+  if (ids.length === 1) ids = connectedComponent(ids[0]).filter(getBlockById); // 1 seleccionado → su flujo conectado entero
+  autoLayoutFlow(ids);
+}
 // ---------- Arrastre (con grupo) ----------
 function attachDragHandler(head, el, b) {
   head.addEventListener('mousedown', function (e) {
@@ -152,7 +202,10 @@ function attachDragHandler(head, el, b) {
 }
 
 // ---------- Selecci\u00f3n m\u00faltiple (marquee) ----------
-function clearSelection() { selectedIds = {}; refreshSelectionUI(); }
+var selectedLinkId = null;
+// Selecciona una conexión (flecha): se resalta y se puede borrar con Supr/Retroceso.
+function selectLink(id) { selectedLinkId = id; selectedIds = {}; refreshSelectionUI(); drawLinks(); }
+function clearSelection() { selectedIds = {}; if (selectedLinkId) { selectedLinkId = null; drawLinks(); } refreshSelectionUI(); }
 function refreshSelectionUI() {
   if (canvasContentEl) {
     Array.prototype.forEach.call(canvasContentEl.querySelectorAll('.card'), function (el) {
@@ -176,6 +229,7 @@ function updateSelInfo() {
       ),
       h('button', { class: 'sel-ai', title: 'Combinar los bloques seleccionados en una s\u00edntesis con IA', onclick: function () { aiSynthesizeSelection(); } }, icon('spark'), 'Sintetizar'),
       h('button', { class: 'sel-mmd', title: 'Convertir las formas/notas y sus conexiones en un diagrama Mermaid', onclick: function () { selectionToMermaid(); } }, icon('flow'), 'A diagrama'),
+      h('button', { class: 'sel-flow', title: 'Auto-ordenar como flujograma: coloca los bloques en niveles según sus conexiones', onclick: function () { autoLayoutSelection(); } }, icon('fit'), 'Ordenar'),
       h('button', { class: 'sel-group', title: 'Crear un grupo con nombre y color (1 o m\u00e1s bloques)', onclick: function () { createGroupFromSelection(); } }, icon('shapes'), 'Agrupar'),
       h('button', { class: 'sel-tpl', title: 'Guardar la selecci\u00f3n como plantilla reutilizable (acceso r\u00e1pido en Plantillas)', onclick: function () { saveSelectionAsTemplate(); } }, icon('layout'), 'Plantilla'),
       h('button', { class: 'sel-dl', title: 'Descargar todas las imágenes de la selección', onclick: function () { downloadSelectedImages(); } }, icon('download'), 'Descargar'),
@@ -206,6 +260,7 @@ function updateSelInfo() {
     return b && ['shape', 'text', 'idea', 'freetext', 'markdown'].indexOf(b.type) >= 0;
   }).length;
   bar.querySelector('.sel-mmd').style.display = nodeCount >= 2 ? '' : 'none';
+  bar.querySelector('.sel-flow').style.display = n >= 2 ? '' : 'none';
   bar.querySelector('.sel-group').style.display = n >= 1 ? '' : 'none'; // permite grupos de 1
 }
 // Alinea o distribuye los bloques seleccionados en el lienzo.
@@ -266,7 +321,11 @@ function selectInRect(left, top, w, hgt, additive, base) {
   var rl = left, rt = top, rr = left + w, rb = top + hgt;
   var next = additive ? Object.assign({}, base) : {};
   blocksOf(ui.currentNoteId).forEach(function (b) {
-    var bl = b.x, bt = b.y, br = b.x + (b.width || 200), bb = b.y + (b.height || 120);
+    // Usa el tamaño REAL renderizado (no el guardado, que puede estar desfasado tras auto-crecer),
+    // para que la selección coincida con lo que se ve.
+    var el = cardEl(b.id);
+    var bw = el ? el.offsetWidth : (b.width || 200), bh = el ? el.offsetHeight : (b.height || 120);
+    var bl = b.x, bt = b.y, br = b.x + bw, bb = b.y + bh;
     if (!(br < rl || bl > rr || bb < rt || bt > rb)) next[b.id] = true;
   });
   selectedIds = next;
@@ -380,10 +439,10 @@ function drawLinks() {
     var ttl = document.createElementNS(SVGNS, 'title');
     ttl.textContent = 'Click para etiquetar, cambiar tipo o eliminar la conexi\u00f3n';
     hit.appendChild(ttl);
-    hit.addEventListener('click', function (e) { e.stopPropagation(); openLinkMenu(lk, e.clientX, e.clientY); });
+    hit.addEventListener('click', function (e) { e.stopPropagation(); selectLink(lk.id); openLinkMenu(lk, e.clientX, e.clientY); });
     var path = document.createElementNS(SVGNS, 'path');
     path.setAttribute('d', d);
-    path.setAttribute('class', 'link-path link-t-' + (lk.type || 'rel'));
+    path.setAttribute('class', 'link-path link-t-' + (lk.type || 'rel') + (lk.id === selectedLinkId ? ' link-selected' : ''));
     var dir = lk.dir || 'end'; // end (A→B) | start (B→A) | both (↔) | none
     if (dir === 'end' || dir === 'both') path.setAttribute('marker-end', 'url(#linkArrow)');
     if (dir === 'start' || dir === 'both') path.setAttribute('marker-start', 'url(#linkArrow)');
@@ -397,7 +456,7 @@ function drawLinks() {
       txt.setAttribute('text-anchor', 'middle');
       txt.setAttribute('dominant-baseline', 'central');
       txt.textContent = lk.label;
-      txt.addEventListener('click', function (e) { e.stopPropagation(); openLinkMenu(lk, e.clientX, e.clientY); });
+      txt.addEventListener('click', function (e) { e.stopPropagation(); selectLink(lk.id); openLinkMenu(lk, e.clientX, e.clientY); });
       svg.appendChild(txt);
     }
   });

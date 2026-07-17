@@ -20,6 +20,35 @@ function dblTypeLabel() {
   return 'Bloque';
 }
 
+// ---------- Barra de pestañas: cambio rápido entre lienzos abiertos/recientes ----------
+function pushRecentNote(id) {
+  if (!id || !getNote(id)) return;
+  ui.recentNotes = (ui.recentNotes || []).filter(function (x) { return x !== id && getNote(x); });
+  ui.recentNotes.unshift(id);
+  if (ui.recentNotes.length > 10) ui.recentNotes = ui.recentNotes.slice(0, 10);
+}
+function closeNoteTab(id) {
+  ui.recentNotes = (ui.recentNotes || []).filter(function (x) { return x !== id; });
+  save(); renderNoteTabs();
+}
+function renderNoteTabs() {
+  var el = document.getElementById('noteTabs');
+  if (!el) return;
+  var recents = (ui.recentNotes || []).filter(function (x) { return getNote(x); });
+  if (ui.currentNoteId && getNote(ui.currentNoteId) && recents.indexOf(ui.currentNoteId) < 0) recents.unshift(ui.currentNoteId);
+  el.innerHTML = '';
+  if (recents.length <= 1) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  recents.forEach(function (id) {
+    var n = getNote(id); if (!n) return;
+    var active = id === ui.currentNoteId;
+    var tab = h('button', { class: 'note-tab' + (active ? ' active' : ''), title: n.title || 'Nota', onclick: function () { if (!active) selectNote(id); } },
+      icon('file'), h('span', { class: 'note-tab-title' }, n.title || 'Nota'));
+    tab.appendChild(h('span', { class: 'note-tab-close', title: 'Cerrar pestaña', onclick: function (e) { e.stopPropagation(); closeNoteTab(id); } }, '×'));
+    el.appendChild(tab);
+  });
+}
+
 // ---------- Render: Topbar ----------
 function renderTopbar() {
   var bar = document.getElementById('topbar');
@@ -85,11 +114,14 @@ function openTopbarMenu(anchor) {
   pop.appendChild(dblRow);
   pop.appendChild(h('div', { class: 'cm-sep' }));
   [
+    ['layout', 'Nuevo sub-lienzo (lienzo sobre lienzo)', newSubCanvas],
+    ['image', 'Organizar fotos en cuadrícula', organizePhotos],
     ['panel', 'Vista vertical (importantes primero)', openVerticalView],
     ['send', 'Enviar nota por Telegram', function () { telegramShare(currentNoteText()); }],
     ['bell', 'Recordatorios a iOS (.ics)', exportNoteRemindersICS],
     ['clock', 'Sincronización (Apple · Google Drive)', openSyncPanel],
     ['map', 'Tour visual (guía interactiva)', function () { startTour(0); }],
+    ['book', 'Guía de funciones (documento)', openGuide],
     ['layout', 'Showcase de funcionalidades', function () { window.open('docs/showcase.html', '_blank'); }],
     ['download', 'Importar Markdown (.md) o PDF', openImport],
     ['clock', 'Historial de cambios', openLog],
@@ -97,6 +129,8 @@ function openTopbarMenu(anchor) {
     ['palette', 'Personalizar colores', openTheme],
     ['help', 'Atajos de teclado', openShortcuts],
     ['info', 'Integraciones y versiones', openIntegrations],
+    ['heart', 'Apoyar tuNota (donación Yape)', openDonate],
+    ['shield', 'Privacidad, términos y créditos', function () { window.open('legal.html', '_blank'); }],
   ].forEach(function (it) {
     pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); it[2](); } },
       icon(it[0]), h('span', {}, it[1])));
@@ -148,6 +182,41 @@ function deleteGroup(g) {
   save();
   renderCanvas();
   renderSidebar();
+}
+// ---------- Juntar (fusionar) grupos ----------
+// Los bloques de `source` pasan a `target`; `source` se disuelve. Sobrevive `target` (nombre y color).
+function mergeGroups(target, source) {
+  if (!target || !source || target.id === source.id) return;
+  pushUndo('Juntar grupos');
+  target.blockIds = target.blockIds || [];
+  (source.blockIds || []).forEach(function (id) {
+    if (getBlockById(id) && target.blockIds.indexOf(id) < 0) target.blockIds.push(id);
+  });
+  data.groups = data.groups.filter(function (x) { return x.id !== source.id; });
+  touchNote(target.noteId);
+  logChange('Grupos juntados', source.name + ' → ' + target.name);
+  save();
+  renderCanvas();
+  renderSidebar();
+  toast('«' + source.name + '» se unió a «' + target.name + '» (' + target.blockIds.length + ' bloques).', 'ok');
+}
+// Selector: elige con qué otro grupo del lienzo juntar `g` (g sobrevive y absorbe al elegido).
+function openGroupMergePicker(g, anchor) {
+  closeTopbarMenu();
+  var others = groupsOf(g.noteId).filter(function (x) { return x.id !== g.id; });
+  if (!others.length) { toast('No hay otro grupo en este lienzo para juntar.', 'warn'); return; }
+  var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
+  var pop = h('div', { class: 'card-menu-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  pop.appendChild(h('div', { class: 'cm-label' }, 'Juntar «' + g.name + '» con…'));
+  others.forEach(function (o) {
+    pop.appendChild(h('button', { class: 'cm-item', title: 'Sus bloques pasan a «' + g.name + '» y «' + o.name + '» se disuelve',
+      onclick: function () { closeTopbarMenu(); mergeGroups(g, o); } },
+      h('span', { class: 'group-dot ' + GROUP_COLORS[o.color % GROUP_COLORS.length] }),
+      h('span', {}, o.name + '  ·  ' + (o.blockIds || []).length + ' bloques')));
+  });
+  pop.appendChild(h('div', { class: 'cm-info' }, h('span', {}, 'El grupo elegido se disuelve; sus bloques pasan a «' + g.name + '».')));
+  bd.appendChild(pop); document.body.appendChild(bd);
+  positionPop(pop, anchor, 240);
 }
 // ---------- Meter/sacar un bloque de un grupo (contenido dentro de contenido) ----------
 function groupOfBlock(blockId) {
@@ -211,7 +280,17 @@ function renderGroups(content) {
     var editBtn = h('button', { class: 'group-edit', title: 'Renombrar grupo', onclick: function (e) { e.stopPropagation(); startGroupNameEdit(g, nameEl); } }, icon('edit'));
     var colorBtn = h('button', { class: 'group-color', title: 'Cambiar color', onclick: function (e) { e.stopPropagation(); g.color = (g.color + 1) % GROUP_COLORS.length; save(); renderCanvas(); } });
     var delBtn = h('button', { class: 'group-del', title: 'Disolver grupo (los bloques se conservan)', onclick: function (e) { e.stopPropagation(); deleteGroup(g); } }, '×');
-    var head = h('div', { class: 'group-head' }, colorBtn, nameEl, editBtn, h('span', { class: 'card-spacer' }), delBtn);
+    var tplBtn = h('button', { class: 'group-tpl', title: 'Guardar el grupo como plantilla reutilizable', onclick: function (e) { e.stopPropagation(); saveGroupAsTemplate(g); } }, icon('layout'));
+    tplBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); }); // no arrastrar el grupo al pulsarlo
+    var head = h('div', { class: 'group-head ' + GROUP_COLORS[g.color % GROUP_COLORS.length], 'data-ghead': g.id }, colorBtn, nameEl, editBtn, h('span', { class: 'card-spacer' }));
+    // Botón "Juntar" — solo si hay otro grupo en el lienzo con el que fusionar.
+    var mergeBtn = null;
+    if (groupsOf(g.noteId).length > 1) {
+      mergeBtn = h('button', { class: 'group-merge', title: 'Juntar con otro grupo…', onclick: function (e) { e.stopPropagation(); openGroupMergePicker(g, mergeBtn); } }, icon('shapes'));
+      mergeBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); }); // no arrastrar el grupo al pulsarlo
+      head.appendChild(mergeBtn);
+    }
+    head.appendChild(tplBtn); head.appendChild(delBtn);
     // Arrastrar la cabecera mueve todos los bloques del grupo.
     head.addEventListener('mousedown', function (e) {
       if (e.button !== 0 || e.target === delBtn || e.target === colorBtn || e.target === editBtn || e.target.tagName === 'INPUT') return;
@@ -237,17 +316,25 @@ function renderGroups(content) {
       document.addEventListener('mousemove', mv);
       document.addEventListener('mouseup', up);
     });
-    area.appendChild(head);
+    // El fondo (área) va detrás de las tarjetas; la cabecera va como hermano de las tarjetas y POR ENCIMA
+    // de ellas (z-index sobre topZ) para que sus botones sean siempre clicables aunque una tarjeta solape
+    // la franja del título del grupo.
+    head.style.left = bb.x + 'px'; head.style.top = bb.y + 'px'; head.style.width = bb.w + 'px';
+    head.style.zIndex = String(topZ + 1);
     content.appendChild(area);
+    content.appendChild(head);
   });
 }
-// Recoloca las áreas de grupo (llamado en vivo durante arrastres).
+// Recoloca las áreas de grupo y sus cabeceras (llamado en vivo durante arrastres).
 function updateGroupRects() {
   if (!canvasContentEl) return;
   groupsOf(ui.currentNoteId).forEach(function (g) {
-    var el = canvasContentEl.querySelector('.group-area[data-gid="' + g.id + '"]');
     var bb = groupBounds(g);
-    if (el && bb) { el.style.left = bb.x + 'px'; el.style.top = bb.y + 'px'; el.style.width = bb.w + 'px'; el.style.height = bb.h + 'px'; }
+    if (!bb) return;
+    var el = canvasContentEl.querySelector('.group-area[data-gid="' + g.id + '"]');
+    if (el) { el.style.left = bb.x + 'px'; el.style.top = bb.y + 'px'; el.style.width = bb.w + 'px'; el.style.height = bb.h + 'px'; }
+    var hd = canvasContentEl.querySelector('.group-head[data-ghead="' + g.id + '"]');
+    if (hd) { hd.style.left = bb.x + 'px'; hd.style.top = bb.y + 'px'; hd.style.width = bb.w + 'px'; }
   });
 }
 // Pestañas de acceso rápido a los grupos de la nota.
@@ -632,7 +719,8 @@ function card(b) {
     el.appendChild(grip);
   }
   if (isText) {
-    var tgrip = h('span', { class: 'text-card-resize', title: 'Arrastra para redimensionar' });
+    el.classList.add('note-auto'); // el alto se auto-adapta al contenido; el tirador ajusta el ancho
+    var tgrip = h('span', { class: 'text-card-resize', title: 'Arrastra para ajustar el ancho (el alto se adapta solo)' });
     tgrip.addEventListener('mousedown', function (e) { startBlockResize(e, b, el); });
     el.appendChild(tgrip);
   }
@@ -670,14 +758,23 @@ function card(b) {
   return el;
 }
 
+// El alto de la nota (texto/idea) se auto-adapta al contenido: el textarea crece con el texto
+// y el card (height:auto) lo sigue. El ancho lo controla el tirador.
+function autoGrowNote(ta) {
+  if (!ta) return;
+  var card = ta.closest('.card');
+  if (!card || !card.classList.contains('note-auto')) return;
+  ta.style.height = 'auto';
+  ta.style.height = Math.max(22, ta.scrollHeight) + 'px';
+}
 // ---------- Cuerpos por tipo ----------
 function textBody(b) {
   var isIdea = b.type === 'idea';
   b.content = b.content || {};
-  var ta = h('textarea', { class: 'card-ta', placeholder: isIdea ? 'Tu idea o pregunta a validar\u2026 p. ej. "juego de f\u00fatbol + roguelike". Luego usa \ud83e\udded Estructurar (men\u00fa \u22ef)' : 'Escribe...' });
+  var ta = h('textarea', { class: 'card-ta', placeholder: isIdea ? 'Escribe tu idea\u2026 p. ej. "app de recetas con lo que hay en la nevera". Luego pulsa \u00abRevisar idea\u00bb para validarla con internet + IA' : 'Escribe...' });
   ta.value = b.content.text || '';
-  attachListAutoContinue(ta, function () { b.content.text = ta.value; touchNote(b.noteId); debouncedSave(); });
-  ta.addEventListener('input', function () { b.content.text = ta.value; touchNote(b.noteId); debouncedSave(); });
+  attachListAutoContinue(ta, function () { b.content.text = ta.value; autoGrowNote(ta); touchNote(b.noteId); debouncedSave(); });
+  ta.addEventListener('input', function () { b.content.text = ta.value; autoGrowNote(ta); touchNote(b.noteId); debouncedSave(); });
   ta.addEventListener('change', function () { logChange(isIdea ? 'Idea editada' : 'Nota editada', snippet(ta.value)); save(); });
   ta.addEventListener('mousedown', function (e) { e.stopPropagation(); });
   ta.addEventListener('paste', function (e) {
@@ -695,9 +792,17 @@ function textBody(b) {
   });
   attachSelFmtBar(ta, b);                                   // barra flotante de formato sobre la selección
   ta.addEventListener('click', function () { toggleTaskAtCaret(ta, b); }); // clic en "- [ ]" marca la tarea
-  requestAnimationFrame(function () { refreshAutoText(ta); }); // color de texto en contraste con el fondo
+  requestAnimationFrame(function () { refreshAutoText(ta); autoGrowNote(ta); }); // contraste + ajuste de alto al contenido
   var hlinks = h('div', { class: 'card-hlinks' });          // chips de hipervínculo (texto → bloque/nota)
   renderHlinksInto(hlinks, b);
+  if (isIdea) {
+    // Las ideas se validan: búsqueda web + veredicto de la IA elegida.
+    var revRow = h('div', { class: 'idea-review-row' },
+      h('button', { class: 'idea-review-btn', title: 'Validar la idea: busca evidencia en internet y tu IA da un veredicto con riesgos y próximos pasos',
+        onclick: function (e) { e.stopPropagation(); openIdeaReview(b); } }, icon('search'), 'Revisar idea'));
+    revRow.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    return [ta, hlinks, h('div', { class: 'card-media' }), revRow];
+  }
   return [ta, hlinks, h('div', { class: 'card-media' })];
 }
 // Tipos de letra disponibles para el texto libre (usa las fuentes cargadas + las del sistema).

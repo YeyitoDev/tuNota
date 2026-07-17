@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="public/leaf.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tuNota — Privacidad, términos y créditos</title>
+    <link rel="stylesheet" href="public/fonts/fonts.css" />
+    <style>
+      :root { --bg:#f4ede0; --fg:#33302b; --card:#fdfaf3; --muted:#8a8378; --border:#e4dccc; --primary:#c2745b; --sage:#8a9a7b; }
+      * { box-sizing: border-box; }
+      body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.65 Nunito, system-ui, sans-serif; }
+      main { max-width:820px; margin:0 auto; padding:40px 22px 80px; }
+      h1 { font-family:Fraunces, serif; font-size:32px; margin:0 0 4px; }
+      h2 { font-family:Fraunces, serif; font-size:22px; margin:40px 0 10px; padding-top:16px; border-top:1px solid var(--border); }
+      h3 { font-size:16px; margin:22px 0 6px; }
+      .updated { color:var(--muted); font-size:13px; margin-bottom:24px; }
+      .box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px 20px; margin:14px 0; }
+      table { width:100%; border-collapse:collapse; font-size:13.5px; }
+      th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+      th { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+      a { color:var(--primary); }
+      .back { display:inline-block; margin-bottom:18px; color:var(--sage); font-weight:700; text-decoration:none; }
+      code { background:var(--card); border:1px solid var(--border); border-radius:6px; padding:1px 6px; font-size:13px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back" href="index.html">← Volver a tuNota</a>
+      <h1>Privacidad, términos y créditos</h1>
+      <p class="updated">Última actualización: 17 de julio de 2026 · Responsable: Sergio Martín Ramos Manrique · Contacto: <a href="mailto:gioser50@gmail.com">gioser50@gmail.com</a></p>
+
+      <h2 id="privacidad">Política de privacidad</h2>
+      <div class="box">
+        <strong>Lo esencial:</strong> tus notas viven en <em>tu</em> navegador. tuNota no tiene cuentas de usuario,
+        no usa cookies de rastreo, no tiene publicidad ni analítica, y el servidor no guarda tus notas.
+      </div>
+
+      <h3>Dónde se guardan tus datos</h3>
+      <p>Todo el contenido que creas (notas, bloques, imágenes, dibujos) se almacena localmente en tu navegador
+      (localStorage e IndexedDB). Si borras los datos del navegador, se pierden: usa la función de
+      <strong>Copias de seguridad</strong> (menú «⋯») para exportarlos. Las claves de IA, tokens y credenciales
+      que introduzcas en los paneles de configuración también se guardan solo en tu navegador.</p>
+
+      <h3>Qué datos salen de tu navegador (y solo si tú usas esa función)</h3>
+      <table>
+        <tr><th>Función</th><th>Destinatario</th><th>Qué se envía</th></tr>
+        <tr><td>Asistente de IA</td><td>El proveedor que elijas (servidor de tuNota, OpenAI, Anthropic, Google Gemini, Groq, OpenRouter, xAI…)</td><td>El texto que pides procesar (p. ej. el contenido de la nota a resumir)</td></tr>
+        <tr><td>Búsqueda en internet</td><td>Tavily</td><td>La consulta de búsqueda</td></tr>
+        <tr><td>Generación / búsqueda de imágenes</td><td>Proveedor de imágenes configurado / Tavily</td><td>El prompt o consulta</td></tr>
+        <tr><td>Enviar por Telegram</td><td>Telegram (API de bots)</td><td>El texto de la nota que decides enviar</td></tr>
+        <tr><td>Copia en Google Drive</td><td>Google (con tu cuenta, permiso <code>drive.file</code>)</td><td>Tu copia de seguridad, en tu propio Drive</td></tr>
+        <tr><td>Sincronizar con Apple</td><td>Apple (iCloud CalDAV)</td><td>Títulos y fechas de recordatorios/eventos. Tu Apple ID y contraseña de app viajan cifrados (HTTPS) hacia Apple a través del servidor; no se almacenan en el servidor</td></tr>
+      </table>
+      <p>Cada proveedor trata esos datos según su propia política de privacidad. Si no usas una función,
+      no se envía nada a ese servicio. Las librerías de la interfaz se cargan desde CDNs
+      (jsDelivr, unpkg), que reciben tu dirección IP al servir los archivos, como cualquier descarga web.</p>
+
+      <h3>Tus derechos</h3>
+      <p>Como los datos están en tu navegador, tú los controlas directamente: exportarlos, borrarlos o moverlos
+      no requiere pedírselo a nadie. Para cualquier duda sobre privacidad, escribe a
+      <a href="mailto:gioser50@gmail.com">gioser50@gmail.com</a>.</p>
+
+      <h2 id="terminos">Términos de uso</h2>
+      <ol>
+        <li><strong>Servicio gratuito.</strong> tuNota se ofrece gratis, financiado con donaciones voluntarias.
+        Una donación no compra soporte, funciones ni garantías: es un apoyo al proyecto.</li>
+        <li><strong>Sin garantía.</strong> El servicio se ofrece «tal cual», sin garantía de disponibilidad,
+        continuidad o ausencia de errores. Haz copias de seguridad de lo importante.</li>
+        <li><strong>Tu contenido es tuyo.</strong> tuNota no reclama ningún derecho sobre lo que creas.</li>
+        <li><strong>Uso responsable.</strong> No uses tuNota para actividades ilegales ni para abusar de los
+        servicios integrados (IA, búsqueda, Telegram). El acceso a las funciones con coste puede requerir un
+        token o tu propia clave de API.</li>
+        <li><strong>Claves propias.</strong> Si conectas tu propia clave de un proveedor de IA, la relación con
+        ese proveedor (costes, límites, términos) es entre tú y él.</li>
+        <li><strong>Cambios.</strong> El servicio y estos términos pueden cambiar; los cambios relevantes se
+        anunciarán en esta página.</li>
+        <li><strong>Ley aplicable.</strong> Estos términos se rigen por la legislación del Perú.</li>
+      </ol>
+
+      <h2 id="donaciones">Donaciones</h2>
+      <p>Las donaciones se reciben mediante <strong>Yape</strong> (BCP, Perú) a nombre de Sergio Martín Ramos
+      Manrique. Son voluntarias, no reembolsables y no constituyen un pago por servicios. Yape es una marca de
+      Banco de Crédito del Perú; tuNota no está afiliado ni respaldado por BCP.</p>
+
+      <h2 id="creditos">Créditos y licencias de terceros</h2>
+      <p>tuNota usa estos proyectos de código abierto (¡gracias!). Los avisos de copyright se conservan conforme
+      a sus licencias:</p>
+      <table>
+        <tr><th>Proyecto</th><th>Uso</th><th>Licencia</th></tr>
+        <tr><td><a href="https://feathericons.com">Feather Icons</a> — © Cole Bennett y colaboradores</td><td>Iconos de la interfaz</td><td>MIT</td></tr>
+        <tr><td><a href="https://lucide.dev">Lucide</a> — © Lucide Contributors</td><td>Iconos de la interfaz</td><td>ISC</td></tr>
+        <tr><td><a href="https://mermaid.js.org">Mermaid</a></td><td>Diagramas</td><td>MIT</td></tr>
+        <tr><td><a href="https://tesseract.projectnaptha.com">tesseract.js</a></td><td>OCR de imágenes</td><td>Apache-2.0</td></tr>
+        <tr><td><a href="https://github.com/steveruizok/perfect-freehand">perfect-freehand</a> — © Steve Ruiz</td><td>Trazo de dibujo</td><td>MIT</td></tr>
+        <tr><td><a href="https://github.com/alexcorvi/heic2any">heic2any</a> (incluye libheif/libde265)</td><td>Conversión de fotos HEIC</td><td>MIT (libheif: LGPL-3.0)</td></tr>
+        <tr><td><a href="https://pyodide.org">Pyodide</a> (incluye CPython)</td><td>Ejecutar Python en el navegador</td><td>MPL-2.0 (CPython: PSF)</td></tr>
+        <tr><td><a href="https://fonts.google.com">Fraunces y Nunito</a></td><td>Tipografías (auto-hospedadas)</td><td>SIL OFL 1.1</td></tr>
+      </table>
+      <p>El texto completo de las licencias MIT, ISC, Apache-2.0, MPL-2.0, LGPL-3.0 y SIL OFL 1.1 está
+      disponible en <a href="https://opensource.org/licenses">opensource.org/licenses</a> y en los repositorios
+      de cada proyecto. El resto del código y el diseño de tuNota son © Sergio Martín Ramos Manrique, todos los
+      derechos reservados.</p>
+    </main>
+  </body>
+</html>

@@ -64,6 +64,40 @@ Gotchas aprendidos:
   `--topbar` (editable en "Personalizar colores"; los presets oscuros la fijan).
 - El tour se auto-inicia en perfiles nuevos: `.tour-catch` intercepta clics. Cierra con
   `page.evaluate(() => { ui.tourSeen = true; endTour(); })` antes de interactuar.
+- Listas: la numeración RESPETA el número inicial (`outlineParse` guarda `num`; `outlineRender` siembra
+  `counters[0]`), así "4." → Enter → "5." (antes reiniciaba en 1). Conexiones: clic selecciona (`selectLink`,
+  `selectedLinkId`, clase `.link-selected`); Supr/Retroceso borra el enlace seleccionado si no hay bloques
+  seleccionados. Marquee: `selectInRect` usa el tamaño REAL del elemento (`cardEl().offset*`), no el guardado,
+  para que la selección coincida con lo visible (la geometría del rectángulo ya era correcta a cualquier zoom).
+- PWA en el DEPLOY: el `Dockerfile` DEBE copiar `manifest.json` y `sw.js` (usa COPY explícito, no `COPY .`);
+  iconos PNG `public/icon-192.png`/`icon-512.png` (generados rasterizando `app-icon.svg` con Chromium) en
+  el manifest (any + maskable) para que el botón "Instalar" salga seguro. Fly da https (`force_https`), así
+  que la PWA es instalable en tunota.fly.dev. Probar simulando el deploy: sandbox solo con los archivos que
+  copia el Dockerfile → curl a manifest.json/sw.js/icon-*.png y `navigator.serviceWorker.getRegistration()`.
+- PWA (instalable + sin conexión): `manifest.json` (iconos PNG 192/512 + `app-icon.svg`), `sw.js`
+  (network-first para archivos propios, salta `/api/` y orígenes externos), registrado desde index.html.
+  Probar con `navigator.serviceWorker.getRegistration()` y `fetch('manifest.json')`.
+- Layout en PWA/standalone (controles de "¿dónde estoy?"): `#app` usa `height: 100vh; height: 100dvh;`
+  (dvh mide el área visible real; sin esto los controles de abajo quedan cortados en la app instalada).
+  Viewport con `viewport-fit=cover` y los controles anclados abajo (`.zoom-ctl`, `.mini-map`, `.sel-bar`,
+  `.float-chat-btn`) llevan `bottom: calc(Npx + env(safe-area-inset-bottom, 0px))` (el fallback `0px` los
+  deja en Npx cuando no hay inset). Al cambiar CSS/JS cacheado, subir `CACHE` en `sw.js` (va por `v3`).
+  Probar: viewport bajo (p.ej. 390×720), computar `getComputedStyle('#app').height ≈ innerHeight` y que
+  `.zoom-ctl`/`.mini-map` tengan `getBoundingClientRect().bottom ≤ innerHeight`. Ojo: el minimapa solo
+  aparece con contenido disperso (umbral), así que siembra varios bloques lejanos antes de comprobarlo.
+- Modo público (`TUNOTA_PUBLIC=1` en server.py, `PUBLIC_MODE`): `/api/config` → `publicMode:true`;
+  `/api/data` GET devuelve `{}` y POST no escribe (cada navegador 100% local, no se pisan). Cliente:
+  `BACKEND.publicMode` → `serverSaveNow` sale sin enviar. Probar con curl a `/api/config` y `/api/data`.
+- Lienzo sobre lienzo (bloque tipo `canvas`, portal): `TYPE_META.canvas`, `defaultContent`→`{noteRef}`,
+  `canvasBody`/`updateCanvasPortal`. `newSubCanvas`/`createSubCanvas` crean una nota hija con
+  `note.parentId` = nota actual y enlazan el portal; clic en `.portal-open` → `selectNote`. En el árbol,
+  `sectionNode` lista solo notas de nivel superior y `noteRow` anida hijas (`.note-children`, recursivo).
+  Acción en menú `⋯` "Nuevo sub-lienzo".
+- Hipervínculos: `openHlinkPicker` ahora ofrece bloque / otro lienzo (nota) / **Libro** (`type:'notebook'`);
+  `navigateHlink` a un libro abre su primer lienzo. Plantillas de usuario desde un grupo:
+  `saveGroupAsTemplate(g)` (botón en cabecera de grupo y en la fila del árbol) → `saveSelectionAsTemplate(ids)`.
+- Plantillas nuevas (`CANVAS_TEMPLATES`): `flow` (flujograma), `concept` (mapa conceptual), `rootcause`
+  (Ishikawa) usando bloques `shape` + `links` con etiqueta; `templateBlockContent` ahora soporta `shape`.
 - Navegación del lienzo (js/09): pan con Espacio+arrastrar o botón central (`spaceDown`/`wantPan`),
   rueda = pan 2D (`deltaX`/`deltaY`), **Shift+rueda = horizontal** (para ratón sin eje X), Ctrl/Cmd+rueda
   = zoom. Zoom manual mín 0.1 (`zoomAt`); "Ajustar todo" (`fitView`) baja hasta 0.05 para encuadrar
@@ -84,6 +118,28 @@ Gotchas aprendidos:
     (debounce 90 s, solo si hay token). Probar con `ctx.route('**/gsi/client**', abort)` + `addInitScript`
     que mockea `window.google.accounts.oauth2` + `ctx.route('https://www.googleapis.com/**')`.
   · Apple Notes NO es posible (sin API pública).
+- Vistas: (1) barra de pestañas `#noteTabs` (`.note-tabs`/`.note-tab`) con los lienzos recientes
+  (`ui.recentNotes`, `pushRecentNote` en `selectNote`+boot, `renderNoteTabs` en `renderAll`); ojo:
+  al mostrar hay que poner `display:'flex'` (el CSS base es `none`). (2) Relaciones entre hojas en el
+  "Mapa de conocimiento": `noteRelations()` (portales `canvas.noteRef` + `parentId` + hlinks tipo note) y
+  `renderGraph` dibuja aristas `.graph-rel` (con flecha) entre los nodos de nota.
+- Organizar fotos: `organizePhotos` (menú `⋯`) coloca los bloques `image`/`freeimage` en una cuadrícula
+  (celda = imagen más grande) debajo del contenido que no son fotos, sin solaparse; luego `fitView`.
+- Auto-formato: (1) las notas texto/idea llevan clase `.note-auto` (CSS `height:auto!important`, textarea
+  `flex:none`) y `autoGrowNote(ta)` ajusta el alto al contenido (input, render, y tras `applyLineTransform`);
+  el tirador ajusta el ancho. (2) Auto-ordenar flujograma: `autoLayoutFlow(ids)`/`autoLayoutSelection`
+  (js/09) coloca los bloques en niveles por camino más largo (Kahn) según los `links`, centrando cada
+  nivel; botón `.sel-flow` "Ordenar" en la barra de selección (n≥2; con 1 usa `connectedComponent`).
+  El auto-formato de TEXTO (limpiar/enumerar) ya existía en `formatTextContent`/sel-fmt bar.
+- Editor de imágenes (doble clic sobre la imagen de un bloque `image` → `openImageEditor`/`buildImageEditor`
+  en js/07): overlay `.imed-overlay` con `.imed-canvas` (a resolución nativa) y herramientas `.imed-tool`
+  (draw, arrow, rect, ellipse, text, crop) + color/grosor + Recortar/Descargar/Duplicar/Aplicar. Las
+  anotaciones se componen sobre la imagen y "Aplicar" guarda un PNG nuevo (`storeBlob`, `pushUndo`).
+  Herramienta "Mover" (`✥`, primera): `hitAnno`/`annoBBox`/`moveAnno` permiten seleccionar y ARRASTRAR
+  cualquier anotación ya colocada (texto, flecha, forma, dibujo); `st.sel` se resalta con caja punteada.
+  Teclado propio (`_imedKey`: Esc cierra, Ctrl+Z deshace anotación); el handler global de Supr se salta
+  si `#imgEditor` está abierto. Probar con page.mouse (genera pointer events) sobre `.imed-canvas` y
+  comprobar píxeles del canvas / que `content.images[0].src` cambie tras Aplicar.
 - Descripción al lado de la imagen: el bloque `image` renderiza `.img-row` = `.img-media` + `.img-desc`
   (textarea `.img-desc-ta`, guarda en `b.content.desc`). Botón `.card-desc-btn` (cabecera) → `toggleImageDesc`
   abre el panel al lado y lo enfoca; visible con `.card.image.has-desc`/`.desc-open`. Con descripción el
@@ -96,6 +152,20 @@ Gotchas aprendidos:
 - Grupos en el árbol lateral: aparecen anidados bajo su nota (`noteRow` → `.note-groups .group-row`);
   clic → `goToGroup(noteId, g)` (abre la nota si hace falta y `centerOnGroup`). `createGroupFromSelection`
   y `deleteGroup` ahora llaman `renderSidebar()`.
+- Juntar (fusionar) grupos: botón `.group-merge` (icono `shapes`) en la cabecera del grupo y en la fila
+  del árbol, SOLO si `groupsOf(noteId).length > 1`. Abre `openGroupMergePicker(g, anchor)` (patrón
+  `card-menu-pop` + `positionPop` + `closeTopbarMenu`, backdrop id `topbarMenuBackdrop`) que lista los
+  otros grupos; al elegir → `mergeGroups(target, source)`: los `blockIds` de source pasan a target (dedup),
+  source se disuelve, sobrevive target (nombre/color). Es deshacible.
+- Undo de grupos: `pushUndo` ahora incluye `data.groups` en el snapshot y `undo()` lo restaura + llama
+  `renderSidebar()`. Así crear/disolver/juntar grupos son deshacibles (Ctrl+Z).
+- IMPORTANTE cabecera de grupo (`.group-head`): ya NO es hija de `.group-area` (que crea contexto de
+  apilado con z-index:0 y la dejaba DETRÁS de las tarjetas → botones no clicables si una tarjeta solapaba
+  la franja del título). Ahora es hermano de las tarjetas, `position:absolute`, colocada por JS con
+  `left/top/width = groupBounds` y `zIndex = topZ+1` (por encima de las tarjetas). `updateGroupRects`
+  reposiciona área Y cabecera (`[data-ghead]`). Verificar accesibilidad con `document.elementFromPoint`
+  en el centro del botón. OJO: la nota por defecto ya trae 2 tarjetas (en 80,80 y 392,130); cuenta esos
+  bloques al montar escenarios de test.
 - Hipervínculos de texto: en la barra de selección (`.sel-fmt-bar`) el botón 🔗 → `openHlinkPicker`
   (bloques de la nota + otras notas) → `b.content.hlinks[]`. Se pintan como chips `.card-hlinks .hlink-chip`
   bajo el textarea; clic → `navigateHlink` (`focusBlock`/`selectNote`).

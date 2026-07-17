@@ -138,6 +138,22 @@ def post_json_upstream(url, headers, payload, timeout=60):
         return 502, json.dumps({"error": {"message": str(e)}}).encode("utf-8")
 
 
+def private_host(url):
+    """True si la URL apunta a un host local/privado (defensa SSRF para los proxies)."""
+    try:
+        host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    except Exception:
+        return True
+    if not host or host in ("localhost",) or host.endswith((".local", ".internal", ".localhost")):
+        return True
+    try:
+        import ipaddress
+        ip = ipaddress.ip_address(host)
+        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+    except ValueError:
+        return False  # nombre de dominio público
+
+
 # ---------- CalDAV: sincronizacion con Calendario y Recordatorios de iCloud ----------
 def _ln(tag):
     """Nombre local de una etiqueta XML (sin el namespace)."""
@@ -510,9 +526,30 @@ class Handler(SimpleHTTPRequestHandler):
             json.dump(data, f, ensure_ascii=False, indent=2)
         os.replace(tmp, DB)
 
+    # Archivos que nunca deben servirse por HTTP (datos, claves, código del servidor).
+    _BLOCKED_EXACT = ("/db.json", "/server.py", "/fly.toml", "/Dockerfile", "/package.json", "/package-lock.json")
+    _BLOCKED_PREFIX = ("/.", "/__pycache__", "/node_modules", "/tests", "/src", "/dist")
+
+    def _blocked_path(self, route):
+        low = route.rstrip("/")
+        if low in self._BLOCKED_EXACT:
+            return True
+        return any(route.startswith(p) for p in self._BLOCKED_PREFIX)
+
+    def do_HEAD(self):
+        if self._blocked_path(self.path.split("?")[0]):
+            self.send_response(404)
+            self.end_headers()
+            return
+        super().do_HEAD()
+
     # --- routes ---
     def do_GET(self):
         route = self.path.split("?")[0]
+        if self._blocked_path(route):
+            self.send_response(404)
+            self.end_headers()
+            return
         if route == "/api/config":
             # Descubrimiento de capacidades del backend. NO expone las claves,
             # solo si estan disponibles y (para IA) la lista de modelos.
@@ -535,10 +572,11 @@ class Handler(SimpleHTTPRequestHandler):
                 cfg["token"] = AUTH_TOKEN
             return self._send_json(cfg)
         if route == "/api/data":
+            if PUBLIC_MODE:
+                # Sin base de datos compartida y sin exigir token: cada navegador es local.
+                return self._send_json({})
             if not self._guard():
                 return
-            if PUBLIC_MODE:
-                return self._send_json({})  # sin base de datos compartida: cada navegador es local
             with LOCK:
                 data = self._read_db()
             return self._send_json(data)
@@ -547,10 +585,10 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         route = self.path.split("?")[0]
         if route == "/api/data":
-            if not self._guard():
-                return
             if PUBLIC_MODE:
                 return self._send_json({"ok": True, "public": True})  # no se guarda: evita que los usuarios se pisen
+            if not self._guard():
+                return
             try:
                 data = self._read_body_json()
             except Exception:
@@ -559,6 +597,10 @@ class Handler(SimpleHTTPRequestHandler):
                 self._write_db(data)
             return self._send_json({"ok": True})
         if route == "/api/curl":
+            # Solo en local: en un despliegue público sería un proxy abierto (SSRF)
+            # que permitiría lanzar peticiones arbitrarias desde nuestra IP.
+            if not self._is_local():
+                return self._send_json({"ok": False, "error": "El ejecutor cURL solo está disponible ejecutando tuNota en tu propio equipo."}, 403)
             if not self._guard():
                 return
             try:
@@ -570,12 +612,16 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send_json({"ok": False, "error": "Comando cURL vacio."})
             return self._send_json(run_curl(cmd))
         if route == "/api/ai":
-            if not self._guard():
-                return
             try:
                 payload = self._read_body_json()
             except Exception:
                 return self._send_json({"ok": False, "error": "invalid json"}, 400)
+            ov = payload.get("override") or {}
+            byok = bool((ov.get("key") or "").strip() and (ov.get("baseUrl") or "").strip())
+            # Con clave propia del usuario (BYOK) no se exige el token del servidor:
+            # no gasta nuestras claves y permite abrir la app al público.
+            if not byok and not self._guard():
+                return
             body = {
                 "model": (payload.get("model") or OPENCODE_MODEL),
                 "messages": payload.get("messages") or [],
@@ -592,8 +638,8 @@ class Handler(SimpleHTTPRequestHandler):
             ov_key = (ov.get("key") or "").strip()
             ov_base = (ov.get("baseUrl") or "").strip().rstrip("/")
             if ov_key and ov_base:
-                if not ov_base.startswith("https://"):
-                    return self._send_json({"ok": False, "error": {"message": "La URL base del proveedor debe ser https."}}, 400)
+                if not ov_base.startswith("https://") or private_host(ov_base):
+                    return self._send_json({"ok": False, "error": {"message": "La URL base del proveedor debe ser https y un dominio público."}}, 400)
                 headers = {"Authorization": "Bearer " + ov_key}
                 for hk, hv in (ov.get("headers") or {}).items():
                     headers[str(hk)] = str(hv)

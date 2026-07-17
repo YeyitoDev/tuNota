@@ -52,7 +52,7 @@ function initState() {
 // server.py puede exigir un token Bearer y ofrecer IA (OpenCode) y búsqueda web
 // (Tavily) con las claves del .env. La UI mantiene las claves manuales por proveedor;
 // esto solo añade la opción de "usar las claves del servidor".
-var BACKEND = { ai: false, search: false, image: false, telegram: false, apple: false, publicMode: false, tokenRequired: false, models: [], defaultModel: '' };
+var BACKEND = { up: false, ai: false, search: false, image: false, telegram: false, apple: false, publicMode: false, tokenRequired: false, models: [], defaultModel: '' };
 function authHeaders(base) {
   var hh = {};
   if (base) Object.keys(base).forEach(function (k) { hh[k] = base[k]; });
@@ -83,6 +83,7 @@ function loadBackendConfig(done) {
   apiFetch('api/config', { cache: 'no-store' })
     .then(function (r) { if (!r.ok) throw 0; return r.json(); })
     .then(function (c) {
+      BACKEND.up = true; // hay servidor: los proveedores con CORS pueden enrutar por /api/ai
       BACKEND.ai = !!c.aiAvailable;
       BACKEND.search = !!c.searchAvailable;
       BACKEND.image = !!c.imageAvailable;
@@ -101,7 +102,9 @@ function loadBackendConfig(done) {
       if (c.token && ui.token !== c.token) { ui.token = c.token; writeLS(LS_UI, JSON.stringify(ui)); }
       // Si el servidor tiene IA y el usuario no configuró clave propia, usa por
       // defecto las claves del servidor (listo para usar sin pegar ninguna clave).
-      if (BACKEND.ai && !ui.ai.apiKey && (!ui.ai.provider || ui.ai.provider === 'openai')) {
+      // Con token exigido, SOLO si este navegador ya tiene el token: los visitantes
+      // sin token deben usar su propia clave (no gastan las claves del dueño).
+      if (BACKEND.ai && (!BACKEND.tokenRequired || ui.token) && !ui.ai.apiKey && (!ui.ai.provider || ui.ai.provider === 'openai')) {
         ui.ai.provider = 'backend';
         if (!ui.ai.model) ui.ai.model = BACKEND.defaultModel;
         writeLS(LS_UI, JSON.stringify(ui));
@@ -144,7 +147,7 @@ function snippet(t) {
 // ---------- Deshacer (Ctrl+Z) ----------
 var undoStack = [];
 function pushUndo(label) {
-  undoStack.push({ blocks: JSON.parse(JSON.stringify(data.blocks)), links: JSON.parse(JSON.stringify(data.links || [])), inks: JSON.parse(JSON.stringify(data.inks || [])), noteId: ui.currentNoteId, label: label || '' });
+  undoStack.push({ blocks: JSON.parse(JSON.stringify(data.blocks)), links: JSON.parse(JSON.stringify(data.links || [])), inks: JSON.parse(JSON.stringify(data.inks || [])), groups: JSON.parse(JSON.stringify(data.groups || [])), noteId: ui.currentNoteId, label: label || '' });
   if (undoStack.length > 40) undoStack.shift();
 }
 function undo() {
@@ -153,10 +156,12 @@ function undo() {
   data.blocks = snap.blocks;
   data.links = snap.links || [];
   data.inks = snap.inks || [];
+  if (snap.groups) data.groups = snap.groups; // grupos también son deshacibles (crear/disolver/juntar)
   if (snap.noteId && getNote(snap.noteId)) ui.currentNoteId = snap.noteId;
   logChange('Deshacer', snap.label || '');
   save();
   renderCanvas();
+  if (typeof renderSidebar === 'function') renderSidebar(); // el árbol muestra los grupos
 }
 
 // ---------- Selectores ----------
@@ -298,6 +303,7 @@ function selectNote(id) {
       ui.expS[s.id] = true;
       ui.expN[s.notebookId] = true;
     }
+    if (typeof pushRecentNote === 'function') pushRecentNote(id); // barra de pestañas (lienzos recientes)
   }
   save();
   renderAll();

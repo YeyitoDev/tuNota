@@ -3,18 +3,21 @@
 'use strict';
 
 // Cada paso resalta un elemento real de la interfaz y explica qué hace.
+// cta (opcional): botón extra que ejecuta una acción al terminar ese paso.
 var TOUR_STEPS = [
-  { sel: '#canvas', title: '¡Bienvenido a tuNota!', body: 'Un lienzo infinito para tus ideas: notas, tablas, código, diagramas, imágenes y IA. Te enseño lo esencial en 30 segundos — pulsa Siguiente (o Esc para saltar).', place: 'center' },
-  { sel: '#sidebar .brand', title: 'Tus libros', body: 'Organiza todo en Libros → Secciones → Notas. Crea uno nuevo con “Nuevo libro”.', place: 'right' },
-  { sel: '#canvas', title: 'El lienzo infinito', body: 'Doble clic en el vacío crea una nota. Mantén ' + ALTKEY + ' (o ' + MOD + '+clic) para el menú con los 14 tipos de bloque (incluidas Formas).', place: 'center' },
-  { sel: '[title^="Buscar en todo"]', title: 'Buscar en todo', body: 'Con ' + MOD + '+K encuentras cualquier nota o bloque al instante.', place: 'bottom' },
-  { sel: '[title^="Plantillas de canvas"]', title: 'Plantillas', body: 'Empieza rápido con Business Model Canvas, DAFO, arquitectura… y la IA puede rellenarlas.', place: 'bottom' },
-  { sel: '[title^="Formas para diagramar"]', title: 'Formas para diagramar', body: 'Rectángulos, rombos, elipses… Conéctalos con flechas que siguen a las cajas al moverlas.', place: 'bottom' },
+  { sel: '#canvas', title: '¡Bienvenido a tuNota! 🌿', body: 'Un lienzo infinito para tus ideas: notas, tablas, código, diagramas, imágenes y IA. Todo se guarda en tu navegador: tus notas son tuyas. Te enseño lo esencial en medio minuto — usa las flechas del teclado o pulsa Siguiente (Esc para saltar).', place: 'center' },
+  { sel: '#sidebar .brand', title: 'Tus libros', body: 'Organiza todo en Libros → Secciones → Notas, como un cuaderno de verdad. Crea uno nuevo con «Nuevo libro».', place: 'right' },
+  { sel: '#canvas', title: 'El lienzo infinito', body: 'Doble clic en el vacío crea una nota. Mantén ' + ALTKEY + ' (o ' + MOD + '+clic) para el menú radial con los 14 tipos de bloque: tablas, código, Python, Mermaid, dibujo, formas…', place: 'center' },
+  { sel: '[title^="Formas para diagramar"]', title: 'Diagramas como en Lucid/Visio', body: 'Formas, rombos de decisión, conectores con flecha y etiqueta que siguen a las cajas, guías de alineación… Pasa el ratón por una forma y pulsa un «+» para crear el siguiente paso ya conectado.', place: 'bottom' },
+  { sel: '[title^="Plantillas de canvas"]', title: 'Plantillas', body: 'Business Model Canvas, DAFO, Lean Canvas, arquitectura… y la IA puede rellenarlas describiendo tu proyecto.', place: 'bottom' },
+  { sel: '[title^="Buscar en todo"]', title: 'Buscar en todo', body: 'Con ' + MOD + '+K encuentras cualquier nota o bloque al instante, estés donde estés.', place: 'bottom' },
   { sel: '[title^="Mapa de conocimiento"]', title: 'Mapa de conocimiento', body: 'Un grafo de todo tu contenido para ver cómo se conecta. Clic en un nodo para ir allí.', place: 'bottom' },
   { sel: '[title^="Kanban"]', title: 'Kanban de ideas', body: 'Organiza tus bloques por estado: por hacer, en curso y hecho.', place: 'bottom' },
-  { sel: '.ai-btn', title: 'Asistente IA', body: 'Resume, expande, genera ideas, busca en internet y crea imágenes. Usa las claves del servidor o las tuyas.', place: 'bottom' },
-  { sel: '.zoom-ctl', title: 'No te pierdas', body: 'Centra la vista (100% + contenido), ajusta todo a la pantalla y usa el minimapa para orientarte.', place: 'top' },
-  { sel: '[title^="Más opciones"]', title: 'Y mucho más', body: 'Colores y temas, copias de seguridad, atajos (pulsa ?) y este tour, siempre disponibles aquí.', place: 'bottom' },
+  { sel: '.ai-btn', title: 'Asistente IA', body: 'Resume, expande, genera ideas, busca en internet citando fuentes y crea imágenes. Puedes usar tu propia clave (OpenAI, Gemini, Anthropic…): se guarda solo en tu navegador.', place: 'bottom' },
+  { sel: '.zoom-ctl', title: 'No te pierdas', body: 'Centra la vista (' + MOD + '+0), ajusta todo a la pantalla (' + MOD + '+1) y usa el minimapa para orientarte.', place: 'top' },
+  { sel: '[title^="Más opciones"]', title: 'Todo lo demás vive aquí', body: 'Temas de color, copias de seguridad, sincronización, atajos (pulsa ?), este tour y la guía completa con capturas.', place: 'bottom' },
+  { sel: '#canvas', title: '¡Listo! ✨', body: 'Eso es lo esencial. Cuando quieras profundizar, abre la Guía de funciones (con capturas de todo). Y si tuNota te resulta útil, puedes apoyar el proyecto con una donación.', place: 'center',
+    cta: { label: 'Abrir la guía de funciones', fn: function () { endTour(); openGuide(); } } },
 ];
 var tourIdx = 0, tourDom = null;
 
@@ -76,13 +79,23 @@ function tourShow() {
   spot.style.height = (r.height + pad * 2) + 'px';
   var pop = tourDom.pop;
   pop.innerHTML = '';
-  pop.appendChild(h('div', { class: 'tour-step' }, (tourIdx + 1) + ' / ' + TOUR_STEPS.length));
+  // Puntos de progreso: uno por paso, clic para saltar a él.
+  var dots = h('div', { class: 'tour-dots' });
+  TOUR_STEPS.forEach(function (_s, i) {
+    dots.appendChild(h('button', { class: 'tour-dot' + (i === tourIdx ? ' on' : i < tourIdx ? ' done' : ''),
+      title: 'Paso ' + (i + 1), onclick: function () { tourIdx = i; tourShow(); } }));
+  });
+  pop.appendChild(dots);
   pop.appendChild(h('div', { class: 'tour-title' }, step.title));
   pop.appendChild(h('div', { class: 'tour-body' }, step.body));
+  if (step.cta) pop.appendChild(h('button', { class: 'tour-btn tour-cta', onclick: step.cta.fn }, step.cta.label));
   var right = h('span', { class: 'tour-nav-right' });
   if (tourIdx > 0) right.appendChild(h('button', { class: 'tour-btn ghost', onclick: tourPrev }, 'Anterior'));
-  right.appendChild(h('button', { class: 'tour-btn', onclick: tourNext }, tourIdx === TOUR_STEPS.length - 1 ? 'Finalizar' : 'Siguiente'));
-  pop.appendChild(h('div', { class: 'tour-nav' }, h('button', { class: 'tour-skip', onclick: endTour }, 'Saltar'), right));
+  right.appendChild(h('button', { class: 'tour-btn', onclick: tourNext }, tourIdx === TOUR_STEPS.length - 1 ? 'Finalizar' : (tourIdx === 0 ? 'Empezar' : 'Siguiente')));
+  pop.appendChild(h('div', { class: 'tour-nav' },
+    h('button', { class: 'tour-skip', onclick: endTour }, 'Saltar'),
+    h('span', { class: 'tour-count' }, (tourIdx + 1) + ' / ' + TOUR_STEPS.length),
+    right));
   tourPlacePop(pop, r, step.place || 'bottom');
 }
 function tourPlacePop(pop, r, place) {

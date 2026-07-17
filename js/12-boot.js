@@ -83,6 +83,7 @@ function boot() {
       loadBackendConfig(function () {
         serverLoad(function () {
           migrateInlineBlobs();
+          if (typeof pushRecentNote === 'function') pushRecentNote(ui.currentNoteId); // el lienzo inicial es una pestaña
           renderAll();
           lastSig = sidebarSig();
           startReminderLoop();

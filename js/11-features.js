@@ -341,6 +341,28 @@ function setQuickReminder(b, minutes) {
   renderCanvas();
   if (typeof scheduleAppleSync === 'function') scheduleAppleSync();
 }
+// ---------- Organizar fotos: coloca los bloques de imagen en una cuadrícula ordenada ----------
+function organizePhotos() {
+  if (!ui.currentNoteId) { toast('Abre una nota primero.', 'warn'); return; }
+  var all = blocksOf(ui.currentNoteId);
+  var imgs = all.filter(function (b) { return b.type === 'image' || b.type === 'freeimage'; });
+  if (imgs.length < 2) { toast('Necesitas al menos 2 imágenes en el lienzo para organizarlas.', 'warn'); return; }
+  var sz = function (b) { var el = cardEl(b.id); return { w: (el ? el.offsetWidth : b.width) || 220, h: (el ? el.offsetHeight : b.height) || 200 }; };
+  var maxW = Math.max.apply(null, imgs.map(function (b) { return sz(b).w; }));
+  var maxH = Math.max.apply(null, imgs.map(function (b) { return sz(b).h; }));
+  var gap = 26, cols = Math.max(1, Math.round(Math.sqrt(imgs.length * 1.6))); // rejilla algo más ancha que alta
+  var stepX = maxW + gap, stepY = maxH + gap, startX = 60, startY = 60;
+  // Coloca la cuadrícula debajo del contenido que NO son fotos, para no taparlo.
+  var others = all.filter(function (b) { return b.type !== 'image' && b.type !== 'freeimage'; });
+  if (others.length) startY = Math.round(Math.max.apply(null, others.map(function (b) { return b.y + sz(b).h; })) + 44);
+  pushUndo('Organizar fotos');
+  imgs.forEach(function (b, i) { var r = Math.floor(i / cols), c = i % cols; b.x = startX + c * stepX; b.y = startY + r * stepY; });
+  touchNote(ui.currentNoteId);
+  logChange('Fotos organizadas', imgs.length + ' en cuadrícula');
+  save(); renderCanvas();
+  if (typeof fitView === 'function') fitView();
+  toast('Organizadas ' + imgs.length + ' fotos en una cuadrícula.', 'ok');
+}
 // ---------- Vista vertical: los bloques de la nota en lista, importantes primero ----------
 function openVerticalView() {
   closeVerticalView();
@@ -516,7 +538,7 @@ function openCardMenu(b, anchor) {
         onclick: function () { closeCardMenu(); aiBlockAction(b, a); },
       }, a.label));
     });
-    if (BACKEND.search) {
+    if (searchReady()) {
       aiRow.appendChild(h('button', {
         class: 'cm-chip',
         title: 'Busca en internet sobre el contenido de este bloque y crea un bloque enlazado con las fuentes',
@@ -764,10 +786,12 @@ document.addEventListener('keydown', function (e) {
       return;
     }
   }
-  if (e.key === 'Delete') {
+  if (e.key === 'Delete' || e.key === 'Backspace') {
     var a = document.activeElement;
     if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT' || a.isContentEditable)) return;
+    if (document.getElementById('imgEditor')) return; // el editor de imágenes gestiona su propio teclado
     if (Object.keys(selectedIds).length) { e.preventDefault(); deleteSelected(); }
+    else if (selectedLinkId) { e.preventDefault(); removeLink(selectedLinkId); selectedLinkId = null; }
   } else if (e.key === 'Escape') {
     closeRadial();
     closeReminderPicker();
