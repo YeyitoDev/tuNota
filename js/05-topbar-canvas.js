@@ -23,9 +23,13 @@ function dblTypeLabel() {
 // ---------- Barra de pestañas: cambio rápido entre lienzos abiertos/recientes ----------
 function pushRecentNote(id) {
   if (!id || !getNote(id)) return;
-  ui.recentNotes = (ui.recentNotes || []).filter(function (x) { return x !== id && getNote(x); });
-  ui.recentNotes.unshift(id);
-  if (ui.recentNotes.length > 10) ui.recentNotes = ui.recentNotes.slice(0, 10);
+  // Mantiene el orden: solo limpia las borradas. Una hoja nueva entra al principio de la
+  // cola; las ya presentes NO se reordenan al visitarlas (así conservan su sitio).
+  ui.recentNotes = (ui.recentNotes || []).filter(function (x) { return getNote(x); });
+  if (ui.recentNotes.indexOf(id) < 0) {
+    ui.recentNotes.unshift(id);
+    if (ui.recentNotes.length > 12) ui.recentNotes = ui.recentNotes.slice(0, 12);
+  }
 }
 function closeNoteTab(id) {
   ui.recentNotes = (ui.recentNotes || []).filter(function (x) { return x !== id; });
@@ -81,17 +85,19 @@ function renderTopbar() {
   var kanBtn = h('button', { class: 'icon-btn', title: 'Kanban de ideas', onclick: openKanban }, icon('board'));
   var tabletBtn = h('button', { class: 'icon-btn' + (ui.tablet ? ' on' : ''), title: 'Modo tablet: escribir/dibujar con lápiz o dedo', onclick: toggleTabletMode }, icon('pen'));
   var moreBtn = h('button', { class: 'icon-btn', title: 'Más opciones', onclick: function (e) { e.stopPropagation(); openTopbarMenu(moreBtn); } }, icon('more'));
+  var donateBtn = h('button', { class: 'donate-btn', title: 'Apoya tuNota con una donación (Yape)', onclick: openDonate }, icon('heart'), 'Apóyame');
   var ai = h('button', { class: 'ai-btn' + (aiReady() ? ' ready' : ''), title: aiReady() ? 'Asistente IA' : 'Configurar IA (API key)', onclick: openAI }, icon('spark'), 'IA');
   bar.appendChild(left);
   bar.appendChild(hint);
   bar.appendChild(searchBtn);
-  bar.appendChild(tplBtn);
-  bar.appendChild(shapeBtn);
-  bar.appendChild(graphBtn);
-  bar.appendChild(kanBtn);
-  bar.appendChild(tabletBtn);
+  if (featureOn('templates')) bar.appendChild(tplBtn);
+  if (featureOn('diagrams')) bar.appendChild(shapeBtn);
+  if (featureOn('graph')) bar.appendChild(graphBtn);
+  if (featureOn('kanban')) bar.appendChild(kanBtn);
+  if (featureOn('tablet')) bar.appendChild(tabletBtn);
   bar.appendChild(moreBtn);
-  bar.appendChild(ai);
+  if (featureOn('donate')) bar.appendChild(donateBtn);
+  if (featureOn('ai')) bar.appendChild(ai);
 }
 
 // Menú "⋯" del topbar: acciones menos frecuentes, con etiqueta.
@@ -114,24 +120,26 @@ function openTopbarMenu(anchor) {
   pop.appendChild(dblRow);
   pop.appendChild(h('div', { class: 'cm-sep' }));
   [
-    ['layout', 'Nuevo sub-lienzo (lienzo sobre lienzo)', newSubCanvas],
-    ['image', 'Organizar fotos en cuadrícula', organizePhotos],
-    ['panel', 'Vista vertical (importantes primero)', openVerticalView],
-    ['send', 'Enviar nota por Telegram', function () { telegramShare(currentNoteText()); }],
-    ['bell', 'Recordatorios a iOS (.ics)', exportNoteRemindersICS],
-    ['clock', 'Sincronización (Apple · Google Drive)', openSyncPanel],
-    ['map', 'Tour visual (guía interactiva)', function () { startTour(0); }],
-    ['book', 'Guía de funciones (documento)', openGuide],
-    ['layout', 'Showcase de funcionalidades', function () { window.open('docs/showcase.html', '_blank'); }],
-    ['download', 'Importar Markdown (.md) o PDF', openImport],
-    ['clock', 'Historial de cambios', openLog],
-    ['shield', 'Copias de seguridad', openBackups],
-    ['palette', 'Personalizar colores', openTheme],
-    ['help', 'Atajos de teclado', openShortcuts],
-    ['info', 'Integraciones y versiones', openIntegrations],
-    ['heart', 'Apoyar tuNota (donación Yape)', openDonate],
-    ['shield', 'Privacidad, términos y créditos', function () { window.open('legal.html', '_blank'); }],
+    ['layout', 'Nuevo sub-lienzo (lienzo sobre lienzo)', newSubCanvas, true],
+    ['image', 'Organizar fotos en cuadrícula', organizePhotos, true],
+    ['panel', 'Vista vertical (importantes primero)', openVerticalView, true],
+    ['send', 'Enviar nota por Telegram', function () { telegramShare(currentNoteText()); }, featureOn('telegram')],
+    ['bell', 'Recordatorios a iOS (.ics)', exportNoteRemindersICS, true],
+    ['clock', 'Sincronización (Apple · Google Drive)', openSyncPanel, featureOn('sync')],
+    ['map', 'Tour visual (guía interactiva)', function () { startTour(0); }, true],
+    ['book', 'Guía de funciones (documento)', openGuide, true],
+    ['layout', 'Showcase de funcionalidades', function () { window.open('docs/showcase.html', '_blank'); }, true],
+    ['download', 'Importar Markdown (.md) o PDF', openImport, true],
+    ['clock', 'Historial de cambios', openLog, true],
+    ['shield', 'Copias de seguridad', openBackups, true],
+    ['palette', 'Personalizar colores', openTheme, true],
+    ['help', 'Atajos de teclado', openShortcuts, true],
+    ['info', 'Integraciones y versiones', openIntegrations, true],
+    ['heart', 'Apoyar tuNota (donación Yape)', openDonate, featureOn('donate')],
+    ['shield', 'Privacidad, términos y créditos', function () { window.open('legal.html', '_blank'); }, true],
+    ['shield', 'Control de funcionalidades (maestro)', openFeatureControl, true],
   ].forEach(function (it) {
+    if (it[3] === false) return;
     pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); it[2](); } },
       icon(it[0]), h('span', {}, it[1])));
   });
@@ -719,9 +727,20 @@ function card(b) {
     el.appendChild(grip);
   }
   if (isText) {
-    el.classList.add('note-auto'); // el alto se auto-adapta al contenido; el tirador ajusta el ancho
-    var tgrip = h('span', { class: 'text-card-resize', title: 'Arrastra para ajustar el ancho (el alto se adapta solo)' });
-    tgrip.addEventListener('mousedown', function (e) { startBlockResize(e, b, el); });
+    // Por defecto el alto se auto-adapta al contenido; al redimensionar a mano se fija
+    // (manualH) y el tirador mueve ancho Y alto. Doble clic en el tirador vuelve a auto.
+    var manual = !!(b.content && b.content.manualH);
+    el.classList.add(manual ? 'note-manual' : 'note-auto');
+    var tgrip = h('span', { class: 'text-card-resize', title: 'Arrastra para cambiar ancho y alto · doble clic para alto automático' });
+    tgrip.addEventListener('mousedown', function (e) { startNoteResize(e, b, el); });
+    tgrip.addEventListener('dblclick', function (e) {
+      e.stopPropagation(); e.preventDefault();
+      b.content = b.content || {}; b.content.manualH = false;
+      el.classList.remove('note-manual'); el.classList.add('note-auto');
+      el.style.height = 'auto';
+      var ta = el.querySelector('.card-ta'); if (ta) autoGrowNote(ta);
+      b.height = el.offsetHeight; touchNote(b.noteId); save(); drawLinks();
+    });
     el.appendChild(tgrip);
   }
   if (isShape) {
@@ -795,7 +814,7 @@ function textBody(b) {
   requestAnimationFrame(function () { refreshAutoText(ta); autoGrowNote(ta); }); // contraste + ajuste de alto al contenido
   var hlinks = h('div', { class: 'card-hlinks' });          // chips de hipervínculo (texto → bloque/nota)
   renderHlinksInto(hlinks, b);
-  if (isIdea) {
+  if (isIdea && featureOn('ai') && featureOn('ideaReview')) {
     // Las ideas se validan: búsqueda web + veredicto de la IA elegida.
     var revRow = h('div', { class: 'idea-review-row' },
       h('button', { class: 'idea-review-btn', title: 'Validar la idea: busca evidencia en internet y tu IA da un veredicto con riesgos y próximos pasos',
@@ -1252,6 +1271,22 @@ function quickConnect(b, side, shapeKey, color) {
   if (ta) setTimeout(function () { ta.focus(); }, 60);
 }
 // Redimensiona un bloque arrastrando su manija (formas). Actualiza los conectores en vivo.
+// Redimensiona una nota/idea en ambos ejes: fija el alto (manualH) y ajusta ancho y alto.
+function startNoteResize(e, b, el) {
+  e.preventDefault(); e.stopPropagation();
+  b.content = b.content || {}; b.content.manualH = true;
+  el.classList.remove('note-auto'); el.classList.add('note-manual');
+  var sx = e.clientX, sy = e.clientY, sw = el.offsetWidth, sh = el.offsetHeight, z = getView().zoom || 1;
+  function mv(ev) {
+    var nw = Math.max(140, Math.round(sw + (ev.clientX - sx) / z));
+    var nh = Math.max(64, Math.round(sh + (ev.clientY - sy) / z));
+    el.style.width = nw + 'px'; el.style.height = nh + 'px';
+    b.width = nw; b.height = nh;
+    drawLinks();
+  }
+  function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); touchNote(b.noteId); save(); }
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+}
 function startBlockResize(e, b, el) {
   e.preventDefault(); e.stopPropagation();
   var sx = e.clientX, sy = e.clientY, sw = el.offsetWidth, sh = el.offsetHeight, z = getView().zoom || 1;

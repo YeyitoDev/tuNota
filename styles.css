@@ -297,6 +297,8 @@ body {
 #main {
   flex: 1;
   min-width: 0;
+  min-height: 0; /* clave en PWA: permite que #canvas ocupe el alto real y no empuje los
+                    controles de abajo (zoom/centrar/minimapa) hacia arriba con las notas */
   display: flex;
   flex-direction: column;
 }
@@ -802,6 +804,11 @@ body.panning {
 /* Notas de texto/idea con alto auto-adaptable: la tarjeta crece con el contenido. */
 .card.note-auto { height: auto !important; }
 .card.note-auto .card-ta { flex: none; overflow: hidden; min-height: 22px; }
+/* Nota con tamaño manual (alto fijo elegido por el usuario): el texto se desplaza dentro. */
+.card.note-manual .card-ta { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+/* Las notas/ideas usan el tirador propio (ancho + alto); sin el redimensionador nativo del
+   navegador, que ocupaba la esquina y capturaba el arrastre antes que nuestro tirador. */
+.card.note-auto, .card.note-manual { resize: none; }
 
 .empty-state {
   position: absolute;
@@ -2837,7 +2844,18 @@ body.curl-resizing {
 }
 .note-tab .icon { width: 13px; height: 13px; flex: none; }
 .note-tab:hover { background: var(--secondary); color: var(--fg); }
-.note-tab.active { background: var(--secondary); color: var(--fg); border-color: var(--primary); }
+/* Hoja actual: fondo destacado (solo esta pestaña) para identificarla de un vistazo. */
+.note-tab.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 2px 8px -2px rgba(58, 51, 44, 0.28);
+}
+.note-tab.active .icon { color: #fff; }
+.note-tab.active:hover { background: var(--primary); color: #fff; }
+.note-tab.active .note-tab-close { color: rgba(255, 255, 255, 0.85); }
+.note-tab.active .note-tab-close:hover { background: rgba(255, 255, 255, 0.22); color: #fff; }
 .note-tab-title { overflow: hidden; text-overflow: ellipsis; }
 .note-tab-close {
   display: inline-flex;
@@ -3554,6 +3572,16 @@ body.curl-resizing {
   height: auto;
   background: none;
   color: var(--ocre);
+}
+.graph-node.k-group {
+  background: rgba(138, 154, 123, 0.16);
+  border-color: rgba(138, 154, 123, 0.55);
+}
+.graph-node.k-group .gn-dot {
+  width: auto;
+  height: auto;
+  background: none;
+  color: var(--sage);
 }
 
 /* ---------- Tablero Kanban ---------- */
@@ -6283,3 +6311,28 @@ body.fc-picking .card { cursor: crosshair !important; }
 .idea-rev-body h2 { font-family: Fraunces, serif; font-size: 16px; margin: 14px 0 4px; }
 .idea-rev-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 10px 18px 16px; border-top: 1px solid var(--border); }
 .idea-rev-actions:empty { display: none; }
+
+/* ---------- Botón de donación destacado en el topbar ---------- */
+.donate-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: none; border-radius: 999px; cursor: pointer;
+  padding: 7px 15px; font: inherit; font-size: 13px; font-weight: 800; color: #fff;
+  background: linear-gradient(120deg, #ff4d8d, #b0329b);
+  box-shadow: 0 4px 14px -4px rgba(176, 50, 155, 0.6);
+  flex: none;
+}
+.donate-btn svg { width: 15px; height: 15px; fill: currentColor; stroke: none; animation: heart-beat 1.7s ease-in-out infinite; }
+.donate-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.donate-btn:active { transform: translateY(0); }
+@keyframes heart-beat { 0%, 70%, 100% { transform: scale(1); } 35% { transform: scale(1.22); } }
+@media (max-width: 900px) { .donate-btn span, .donate-btn { font-size: 0; gap: 0; padding: 8px; } .donate-btn svg { font-size: 15px; } }
+
+/* ---------- Panel de control de funcionalidades ---------- */
+#featCtlOverlay { justify-content: center; align-items: center; background: rgba(30, 26, 22, 0.45); backdrop-filter: blur(2px); }
+.feat-panel { width: min(460px, 94vw); max-height: min(84vh, 640px); border-radius: 16px; border: 1px solid var(--border); animation: pop 0.16s ease-out; }
+.feat-intro { margin: 0; padding: 10px 18px 4px; color: var(--muted); font-size: 12.5px; }
+.feat-body { flex: 1; overflow-y: auto; padding: 8px 18px; }
+.feat-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.feat-name { font-size: 13.5px; font-weight: 600; }
+.feat-toggle input { width: 18px; height: 18px; accent-color: var(--sage); cursor: pointer; }
+.feat-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 12px 18px 16px; border-top: 1px solid var(--border); }

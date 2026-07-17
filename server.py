@@ -80,6 +80,10 @@ IMAGE_MODEL = _envfirst("IMAGE_MODEL", default="gpt-image-1")
 # Con TUNOTA_PUBLIC=1, /api/data NO comparte ni guarda nada (cada navegador queda 100% local
 # en su localStorage/IndexedDB); el servidor solo sirve estaticos + proxies (IA/CalDAV).
 PUBLIC_MODE = bool(_envfirst("TUNOTA_PUBLIC", "PUBLIC_MODE", "TUNOTA_PUBLIC_MODE"))
+# IA del servidor desactivada: con TUNOTA_DISABLE_AI=1 NUNCA se usan las claves del dueno
+# (OpenCode/Tavily/imagenes). Los usuarios pueden seguir usando SU PROPIA clave (BYOK, override).
+# Pensado para el despliegue de produccion sin gastar el limite de uso del dueno.
+AI_DISABLED = bool(_envfirst("TUNOTA_DISABLE_AI", "TUNOTA_NO_SERVER_AI", "DISABLE_SERVER_AI"))
 # Sincronizacion con Apple (CalDAV de iCloud): Apple ID + contrasena especifica de app.
 # Las credenciales pueden venir del .env o del cliente (panel de Sincronizacion).
 APPLE_ID = _envfirst("APPLE_ID", "ICLOUD_ID", "APPLE_EMAIL")
@@ -554,9 +558,10 @@ class Handler(SimpleHTTPRequestHandler):
             # Descubrimiento de capacidades del backend. NO expone las claves,
             # solo si estan disponibles y (para IA) la lista de modelos.
             cfg = {
-                "aiAvailable": bool(OPENCODE_KEY),
-                "searchAvailable": bool(TAVILY_KEY),
-                "imageAvailable": bool(IMAGE_KEY),
+                "aiAvailable": bool(OPENCODE_KEY) and not AI_DISABLED,
+                "searchAvailable": bool(TAVILY_KEY) and not AI_DISABLED,
+                "imageAvailable": bool(IMAGE_KEY) and not AI_DISABLED,
+                "aiDisabled": AI_DISABLED,  # true => solo IA con clave propia del usuario (BYOK)
                 "telegramAvailable": bool(TELEGRAM_TOKEN and TELEGRAM_CHAT),
                 "appleAvailable": bool(APPLE_ID and APPLE_APP_PASSWORD),
                 "publicMode": PUBLIC_MODE,
@@ -645,6 +650,10 @@ class Handler(SimpleHTTPRequestHandler):
                     headers[str(hk)] = str(hv)
                 status, raw = post_json_upstream(ov_base + "/chat/completions", headers, body)
                 return self._send_raw(status, raw)
+            # Sin clave propia: si la IA del servidor está desactivada, NO se usan las
+            # claves del dueño (el usuario debe traer su propia clave).
+            if AI_DISABLED:
+                return self._send_json({"ok": False, "error": {"message": "La IA del servidor está desactivada. Configura tu propia clave de API en el panel de IA."}}, 403)
             if not OPENCODE_KEY:
                 return self._send_json({"ok": False, "error": {"message": "El servidor no tiene OPENCODE-API en .env."}}, 400)
             status, raw = post_json_upstream(
@@ -653,6 +662,8 @@ class Handler(SimpleHTTPRequestHandler):
             )
             return self._send_raw(status, raw)
         if route == "/api/search":
+            if AI_DISABLED:
+                return self._send_json({"ok": False, "error": "La búsqueda web del servidor está desactivada en este despliegue."}, 403)
             if not self._guard():
                 return
             if not TAVILY_KEY:
@@ -710,6 +721,8 @@ class Handler(SimpleHTTPRequestHandler):
             res = apple_caldav_sync(user, pw, items, payload.get("calendar") or "", payload.get("reminders") or "")
             return self._send_json(res, 200 if res.get("ok") else 502)
         if route == "/api/image":
+            if AI_DISABLED:
+                return self._send_json({"ok": False, "error": "La generación de imágenes del servidor está desactivada en este despliegue."}, 403)
             if not self._guard():
                 return
             if not IMAGE_KEY:

@@ -1,0 +1,21 @@
+# Entorno de pruebas: corre los tests unitarios en cada push que NO sea a main y en
+# los PR hacia main. No despliega nada (test es local).
+name: Pruebas (test)
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npm test

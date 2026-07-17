@@ -441,10 +441,9 @@ function buildGraphTree() {
       var sNode = { id: 'sec-' + s.id, label: s.name, kind: 'section', children: [] };
       notesOf(s.id).forEach(function (n) {
         var nNode = { id: 'note-' + n.id, label: n.title || 'Nota', kind: 'note', noteId: n.id, children: [] };
-        blocksOf(n.id).forEach(function (b) {
-          if (b.type === 'markdown' || b.type === 'pdf' || b.type === 'image' || b.type === 'freeimage' || b.type === 'mermaid') {
-            nNode.children.push({ id: 'blk-' + b.id, label: graphBlockLabel(b), kind: 'doc', docType: b.type, noteId: n.id, blockId: b.id, children: [] });
-          }
+        // Jerarquía: libro → sección → nota → grupos (no se mapean imágenes ni documentos).
+        groupsOf(n.id).forEach(function (g) {
+          nNode.children.push({ id: 'grp-' + g.id, label: g.name || 'Grupo', kind: 'group', noteId: n.id, groupId: g.id, children: [] });
         });
         sNode.children.push(nNode);
       });
@@ -480,10 +479,11 @@ function firstNoteUnder(node) {
   return null;
 }
 function onGraphNodeClick(n) {
-  if (n.kind === 'doc' && n.noteId) {
+  if (n.kind === 'group' && n.noteId) {
+    var g = (data.groups || []).find(function (x) { return x.id === n.groupId; });
     closeGraph();
-    selectNote(n.noteId);
-    setTimeout(function () { popOut(n.blockId); }, 160);
+    if (g && typeof goToGroup === 'function') goToGroup(n.noteId, g);
+    else selectNote(n.noteId);
   } else if (n.noteId) {
     closeGraph();
     selectNote(n.noteId);
@@ -545,7 +545,7 @@ function renderGraph(world, svg, stage) {
       style: { left: (cx + n._x) + 'px', top: (cy + n._y) + 'px' },
       title: n.label
     });
-    el.appendChild(h('span', { class: 'gn-dot' }, n.kind === 'doc' ? icon(typeMeta(n.docType).icon) : (n.kind === 'note' ? icon('file') : null)));
+    el.appendChild(h('span', { class: 'gn-dot' }, n.kind === 'note' ? icon('file') : (n.kind === 'group' ? icon('shapes') : null)));
     el.appendChild(h('span', { class: 'gn-label' }, n.label));
     el.setAttribute('data-id', n.id);
     el.addEventListener('mouseenter', function () { highlightGraph(svg, world, n.id, true); });
@@ -568,10 +568,10 @@ function renderGraph(world, svg, stage) {
     p.setAttribute('marker-end', 'url(#graphRelArrow)');
     svg.appendChild(p);
   });
-  var docs = nodes.filter(function (n) { return n.kind === 'doc'; }).length;
   var notes = nodes.filter(function (n) { return n.kind === 'note'; }).length;
+  var groups = nodes.filter(function (n) { return n.kind === 'group'; }).length;
   var countEl = document.getElementById('graphCount');
-  if (countEl) countEl.textContent = notes + ' notas · ' + docs + ' documentos';
+  if (countEl) countEl.textContent = notes + ' notas · ' + groups + ' grupos';
   setupGraphNav(world, stage, nodes);
 }
 // Resalta un nodo y sus aristas/vecinos; atenúa el resto.

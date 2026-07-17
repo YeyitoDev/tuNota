@@ -936,6 +936,7 @@ function aiBlockText(b) {
   return c.text || '';
 }
 function aiCanActOn(b) {
+  if (typeof featureOn === 'function' && !featureOn('ai')) return false;
   if (['text', 'idea', 'freetext', 'markdown', 'table'].indexOf(b.type) < 0) return false;
   return !!aiBlockText(b).trim();
 }

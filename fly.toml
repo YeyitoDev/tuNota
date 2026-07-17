@@ -8,6 +8,10 @@ primary_region = "dfw"
   # Modo público: /api/data no guarda ni comparte nada; cada navegador es 100% local.
   # Imprescindible con múltiples usuarios (sin esto todos compartirían un mismo db.json).
   TUNOTA_PUBLIC = "1"
+  # IA del servidor DESACTIVADA en producción: nunca se usan las claves del dueño.
+  # Los usuarios usan su propia clave de API (BYOK). Para reactivar (plan pago con
+  # claves del dueño), pon "0" y define OPENCODE_API/TAVILY como `fly secrets set`.
+  TUNOTA_DISABLE_AI = "1"
 
 [http_service]
   internal_port = 8080
