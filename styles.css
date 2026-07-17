@@ -6408,17 +6408,23 @@ body.fc-picking .card { cursor: crosshair !important; }
 /* ---------- Botón de apoyo combinado (café / corazón) ---------- */
 .support-btn { display: inline-flex; align-items: stretch; border-radius: 999px; overflow: hidden; box-shadow: 0 4px 14px -4px rgba(58,51,44,.35); flex: none; }
 .support-half { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; padding: 7px 13px; font: inherit; font-size: 12.5px; font-weight: 800; color: #fff; transition: filter .15s, transform .12s; }
-.support-coffee { background: linear-gradient(120deg, #cf9146, #a5691f); }
+.support-coffee { background: #6f4a30; transition: background .28s ease, filter .15s, transform .12s; }
 .support-heart { background: linear-gradient(120deg, #ff4d8d, #b0329b); }
 .support-half svg { width: 17px; height: 17px; flex: none; }
 .support-heart svg { fill: currentColor; stroke: none; }
-.support-half .support-lbl { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0; transition: max-width .22s ease, opacity .2s ease; }
-.support-half:hover { filter: brightness(1.09); }
-.support-half:hover .support-lbl { max-width: 90px; opacity: 1; }
-/* Botón solo (sin mitad de corazón): la etiqueta «Un cafecito» siempre visible. */
-.support-solo .support-lbl { max-width: 90px; opacity: 1; }
+.support-half .support-lbl { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0; transition: max-width .28s ease, opacity .22s ease; }
+.support-half:hover { filter: brightness(1.06); }
+.support-half:hover .support-lbl { max-width: 110px; opacity: 1; }
 .support-coffee:hover svg { animation: heart-beat 1.4s ease-in-out infinite; }
 .support-heart:hover svg { animation: heart-beat 1.2s ease-in-out infinite; }
+/* Café: por defecto SOLO el icono; al pasar el ratón se expande a «Un cafecito» con un
+   gradiente café → crema y las palabras en color de contraste que resalta sobre el fondo. */
+.support-solo .support-lbl { max-width: 0; opacity: 0; }
+.support-solo:hover .support-lbl { max-width: 110px; opacity: 1; }
+.support-solo .support-coffee { padding: 7px 11px; }
+.support-solo:hover .support-coffee, .support-coffee:hover { background: linear-gradient(120deg, #4a2e1c 0%, #8a5a37 55%, #d8b48a 100%); }
+.support-coffee .support-lbl { color: #fff6ea; text-shadow: 0 1px 2px rgba(40, 24, 12, .55); letter-spacing: .01em; }
+.support-coffee svg { color: #fff6ea; }
 
 /* ---------- Modal de apoyo: pestañas Yape / Stripe ---------- */
 .donate-tabs { display: flex; gap: 8px; justify-content: center; margin: 4px 0 16px; }
