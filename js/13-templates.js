@@ -153,6 +153,43 @@ var CANVAS_TEMPLATES = [
     ],
     links: [{ a: 2, b: 1 }, { a: 3, b: 1 }, { a: 4, b: 1 }, { a: 5, b: 1 }, { a: 6, b: 1 }, { a: 7, b: 1 }],
   },
+  {
+    key: 'productq',
+    name: 'Preguntas de producto',
+    desc: 'Valida la idea de un producto respondiendo las preguntas clave: problema, cliente, competencia, momento, dinero y riesgo.',
+    icon: 'bulb',
+    blocks: [
+      { type: 'freetext', x: 0, y: -64, w: 620, h: 52, text: 'Preguntas sobre la idea de producto', style: { size: 28, bold: true } },
+      { type: 'shape', x: 310, y: 0, w: 300, h: 96, shape: 'ellipse', color: 'n', text: '💡 Mi idea de producto\n(escríbela en una frase)' },
+      // Cada pregunta (forma) con su nota de respuesta debajo, conectadas en flujo.
+      { type: 'shape', x: 20, y: 220, w: 270, h: 64, shape: 'round', text: '¿Qué problema resuelve?' },
+      { type: 'text', x: 20, y: 315, w: 270, h: 92, text: 'Respuesta…' },
+      { type: 'shape', x: 325, y: 220, w: 270, h: 64, shape: 'round', text: '¿Para quién es? (cliente ideal)' },
+      { type: 'text', x: 325, y: 315, w: 270, h: 92, text: 'Respuesta…' },
+      { type: 'shape', x: 630, y: 220, w: 270, h: 64, shape: 'round', text: '¿Cómo lo resuelven hoy? (competencia)' },
+      { type: 'text', x: 630, y: 315, w: 270, h: 92, text: 'Respuesta…' },
+      { type: 'shape', x: 20, y: 480, w: 270, h: 64, shape: 'round', text: '¿Por qué ahora?' },
+      { type: 'text', x: 20, y: 575, w: 270, h: 92, text: 'Respuesta…' },
+      { type: 'shape', x: 325, y: 480, w: 270, h: 64, shape: 'round', text: '¿Cómo gana dinero?' },
+      { type: 'text', x: 325, y: 575, w: 270, h: 92, text: 'Respuesta…' },
+      { type: 'shape', x: 630, y: 480, w: 270, h: 64, shape: 'round', text: '¿Cuál es el mayor riesgo?' },
+      { type: 'text', x: 630, y: 575, w: 270, h: 92, text: 'Respuesta…' },
+      { type: 'shape', x: 350, y: 760, w: 220, h: 110, shape: 'diamond', text: '¿Vale la pena construirla?' },
+      { type: 'shape', x: 90, y: 940, w: 280, h: 64, shape: 'pill', text: 'Sí → valida barato (landing + 10 entrevistas)' },
+      { type: 'shape', x: 550, y: 940, w: 280, h: 64, shape: 'pill', text: 'No → pivota o aparca la idea', color: 'q' },
+    ],
+    links: [
+      { a: 1, b: 2, label: 'problema', type: 'flow' }, [2, 3],
+      { a: 1, b: 4, label: 'cliente', type: 'flow' }, [4, 5],
+      { a: 1, b: 6, label: 'competencia', type: 'flow' }, [6, 7],
+      { a: 1, b: 8, label: 'momento', type: 'flow' }, [8, 9],
+      { a: 1, b: 10, label: 'negocio', type: 'flow' }, [10, 11],
+      { a: 1, b: 12, label: 'riesgo', type: 'flow' }, [12, 13],
+      { a: 1, b: 14, label: 'tras responder' },
+      { a: 14, b: 15, label: 'Sí', type: 'flow' },
+      { a: 14, b: 16, label: 'No', type: 'flow' },
+    ],
+  },
 ];
 
 // Clona el contenido de un bloque para una plantilla, re-guardando los blobs (imágenes/PDF/
