@@ -63,6 +63,29 @@ function openPlanner() {
         t.subs.length ? h('span', { class: 'planner-subcount' + (subsDone === t.subs.length ? ' all' : '') }, subsDone + '/' + t.subs.length) : null,
         h('button', { class: 'act', title: open ? 'Ocultar acciones' : 'Ver/añadir las acciones realizadas', onclick: function () { t._open = !open; render(); } }, icon(open ? 'chevronDown' : 'chevron')),
         h('button', { class: 'act danger', title: 'Eliminar tarea', onclick: function () { data.plan = data.plan.filter(function (x) { return x.id !== t.id; }); save(); render(); } }, icon('trash'))));
+    // Metadatos: fecha/hora de inserción, tipo, hoja anidada y recordatorio.
+    var meta = h('div', { class: 'planner-meta' });
+    meta.appendChild(h('span', { class: 'planner-meta-at', title: 'Insertada el ' + fmtWhen(t.createdAt) }, '⏱ ' + fmtDate(t.createdAt) + ' · ' + fmtTime(t.createdAt)));
+    var kind = t.kind || 'relevant', rk = rankMeta(kind);
+    meta.appendChild(h('button', { class: 'planner-kind rank-' + kind, title: 'Tipo: ' + rk.label + ' — clic para cambiarlo', onclick: function () {
+      var order = NOTE_RANKS.map(function (r) { return r.key; });
+      t.kind = order[(order.indexOf(kind) + 1) % order.length];
+      save(); render();
+    } }, rk.label));
+    var linked = t.noteId && getNote(t.noteId);
+    if (linked) {
+      meta.appendChild(h('button', { class: 'planner-note-chip', title: 'Anidada a esta hoja — clic para abrirla', onclick: function () { closePlanner(); selectNote(t.noteId); } }, '📄 ' + (linked.title || 'Hoja')));
+    }
+    var linkBtn = h('button', { class: 'act', title: linked ? 'Cambiar o quitar la hoja anidada' : 'Anidar la tarea a una hoja o nota' }, icon('link'));
+    linkBtn.addEventListener('click', function (e) { e.stopPropagation(); openPlanNotePicker(t, linkBtn, render); });
+    meta.appendChild(linkBtn);
+    if (t.remindAt && t.remindAt > now()) {
+      meta.appendChild(h('span', { class: 'planner-remind-chip', title: 'Sonará a las ' + planFmtTime(t.remindAt) }, '⏰ ' + planFmtTime(t.remindAt)));
+    }
+    var bellBtn = h('button', { class: 'act', title: 'Recordatorio en X minutos (suena y avisa)' }, icon('bell'));
+    bellBtn.addEventListener('click', function (e) { e.stopPropagation(); openPlanRemindPicker(t, bellBtn, render); });
+    meta.appendChild(bellBtn);
+    row.appendChild(meta);
     if (t.subs.length) {
       row.appendChild(h('div', { class: 'planner-bar' },
         h('div', { class: 'planner-bar-fill', style: { width: Math.round(subsDone / t.subs.length * 100) + '%' } })));
@@ -114,4 +137,61 @@ function openPlanner() {
   document.body.appendChild(overlay);
   render();
   inp.focus();
+}
+
+// ---------- Pickers del Plan del día: anidar a una hoja y recordatorio en X minutos ----------
+function openPlanNotePicker(t, anchor, rerender) {
+  closeTopbarMenu();
+  var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
+  var pop = h('div', { class: 'card-menu-pop move-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  pop.appendChild(h('div', { class: 'cm-label' }, icon('link'), 'Anidar la tarea a una hoja'));
+  if (t.noteId) {
+    pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); t.noteId = null; save(); rerender(); } }, icon('x'), h('span', {}, 'Quitar el vínculo')));
+    pop.appendChild(h('div', { class: 'cm-sep' }));
+  }
+  notebooksAll().forEach(function (nb) {
+    var secs = sectionsOf(nb.id);
+    var any = secs.some(function (s) { return notesOf(s.id).length; });
+    if (!any) return;
+    pop.appendChild(h('div', { class: 'move-book' }, (nb.emoji ? nb.emoji + ' ' : '') + nb.name));
+    secs.forEach(function (s) {
+      notesOf(s.id).forEach(function (n) {
+        pop.appendChild(h('button', { class: 'cm-item' + (t.noteId === n.id ? ' move-here' : ''), title: s.name, onclick: function () {
+          closeTopbarMenu(); t.noteId = n.id; save(); rerender();
+        } }, icon('file'), h('span', {}, (n.title || 'Nota') + (t.noteId === n.id ? ' (actual)' : ''))));
+      });
+    });
+  });
+  bd.appendChild(pop);
+  document.body.appendChild(bd);
+  positionPop(pop, anchor, 260);
+}
+function openPlanRemindPicker(t, anchor, rerender) {
+  closeTopbarMenu();
+  var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
+  var pop = h('div', { class: 'card-menu-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  pop.appendChild(h('div', { class: 'cm-label' }, icon('bell'), 'Recordatorio en…'));
+  var setIn = function (mins) {
+    t.remindAt = now() + mins * 60000;
+    logChange('Recordatorio de tarea', t.title + ' en ' + mins + ' min');
+    save(); closeTopbarMenu(); rerender();
+    toast('⏰ Te aviso en ' + mins + ' min (a las ' + planFmtTime(t.remindAt) + ').', 'ok');
+  };
+  var row = h('div', { class: 'cm-quick' });
+  [5, 10, 15, 30, 60].forEach(function (m) {
+    row.appendChild(h('button', { class: 'cm-chip', onclick: function (e) { e.stopPropagation(); setIn(m); } }, m + ' min'));
+  });
+  pop.appendChild(row);
+  var custom = h('input', { class: 'planner-inp planner-min-inp', type: 'number', min: '1', max: '1440', placeholder: 'X minutos…' });
+  custom.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var v = parseInt(custom.value, 10); if (v > 0) setIn(v); } });
+  pop.appendChild(h('div', { class: 'cm-quick planner-min-row' }, custom,
+    h('button', { class: 'cm-chip', onclick: function (e) { e.stopPropagation(); var v = parseInt(custom.value, 10); if (v > 0) setIn(v); } }, 'OK')));
+  if (t.remindAt && t.remindAt > now()) {
+    pop.appendChild(h('div', { class: 'cm-sep' }));
+    pop.appendChild(h('button', { class: 'cm-item', onclick: function () { t.remindAt = null; save(); closeTopbarMenu(); rerender(); } }, icon('x'), h('span', {}, 'Quitar el recordatorio (' + planFmtTime(t.remindAt) + ')')));
+  }
+  bd.appendChild(pop);
+  document.body.appendChild(bd);
+  positionPop(pop, anchor, 230);
+  custom.focus();
 }

@@ -6473,3 +6473,20 @@ body.fc-picking .card { cursor: crosshair !important; }
 .planner-sub-at { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 .planner-sub-add { margin-top: 5px; }
 .planner-sub-inp { width: 100%; box-sizing: border-box; font-size: 12.5px; padding: 6px 10px; }
+
+/* ---------- Plan del día: metadatos (fecha de inserción, tipo, hoja, recordatorio) ---------- */
+.planner-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 6px 0 0 25px; }
+.planner-meta-at { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.planner-kind { border: none; cursor: pointer; font-family: inherit; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: #fff; border-radius: 999px; padding: 2px 8px; transition: filter .12s, transform .1s; }
+.planner-kind:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.planner-kind.rank-relevant { background: #6f9257; }
+.planner-kind.rank-idea { background: var(--ocre); }
+.planner-kind.rank-important { background: #e0873c; }
+.planner-kind.rank-crucial { background: var(--danger); }
+.planner-note-chip { border: 1px solid var(--border); background: var(--secondary); color: var(--fg); cursor: pointer; font-family: inherit; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 9px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planner-note-chip:hover { border-color: var(--primary); }
+.planner-remind-chip { font-size: 10.5px; font-weight: 800; color: #fff; background: var(--primary); border-radius: 999px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+.planner-meta .act { opacity: .65; }
+.planner-meta .act:hover { opacity: 1; }
+.planner-min-inp { width: 110px; font-size: 12px; padding: 5px 9px; }
+.planner-min-row { align-items: center; }

@@ -196,6 +196,21 @@ function exportNoteRemindersICS() {
 }
 function checkReminders() {
   var t = now();
+  // Recordatorios del Plan del día (tareas con "avísame en X minutos").
+  var duePlan = (Array.isArray(data.plan) ? data.plan : []).filter(function (p) {
+    return !p.done && typeof p.remindAt === 'number' && p.remindAt <= t;
+  });
+  if (duePlan.length) {
+    duePlan.forEach(function (p) {
+      p.remindAt = null;
+      notify('⏰ Tarea del día', p.title);
+      toast('⏰ Tarea pendiente: ' + p.title, 'warn');
+    });
+    logChange('Recordatorio de tarea del día', duePlan.map(function (p) { return p.title; }).join(' · '));
+    save();
+    playBeep();
+    if (document.getElementById('plannerOverlay') && typeof openPlanner === 'function') openPlanner(); // refresca el panel si está abierto
+  }
   var due = (data.blocks || []).filter(function (b) {
     return b.reminder && !b.reminder.done && typeof b.reminder.at === 'number' && b.reminder.at <= t;
   });
