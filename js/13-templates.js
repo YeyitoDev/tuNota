@@ -190,6 +190,18 @@ var CANVAS_TEMPLATES = [
       { a: 14, b: 16, label: 'No', type: 'flow' },
     ],
   },
+  {
+    key: 'listflow',
+    name: 'Lista → Flujograma',
+    desc: 'Guía + ejemplo del formato correcto para escribir una lista enumerada y convertirla en flujograma con un clic.',
+    icon: 'flow',
+    blocks: [
+      { type: 'freetext', x: 0, y: -64, w: 560, h: 52, text: 'Lista → Flujograma: el formato', style: { size: 28, bold: true } },
+      { type: 'markdown', x: 0, y: 0, w: 400, h: 360, text: '# Cómo escribir la lista\n\nEscribe los pasos en una **nota** y pulsa **≡ Formatear → «Lista → flujograma»**.\n\n## Reglas\n\n1. `1.` `2.` `3.` — pasos en orden: cajas conectadas una tras otra.\n2. Termina un paso en `?` — se convierte en **rombo de decisión**.\n3. `3.1.` `3.2.` — ramas que salen del paso 3; empiézalas con `Sí:` o `No:` para etiquetar la flecha.\n4. `Inicio` y `Fin` — se dibujan como píldoras.\n5. Las ramas se reconectan solas con el paso siguiente.' },
+      { type: 'text', x: 450, y: 0, w: 320, h: 230, text: '1. Inicio\n2. Recibir el pedido\n3. ¿Hay stock?\n3.1. Sí: preparar el envío\n3.2. No: pedir al proveedor\n4. Notificar al cliente\n5. Fin' },
+    ],
+    links: [{ a: 1, b: 2, label: 'ejemplo: conviérteme' }],
+  },
 ];
 
 // Clona el contenido de un bloque para una plantilla, re-guardando los blobs (imágenes/PDF/
