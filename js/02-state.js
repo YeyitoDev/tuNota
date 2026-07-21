@@ -64,6 +64,7 @@ var FEATURE_DEFS = [
   { key: 'diagrams', label: 'Formas y diagramas', def: true },
   { key: 'graph', label: 'Mapa de conocimiento', def: true },
   { key: 'kanban', label: 'Kanban de ideas', def: true },
+  { key: 'planner', label: 'Plan del día (tareas y acciones)', def: true },
   { key: 'templates', label: 'Plantillas de canvas', def: true },
   { key: 'sync', label: 'Sincronización (Apple · Drive)', def: true },
   { key: 'telegram', label: 'Enviar por Telegram', def: true },

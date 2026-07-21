@@ -2,7 +2,7 @@
    Estrategia network-first para archivos propios (recibes lo último si hay red, y la copia
    cacheada si no la hay). NO tocamos /api/* ni CDNs/servicios externos (dinámicos/sensibles). */
 'use strict';
-var CACHE = 'tunota-v14';
+var CACHE = 'tunota-v15';
 var SHELL = [
   './', './index.html', './styles.css', './note.html', './note.js', './manifest.json', './legal.html',
   './public/leaf.svg', './public/app-icon.svg', './public/icon-192.png', './public/icon-512.png',
@@ -11,7 +11,7 @@ var SHELL = [
   './js/05-topbar-canvas.js', './js/06-markdown-mermaid.js', './js/07-media.js', './js/08-text-exec.js',
   './js/09-interactions.js', './js/10-sync-panels.js', './js/11-features.js', './js/12-boot.js',
   './js/13-templates.js', './js/14-search.js', './js/15-tour.js', './js/16-sync.js', './js/17-guia.js',
-  './js/18-control.js', './js/19-tooltips.js',
+  './js/18-control.js', './js/19-tooltips.js', './js/20-planner.js',
 ];
 
 self.addEventListener('install', function (e) {

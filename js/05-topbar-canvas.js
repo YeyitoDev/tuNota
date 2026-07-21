@@ -83,6 +83,7 @@ function renderTopbar() {
   var shapeBtn = h('button', { class: 'icon-btn', title: 'Formas para diagramar (rectángulo, elipse, rombo…)', onclick: function (e) { e.stopPropagation(); openShapePalette(shapeBtn); } }, icon('shapes'));
   var graphBtn = h('button', { class: 'icon-btn', title: 'Mapa de conocimiento (grafo)', onclick: openGraph }, icon('graph'));
   var kanBtn = h('button', { class: 'icon-btn', title: 'Kanban de ideas', onclick: openKanban }, icon('board'));
+  var planBtn = h('button', { class: 'icon-btn', title: 'Plan del día: qué hacer hoy y las acciones realizadas para completarlo', onclick: openPlanner }, icon('todo'));
   var tabletBtn = h('button', { class: 'icon-btn' + (ui.tablet ? ' on' : ''), title: 'Modo tablet: escribir/dibujar con lápiz o dedo', onclick: toggleTabletMode }, icon('pen'));
   var moreBtn = h('button', { class: 'icon-btn', title: 'Más opciones', onclick: function (e) { e.stopPropagation(); openTopbarMenu(moreBtn); } }, icon('more'));
   var reviewBtn = h('button', { class: 'idea-review-top', title: 'Revisar idea: analiza el contexto (idea seleccionada o la nota) y lo consulta a un prompt especializado', onclick: function () { openIdeaReview(); } }, icon('search'), 'Revisar idea');
@@ -100,6 +101,7 @@ function renderTopbar() {
   if (featureOn('diagrams')) bar.appendChild(shapeBtn);
   if (featureOn('graph')) bar.appendChild(graphBtn);
   if (featureOn('kanban')) bar.appendChild(kanBtn);
+  if (featureOn('planner')) bar.appendChild(planBtn);
   if (featureOn('tablet')) bar.appendChild(tabletBtn);
   bar.appendChild(moreBtn);
   if (featureOn('ai') && featureOn('ideaReview')) bar.appendChild(reviewBtn);
@@ -130,6 +132,7 @@ function openTopbarMenu(anchor) {
     ['layout', 'Nuevo sub-lienzo (lienzo sobre lienzo)', newSubCanvas, true],
     ['image', 'Organizar fotos en cuadrícula', organizePhotos, true],
     ['panel', 'Vista vertical (importantes primero)', openVerticalView, true],
+    ['bell', 'Plan del día (tareas y acciones)', openPlanner, featureOn('planner')],
     ['send', 'Enviar nota por Telegram', function () { telegramShare(currentNoteText()); }, featureOn('telegram')],
     ['bell', 'Recordatorios a iOS (.ics)', exportNoteRemindersICS, true],
     ['clock', 'Sincronización (Apple · Google Drive)', openSyncPanel, featureOn('sync')],

@@ -79,6 +79,11 @@ function notebookNode(nb) {
     editBtn,
     h('button', { class: 'act danger', title: 'Eliminar libro', onclick: function (e) { e.stopPropagation(); deleteNotebook(nb.id); } }, icon('trash'))
   );
+  // Suelta aqu\u00ED una nota (va a su primera secci\u00f3n) o una secci\u00f3n entera (con sus notas).
+  treeDropWire(row, ['note', 'sec'], function (drag) {
+    if (drag.kind === 'note') moveNoteToNotebook(drag.id, nb.id);
+    else moveSectionToNotebook(drag.id, nb.id);
+  });
   var wrap = h('div', {}, row);
   if (open) {
     var kids = h('div', { class: 'children' });
@@ -103,6 +108,11 @@ function sectionNode(s) {
     editBtn,
     h('button', { class: 'act danger', title: 'Eliminar secci\u00f3n', onclick: function (e) { e.stopPropagation(); deleteSection(s.id); } }, icon('trash'))
   );
+  // Suelta una nota aqu\u00ed para moverla a esta secci\u00f3n; la secci\u00f3n se puede arrastrar a otro libro.
+  row.setAttribute('draggable', 'true');
+  row.addEventListener('dragstart', function (e) { _treeDrag = { kind: 'sec', id: s.id }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', s.name); } catch (err) {} });
+  row.addEventListener('dragend', function () { _treeDrag = null; });
+  treeDropWire(row, ['note'], function (drag) { moveNoteToSection(drag.id, s.id); });
   var wrap = h('div', {}, row);
   if (open) {
     var kids = h('div', { class: 'children' });
@@ -114,18 +124,142 @@ function sectionNode(s) {
   return wrap;
 }
 
+// ---------- Mover notas entre secciones/libros y anidarlas dentro de otras ----------
+// Elemento del árbol que se está arrastrando: { kind: 'note'|'sec', id }.
+var _treeDrag = null;
+// ¿'maybeAncestorId' es la propia nota o un ancestro de 'noteId'? (evita ciclos al anidar)
+function noteIsOrHasAncestor(noteId, maybeAncestorId) {
+  var cur = getNote(noteId), hops = 0;
+  while (cur && hops++ < 100) {
+    if (cur.id === maybeAncestorId) return true;
+    cur = cur.parentId ? getNote(cur.parentId) : null;
+  }
+  return false;
+}
+// Cambia la sección de una nota y de TODO su subárbol (los sub-lienzos la acompañan).
+function setNoteSectionDeep(noteId, sectionId) {
+  var n = getNote(noteId); if (!n) return;
+  n.sectionId = sectionId; n.updatedAt = now();
+  (data.notes || []).filter(function (x) { return x.parentId === noteId; }).forEach(function (c) { setNoteSectionDeep(c.id, sectionId); });
+}
+function moveNoteToSection(noteId, sectionId) {
+  var n = getNote(noteId), s = getSection(sectionId);
+  if (!n || !s) return;
+  if (n.sectionId === sectionId && !n.parentId) { toast('La nota ya está en esa sección.', 'info'); return; }
+  n.parentId = null;                       // pasa al nivel superior de la sección destino
+  setNoteSectionDeep(noteId, sectionId);
+  var nb = getNotebook(s.notebookId);
+  ui.expS[sectionId] = true; if (nb) ui.expN[nb.id] = true;   // que se vea dónde quedó
+  logChange('Nota movida', (n.title || 'Nota') + ' → ' + s.name);
+  save(); renderSidebar();
+  toast('«' + (n.title || 'Nota') + '» movida a «' + s.name + '»' + (nb ? ' (' + nb.name + ')' : '') + '.', 'ok');
+}
+// Mover una nota a un libro: va a su primera sección (se crea «General» si no tiene).
+function moveNoteToNotebook(noteId, nbId) {
+  var secs = sectionsOf(nbId);
+  var s = secs[0];
+  if (!s) { s = { id: uid(), notebookId: nbId, name: 'General', createdAt: now() }; data.sections.push(s); }
+  moveNoteToSection(noteId, s.id);
+}
+// Guardar una nota DENTRO de otra (sub-lienzo): parentId + hereda la sección del padre.
+function nestNoteInto(noteId, targetNoteId) {
+  var n = getNote(noteId), t = getNote(targetNoteId);
+  if (!n || !t || noteId === targetNoteId) return;
+  if (noteIsOrHasAncestor(targetNoteId, noteId)) { toast('No puedes guardar una nota dentro de una de sus propias sub-notas.', 'warn'); return; }
+  n.parentId = targetNoteId;
+  setNoteSectionDeep(noteId, t.sectionId);
+  var s = getSection(t.sectionId); if (s) { ui.expS[s.id] = true; var nb = getNotebook(s.notebookId); if (nb) ui.expN[nb.id] = true; }
+  logChange('Nota anidada', (n.title || 'Nota') + ' → dentro de ' + (t.title || 'Nota'));
+  save(); renderSidebar();
+  toast('«' + (n.title || 'Nota') + '» guardada dentro de «' + (t.title || 'Nota') + '».', 'ok');
+}
+function unnestNote(noteId) {
+  var n = getNote(noteId); if (!n || !n.parentId) return;
+  n.parentId = null; n.updatedAt = now();
+  logChange('Nota al nivel superior', n.title || 'Nota');
+  save(); renderSidebar();
+  toast('«' + (n.title || 'Nota') + '» sacada al nivel superior de su sección.', 'ok');
+}
+function moveSectionToNotebook(secId, nbId) {
+  var s = getSection(secId), nb = getNotebook(nbId);
+  if (!s || !nb || s.notebookId === nbId) return;
+  s.notebookId = nbId;
+  ui.expN[nbId] = true;
+  logChange('Sección movida', s.name + ' → ' + nb.name);
+  save(); renderSidebar();
+  toast('Sección «' + s.name + '» movida al libro «' + nb.name + '».', 'ok');
+}
+// Cablea una fila del árbol como destino de soltado (con marca visual).
+function treeDropWire(row, accepts, onDrop) {
+  row.addEventListener('dragover', function (e) {
+    if (!_treeDrag || accepts.indexOf(_treeDrag.kind) < 0) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    row.classList.add('drop-ok');
+  });
+  row.addEventListener('dragleave', function () { row.classList.remove('drop-ok'); });
+  row.addEventListener('drop', function (e) {
+    row.classList.remove('drop-ok');
+    if (!_treeDrag || accepts.indexOf(_treeDrag.kind) < 0) return;
+    e.preventDefault(); e.stopPropagation();
+    var d = _treeDrag; _treeDrag = null;
+    onDrop(d);
+  });
+}
+// Menú «Mover a…»: todas las secciones (por libro), sacar al nivel superior y anidar en otra nota.
+function openMovePicker(n, anchor) {
+  closeTopbarMenu();
+  var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
+  var pop = h('div', { class: 'card-menu-pop move-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  pop.appendChild(h('div', { class: 'cm-label' }, icon('move'), 'Mover «' + (n.title || 'Nota') + '» a'));
+  notebooksAll().forEach(function (nb) {
+    pop.appendChild(h('div', { class: 'move-book' }, (nb.emoji ? nb.emoji + ' ' : '') + nb.name));
+    var secs = sectionsOf(nb.id);
+    if (!secs.length) pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); moveNoteToNotebook(n.id, nb.id); } }, icon('folderPlus'), h('span', {}, 'Nueva sección «General»')));
+    secs.forEach(function (s) {
+      var here = n.sectionId === s.id && !n.parentId;
+      pop.appendChild(h('button', { class: 'cm-item' + (here ? ' move-here' : ''), onclick: function () { if (here) return; closeTopbarMenu(); moveNoteToSection(n.id, s.id); } },
+        icon('chevron'), h('span', {}, s.name + (here ? ' (actual)' : ''))));
+    });
+  });
+  if (n.parentId) {
+    pop.appendChild(h('div', { class: 'cm-sep' }));
+    pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); unnestNote(n.id); } }, icon('panel'), h('span', {}, 'Sacar al nivel superior de su sección')));
+  }
+  var candidates = (data.notes || []).filter(function (t) { return t.id !== n.id && !noteIsOrHasAncestor(t.id, n.id); });
+  if (candidates.length) {
+    pop.appendChild(h('div', { class: 'cm-sep' }));
+    pop.appendChild(h('div', { class: 'cm-label' }, icon('layout'), 'Guardar dentro de otra nota'));
+    candidates.forEach(function (t) {
+      var s = getSection(t.sectionId), nb = s && getNotebook(s.notebookId);
+      pop.appendChild(h('button', { class: 'cm-item', title: (nb ? nb.name + ' / ' : '') + (s ? s.name : ''), onclick: function () { closeTopbarMenu(); nestNoteInto(n.id, t.id); } },
+        icon('file'), h('span', {}, (t.title || 'Nota') + (t.id === n.parentId ? ' (actual)' : ''))));
+    });
+  }
+  bd.appendChild(pop);
+  document.body.appendChild(bd);
+  positionPop(pop, anchor, 280);
+}
+
 function noteRow(n) {
   var active = ui.currentNoteId === n.id;
   var editBtn = h('button', { class: 'act', title: 'Renombrar nota' }, icon('edit'));
   var name = editable(h('span', { class: 'item-name' }, n.title), n.title, function (v) { rename('note', n.id, v); }, editBtn);
+  var moveBtn = h('button', { class: 'act', title: 'Mover a otra sección o libro, o guardarla dentro de otra nota' }, icon('move'));
+  moveBtn.addEventListener('click', function (e) { e.stopPropagation(); openMovePicker(n, moveBtn); });
   var row = h(
     'div',
     { class: 'row note-row' + (active ? ' active' : ''), onclick: function () { selectNote(n.id); } },
     icon('file'),
     name,
+    moveBtn,
     editBtn,
     h('button', { class: 'act danger', title: 'Eliminar nota', onclick: function (e) { e.stopPropagation(); deleteNote(n.id); } }, icon('trash'))
   );
+  // Arrastrable: soltar sobre una sección/libro la mueve; sobre otra nota, la guarda dentro.
+  row.setAttribute('draggable', 'true');
+  row.addEventListener('dragstart', function (e) { _treeDrag = { kind: 'note', id: n.id }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', n.title || 'Nota'); } catch (err) {} });
+  row.addEventListener('dragend', function () { _treeDrag = null; });
+  treeDropWire(row, ['note'], function (drag) { if (drag.id !== n.id) nestNoteInto(drag.id, n.id); });
   // Sub-lienzos (notas hijas, "lienzo sobre lienzo") y grupos del lienzo, anidados bajo la nota.
   var gs = groupsOf(n.id);
   var children = (data.notes || []).filter(function (x) { return x.parentId === n.id && getNote(n.id); });
