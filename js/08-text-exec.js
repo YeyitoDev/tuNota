@@ -131,6 +131,10 @@ function openTextFormatMenu(b, el, anchor) {
   var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
   var pop = h('div', { class: 'card-menu-pop', onmousedown: function (e) { e.stopPropagation(); } });
   pop.appendChild(h('div', { class: 'cm-label' }, icon('format'), 'Formatear texto'));
+  pop.appendChild(h('button', { class: 'cm-item', title: 'Convierte la lista enumerada (1., 2., 3.1.…) en un flujograma de formas conectadas. La plantilla «Lista → Flujograma» explica el formato', onclick: function () {
+    closeTopbarMenu(); listToFlowchart(b);
+  } }, icon('flow'), h('span', {}, 'Lista → flujograma')));
+  pop.appendChild(h('div', { class: 'cm-sep' }));
   TEXT_TRANSFORMS.forEach(function (t) {
     pop.appendChild(h('button', { class: 'cm-item', onclick: function () {
       closeTopbarMenu();
@@ -682,4 +686,83 @@ function resizeTable(b, wrap, op) {
   logChange('Tabla modificada', rows.length + '\u00d7' + (rows[0] ? rows[0].length : 0));
   save();
   renderTable(wrap, b);
+}
+
+// ---------- Lista enumerada → flujograma (formas y conectores nativos) ----------
+// Formato: "1." pasos en orden; "3.1."/"3.2." ramas del paso 3 (con "Sí:"/"No:" como
+// etiqueta de la flecha); un paso que termina en "?" es rombo de decisión; "Inicio"/"Fin"
+// se dibujan como píldoras. Las ramas se reconectan solas con el siguiente paso.
+function parseNumberedList(text) {
+  var items = [];
+  String(text || '').split('\n').forEach(function (line) {
+    var m = line.match(/^\s*(\d+(?:\.\d+)*)[.)]\s+(.+)$/);
+    if (m) items.push({ depth: m[1].split('.').length, text: m[2].trim() });
+  });
+  var root = { children: [] };
+  items.forEach(function (it) {
+    var parent = root;
+    for (var d = 1; d < it.depth; d++) {
+      var last = parent.children[parent.children.length - 1];
+      if (!last) break;                 // lista mal formada: cuelga del nivel disponible
+      parent = last;
+    }
+    parent.children.push({ text: it.text, children: [] });
+  });
+  return root.children;
+}
+function flowDecorate(node, isBranch) {
+  if (isBranch) {
+    var m = node.text.match(/^([^:]{1,18}):\s+(.+)$/);
+    if (m) { node.label = m[1].trim(); node.text = m[2].trim(); }
+  }
+  node.label = node.label || '';
+  node.shape = /\?\s*$/.test(node.text) ? 'diamond' : (/^(inicio|fin|start|end)\b/i.test(node.text) ? 'pill' : 'round');
+  node.children.forEach(function (c) { flowDecorate(c, true); });
+}
+// Coloca 'node' centrado en [x0,x1] desde y; devuelve las salidas del subárbol y su fondo.
+function layoutFlowNode(node, x0, x1, y, out) {
+  var W = 200, H = node.shape === 'diamond' ? 96 : 60, GAPY = 64;
+  var cx = (x0 + x1) / 2;
+  node._blk = {
+    id: uid(), noteId: out.noteId, type: 'shape',
+    x: Math.round(cx - W / 2), y: Math.round(y), width: W, height: H,
+    content: { text: node.text, shape: node.shape }, createdAt: out.t, updatedAt: out.t,
+  };
+  out.blocks.push(node._blk);
+  if (!node.children.length) return { exits: [node._blk], bottom: y + H };
+  var span = (x1 - x0) / node.children.length;
+  var exits = [], bottom = y + H;
+  node.children.forEach(function (c, i) {
+    var r = layoutFlowNode(c, x0 + i * span, x0 + (i + 1) * span, y + H + GAPY, out);
+    out.links.push({ id: uid(), noteId: out.noteId, a: node._blk.id, b: c._blk.id, label: c.label, type: 'flow', createdAt: out.t });
+    exits = exits.concat(r.exits);
+    bottom = Math.max(bottom, r.bottom);
+  });
+  return { exits: exits, bottom: bottom };
+}
+function listToFlowchart(b) {
+  var tops = parseNumberedList(b.content && b.content.text);
+  if (tops.length < 2) { toast('Numera los pasos primero: 1., 2., 3.… (usa 3.1./3.2. para ramas). Mira la plantilla «Lista → Flujograma».', 'warn'); return; }
+  tops.forEach(function (n) { flowDecorate(n, false); });
+  var breadth = 1;
+  (function widest(list) { breadth = Math.max(breadth, list.length ? Math.max.apply(null, list.map(function (n) { return n.children.length || 1; })) : 1); list.forEach(function (n) { widest(n.children); }); })(tops);
+  var totalW = Math.max(280, breadth * 250);
+  var out = { blocks: [], links: [], noteId: b.noteId, t: now() };
+  var ox = b.x + (b.width || 280) + 90, y = b.y, prevExits = null;
+  tops.forEach(function (top) {
+    var r = layoutFlowNode(top, ox, ox + totalW, y, out);
+    if (prevExits) prevExits.forEach(function (p) { out.links.push({ id: uid(), noteId: b.noteId, a: p.id, b: top._blk.id, type: 'flow', createdAt: out.t }); });
+    prevExits = r.exits;
+    y = r.bottom + 64;
+  });
+  out.links.push({ id: uid(), noteId: b.noteId, a: b.id, b: out.blocks[0].id, label: 'flujo', createdAt: out.t }); // traza al origen
+  Array.prototype.push.apply(data.blocks, out.blocks);
+  Array.prototype.push.apply(data.links, out.links);
+  touchNote(b.noteId);
+  logChange('Lista convertida en flujograma', snippet(b.content.text));
+  save();
+  renderCanvas();
+  out.blocks.forEach(function (nb, i) { cardEnterAnim(cardEl(nb.id), i * 40); });
+  focusBlock(out.blocks[0].id);
+  toast('Flujograma creado con ' + out.blocks.length + ' pasos junto a la nota.', 'ok');
 }
