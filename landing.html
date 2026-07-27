@@ -65,6 +65,16 @@
       .reveal.on { opacity:1; transform:none; }
       .feat-media.reveal { transform:translateY(34px) scale(.97); }
       .feat-media.reveal.on { transform:none; }
+      /* Todo incluido: categorías ilustradas */
+      .cats { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:18px; }
+      .cat { background:var(--card); border:1px solid var(--border); border-radius:18px; padding:22px 24px; transition:transform .18s, box-shadow .18s; }
+      .cat:hover { transform:translateY(-4px); box-shadow:0 16px 38px -18px rgba(58,51,44,.32); }
+      .cat h3 { margin:0 0 12px; font-size:19px; }
+      .cat ul { margin:0; padding:0; list-style:none; }
+      .cat li { padding:5px 0 5px 22px; position:relative; font-size:13.8px; color:var(--muted); border-bottom:1px dashed color-mix(in srgb, var(--border) 60%, transparent); }
+      .cat li:last-child { border-bottom:none; }
+      .cat li::before { content:'✓'; position:absolute; left:0; color:var(--sage); font-weight:800; }
+      .cat li b { color:var(--fg); }
       /* Problemas */
       .probs { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; }
       .prob { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:20px 22px; transition:transform .18s, box-shadow .18s; }
@@ -93,6 +103,7 @@
         <a class="logo" href="/landing"><img src="public/leaf.svg" alt="" />tuNota</a>
         <div class="nav-links">
           <a href="#funciones">Funciones</a>
+          <a href="#todo">Todo incluido</a>
           <a href="#problemas">Por qué</a>
           <a href="/legal">Privacidad</a>
           <a class="btn btn-primary btn-sm" href="/">Abrir tuNota</a>
@@ -210,6 +221,84 @@
         </div>
         <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/imagen.mp4" type="video/mp4" /></video></div></div>
       </div>
+    </section>
+
+    <section id="todo" class="wrap">
+      <h2 class="reveal">Todo incluido, sin letra pequeña</h2>
+      <p class="lead reveal">Las 9 de arriba son solo el aperitivo. Esto es todo lo que viene dentro — gratis.</p>
+      <div class="cats">
+        <div class="cat reveal">
+          <h3>🧱 Lienzo y bloques</h3>
+          <ul>
+            <li><b>Lienzo infinito real</b> — crece en todas las direcciones</li>
+            <li><b>14 tipos de bloque</b> — nota, tabla, código, JSON, Markdown…</li>
+            <li><b>Texto libre</b> — tipografías, tamaños, sombras</li>
+            <li><b>Dibujo y modo tablet</b> — escribe con lápiz o dedo</li>
+            <li><b>Sub-lienzos</b> — un lienzo dentro de otro</li>
+            <li><b>Hipervínculos</b> — enlaza bloques, hojas y libros</li>
+            <li><b>Redimensionado libre</b> — ancho y alto a tu gusto</li>
+          </ul>
+        </div>
+        <div class="cat reveal">
+          <h3>✏️ Diagramación fina</h3>
+          <ul>
+            <li><b>Guías inteligentes + snap</b> — todo queda alineado</li>
+            <li><b>Conectores con etiqueta</b> — tipo, color y ruteo</li>
+            <li><b>Alinear y distribuir</b> — la selección, en un clic</li>
+            <li><b>Auto-ordenar flujograma</b> — la IA de layout lo acomoda</li>
+            <li><b>Grupos</b> — con pestañas de salto y fusión</li>
+            <li><b>Formas y stencils</b> — rombos, píldoras, paralelogramos</li>
+          </ul>
+        </div>
+        <div class="cat reveal">
+          <h3>🤖 IA a tu servicio</h3>
+          <ul>
+            <li><b>Chat del asistente</b> — resumir, ideas, insights, título</li>
+            <li><b>Analiza y clasifica notas</b> — informe 🤖 bajo la nota</li>
+            <li><b>Valida ideas</b> — con búsqueda web y fuentes citadas</li>
+            <li><b>Imagen IA</b> — busca en la web o genera por prompt</li>
+            <li><b>OCR</b> — reconoce texto en fotos y manuscrito</li>
+            <li><b>Plantillas con IA</b> — describe tu proyecto y las rellena</li>
+            <li><b>Tu clave, tu control</b> — OpenAI, Claude, Gemini, Groq…</li>
+          </ul>
+        </div>
+        <div class="cat reveal">
+          <h3>🗂 Organización total</h3>
+          <ul>
+            <li><b>Búsqueda global</b> — todo tu cuaderno con una tecla</li>
+            <li><b>Pestañas de hojas recientes</b> — salta sin perderte</li>
+            <li><b>Mover y anidar notas</b> — arrástralas entre libros</li>
+            <li><b>Kanban</b> — por hacer, en curso, hecho</li>
+            <li><b>Vista vertical</b> — lo importante primero</li>
+            <li><b>Historial</b> — qué cambió y cuándo</li>
+            <li><b>Plantillas</b> — BMC, DAFO, Lean, preguntas de producto…</li>
+          </ul>
+        </div>
+        <div class="cat reveal">
+          <h3>⏰ Recordatorios de verdad</h3>
+          <ul>
+            <li><b>Alarmas que suenan</b> — 5 sonidos, con repetición</li>
+            <li><b>Casillas con campana</b> — recuerda una tarea concreta</li>
+            <li><b>Plan del día</b> — acciones con hora y progreso</li>
+            <li><b>Google Calendar y .ics</b> — exporta sin OAuth</li>
+            <li><b>Apple Calendar/Recordatorios</b> — sincronización opcional</li>
+          </ul>
+        </div>
+        <div class="cat reveal">
+          <h3>🔧 Tuyo y portable</h3>
+          <ul>
+            <li><b>11 temas de color</b> — claros y oscuros, ajuste fino</li>
+            <li><b>PWA instalable</b> — funciona sin conexión</li>
+            <li><b>Copias de seguridad</b> — exporta, importa, restaura</li>
+            <li><b>Google Drive opcional</b> — tu copia en tu cuenta</li>
+            <li><b>Enviar por Telegram</b> — comparte una nota al chat</li>
+            <li><b>Importa Markdown y PDF</b> — arrástralos al lienzo</li>
+            <li><b>Atajos por plataforma</b> — ⌘ en Mac, Ctrl en Windows</li>
+            <li><b>Tour + guía integrada</b> — aprende en 30 segundos</li>
+          </ul>
+        </div>
+      </div>
+      <p class="reveal" style="text-align:center;margin-top:34px"><a class="btn btn-ghost" href="docs/showcase.html">Ver todas con capturas → Showcase completo</a></p>
     </section>
 
     <section id="problemas" class="final">

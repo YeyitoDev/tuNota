@@ -1,0 +1,4758 @@
+{
+  "scenes": [
+    {
+      "name": "01-portada",
+      "file": "01-portada.webm",
+      "trim": 0.9,
+      "dur": 3.81
+    },
+    {
+      "name": "02-tour",
+      "file": "02-tour.webm",
+      "trim": 0.9,
+      "dur": 7.401
+    },
+    {
+      "name": "03-captura",
+      "file": "03-captura.webm",
+      "trim": 0.9,
+      "dur": 9.214
+    },
+    {
+      "name": "04-clasifica",
+      "file": "04-clasifica.webm",
+      "trim": 0.9,
+      "dur": 16.276
+    },
+    {
+      "name": "05-vinetas",
+      "file": "05-vinetas.webm",
+      "trim": 0.9,
+      "dur": 7.411
+    },
+    {
+      "name": "06-internet",
+      "file": "06-internet.webm",
+      "trim": 0.9,
+      "dur": 8.088
+    },
+    {
+      "name": "07-mapa-conceptual",
+      "file": "07-mapa-conceptual.webm",
+      "trim": 0.9,
+      "dur": 7.895
+    },
+    {
+      "name": "08-estructura",
+      "file": "08-estructura.webm",
+      "trim": 0.9,
+      "dur": 9.629
+    },
+    {
+      "name": "09-flujograma",
+      "file": "09-flujograma.webm",
+      "trim": 0.9,
+      "dur": 15.246
+    },
+    {
+      "name": "10-python",
+      "file": "10-python.webm",
+      "trim": 0.9,
+      "dur": 13.789
+    },
+    {
+      "name": "11-curl",
+      "file": "11-curl.webm",
+      "trim": 0.9,
+      "dur": 12.422
+    },
+    {
+      "name": "12-imagen",
+      "file": "12-imagen.webm",
+      "trim": 0.9,
+      "dur": 15.306
+    },
+    {
+      "name": "13-grupos",
+      "file": "13-grupos.webm",
+      "trim": 0.9,
+      "dur": 7.282
+    },
+    {
+      "name": "14-kanban",
+      "file": "14-kanban.webm",
+      "trim": 0.9,
+      "dur": 12.172
+    },
+    {
+      "name": "15-alarma",
+      "file": "15-alarma.webm",
+      "trim": 0.9,
+      "dur": 13.434
+    },
+    {
+      "name": "16-perdido",
+      "file": "16-perdido.webm",
+      "trim": 0.9,
+      "dur": 10.358
+    },
+    {
+      "name": "17-cierre",
+      "file": "17-cierre.webm",
+      "trim": 0.9,
+      "dur": 5.308
+    }
+  ],
+  "events": [
+    {
+      "scene": "01-portada",
+      "t": 0.003,
+      "name": "intro"
+    },
+    {
+      "scene": "01-portada",
+      "t": 2.606,
+      "name": "whoosh"
+    },
+    {
+      "scene": "02-tour",
+      "t": 0,
+      "name": "whoosh"
+    },
+    {
+      "scene": "02-tour",
+      "t": 1.061,
+      "name": "pop"
+    },
+    {
+      "scene": "02-tour",
+      "t": 2.803,
+      "name": "click"
+    },
+    {
+      "scene": "02-tour",
+      "t": 3.039,
+      "name": "pop"
+    },
+    {
+      "scene": "02-tour",
+      "t": 4.67,
+      "name": "click"
+    },
+    {
+      "scene": "02-tour",
+      "t": 4.893,
+      "name": "pop"
+    },
+    {
+      "scene": "03-captura",
+      "t": 0,
+      "name": "whoosh"
+    },
+    {
+      "scene": "03-captura",
+      "t": 1.578,
+      "name": "pop"
+    },
+    {
+      "scene": "03-captura",
+      "t": 1.925,
+      "name": "click"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.151,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.21,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.253,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.296,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.354,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.39,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.423,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.457,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.505,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.552,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.585,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.633,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.682,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.729,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.774,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.801,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.857,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.892,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.931,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 2.987,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.038,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.095,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.147,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.183,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.239,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.283,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.336,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.376,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.426,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.455,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.493,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.524,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.564,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.618,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.646,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.672,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.701,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.746,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.803,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.838,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.889,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.923,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.957,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 3.992,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.023,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.082,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.142,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.183,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.232,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.272,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.3,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.353,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.402,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.445,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.487,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.532,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.573,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.614,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.652,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.707,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.75,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.801,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.832,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.864,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.913,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 4.964,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.012,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.051,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.106,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.165,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.202,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.231,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.27,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.298,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.342,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.393,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.435,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.479,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.533,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.592,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.622,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.653,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.697,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.747,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.808,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.842,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.901,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.932,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 5.978,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.034,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.066,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.122,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.173,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.214,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.251,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.292,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.347,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.379,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.437,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.496,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.524,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.582,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.627,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.656,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.685,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.727,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.758,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.818,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.846,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.888,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.94,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 6.97,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.012,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.047,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.083,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.124,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.154,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.201,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.247,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.278,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.336,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.372,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.407,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.46,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.518,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.566,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.593,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.624,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 7.675,
+      "name": "key"
+    },
+    {
+      "scene": "03-captura",
+      "t": 8.113,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 0,
+      "name": "whoosh"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 1.389,
+      "name": "click"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 1.623,
+      "name": "pop"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 2.457,
+      "name": "click"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 2.681,
+      "name": "ding"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.277,
+      "name": "click"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.502,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.547,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.598,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.642,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.695,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.737,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.787,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.839,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.887,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.939,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 4.986,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.032,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.071,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.114,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.167,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.211,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.241,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.282,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.323,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.362,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.398,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.441,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.477,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.517,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.568,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.603,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.643,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.688,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.728,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.762,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.81,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.849,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.903,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.934,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 5.968,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.001,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.028,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.069,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.103,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.132,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.162,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.203,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.23,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.283,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.334,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.376,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.403,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.449,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.487,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.53,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.555,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.597,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.641,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.672,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.705,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.751,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.788,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.819,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.858,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.909,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.937,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 6.965,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.016,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.059,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.111,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.144,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.195,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.245,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.299,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.327,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.356,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.406,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.46,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.51,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.559,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.592,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.646,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.678,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.724,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.753,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.801,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.842,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.892,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.959,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 7.998,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.025,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.057,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.11,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.163,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.197,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.241,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.286,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.318,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.366,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.419,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.445,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.478,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.515,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.551,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.592,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.637,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.677,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.723,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.769,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.814,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.854,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.907,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.933,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 8.974,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.02,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.057,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.085,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.128,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.163,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.19,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.243,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.298,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.329,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.377,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 9.424,
+      "name": "key"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 11.275,
+      "name": "click"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 12.176,
+      "name": "click"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 12.401,
+      "name": "ding"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 13.942,
+      "name": "click"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 14.847,
+      "name": "click"
+    },
+    {
+      "scene": "04-clasifica",
+      "t": 15.072,
+      "name": "success"
+    },
+    {
+      "scene": "05-vinetas",
+      "t": 0,
+      "name": "whoosh"
+    },
+    {
+      "scene": "05-vinetas",
+      "t": 2.506,
+      "name": "click"
+    },
+    {
+      "scene": "05-vinetas",
+      "t": 2.749,
+      "name": "pop"
+    },
+    {
+      "scene": "05-vinetas",
+      "t": 3.475,
+      "name": "click"
+    },
+    {
+      "scene": "05-vinetas",
+      "t": 3.702,
+      "name": "ding"
+    },
+    {
+      "scene": "05-vinetas",
+      "t": 4.83,
+      "name": "click"
+    },
+    {
+      "scene": "05-vinetas",
+      "t": 5.053,
+      "name": "ding"
+    },
+    {
+      "scene": "05-vinetas",
+      "t": 6.183,
+      "name": "click"
+    },
+    {
+      "scene": "06-internet",
+      "t": 0.001,
+      "name": "whoosh"
+    },
+    {
+      "scene": "06-internet",
+      "t": 2.496,
+      "name": "click"
+    },
+    {
+      "scene": "06-internet",
+      "t": 3.182,
+      "name": "search"
+    },
+    {
+      "scene": "06-internet",
+      "t": 4.419,
+      "name": "click"
+    },
+    {
+      "scene": "06-internet",
+      "t": 4.582,
+      "name": "magic"
+    },
+    {
+      "scene": "06-internet",
+      "t": 6.184,
+      "name": "success"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 0.001,
+      "name": "whoosh"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 2.407,
+      "name": "click"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 3.091,
+      "name": "magic"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 3.417,
+      "name": "click"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 3.647,
+      "name": "pop"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 3.752,
+      "name": "pop"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 3.857,
+      "name": "pop"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 3.963,
+      "name": "pop"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 4.068,
+      "name": "pop"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 4.174,
+      "name": "pop"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 4.279,
+      "name": "pop"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 4.386,
+      "name": "pop"
+    },
+    {
+      "scene": "07-mapa-conceptual",
+      "t": 5.893,
+      "name": "success"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 0.001,
+      "name": "whoosh"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 2.515,
+      "name": "click"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 3.199,
+      "name": "magic"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 4.431,
+      "name": "click"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 6.797,
+      "name": "pop"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 6.919,
+      "name": "pop"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 7.041,
+      "name": "pop"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 7.162,
+      "name": "pop"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 7.283,
+      "name": "pop"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 7.404,
+      "name": "pop"
+    },
+    {
+      "scene": "08-estructura",
+      "t": 7.527,
+      "name": "whoosh"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 0,
+      "name": "whoosh"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 2.387,
+      "name": "click"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 2.614,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 2.667,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 2.716,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 2.765,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 2.815,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 2.848,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 2.883,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 2.936,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 2.978,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.004,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.056,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.091,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.128,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.176,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.211,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.258,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.286,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.325,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.355,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.408,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.458,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.498,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.54,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.588,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.631,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.681,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.713,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.762,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.797,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.833,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.877,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.908,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.946,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 3.979,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.012,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.055,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.09,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.134,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.181,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.214,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.252,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.28,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.329,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.366,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.39,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.445,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.489,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.517,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.572,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.6,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.642,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.693,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.736,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.789,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.823,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.848,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.884,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.918,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.945,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 4.985,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.039,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.097,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.148,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.201,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.239,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.239,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.268,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.295,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.344,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.392,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.446,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.491,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.521,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.554,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.588,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.617,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.652,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.741,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.787,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.829,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.871,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.897,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.927,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 5.976,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.025,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.062,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.108,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.152,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.206,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.249,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.286,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.314,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.343,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.389,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.435,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.484,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.508,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.541,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.579,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.61,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.648,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.689,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.722,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.752,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.795,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.831,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.86,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.886,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.928,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 6.967,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.019,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.057,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.101,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.136,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.175,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.205,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.25,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.3,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.352,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.396,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.444,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.475,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.507,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.548,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.583,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.584,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.633,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.677,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.719,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.77,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.821,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.863,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.895,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.925,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.958,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 7.985,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.013,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.061,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.088,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.141,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.182,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.237,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.275,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.303,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.341,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.37,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.408,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.445,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.475,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.505,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.548,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.585,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.631,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 8.659,
+      "name": "key"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 10.608,
+      "name": "click"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 11.288,
+      "name": "whoosh"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 11.619,
+      "name": "click"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 12.756,
+      "name": "pop"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 12.837,
+      "name": "pop"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 12.92,
+      "name": "pop"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 13.001,
+      "name": "pop"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 13.082,
+      "name": "pop"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 13.163,
+      "name": "pop"
+    },
+    {
+      "scene": "09-flujograma",
+      "t": 13.246,
+      "name": "success"
+    },
+    {
+      "scene": "10-python",
+      "t": 0,
+      "name": "whoosh"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.257,
+      "name": "click"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.487,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.521,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.546,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.565,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.605,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.634,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.667,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.71,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.75,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.772,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.799,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.827,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.854,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.892,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.921,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.953,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 3.993,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.014,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.044,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.081,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.105,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.146,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.18,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.207,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.242,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.279,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.307,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.34,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.371,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.4,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.434,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.463,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.486,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.522,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.545,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.572,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.605,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.642,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.682,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.724,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.768,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.8,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.823,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.843,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.875,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.904,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.937,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 4.974,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.002,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.045,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.067,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.092,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.122,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.157,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.195,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.228,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.271,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.298,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.335,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.371,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.405,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.43,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.467,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.487,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.523,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.544,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.565,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.593,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.615,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.652,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.683,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.711,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.745,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.774,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.807,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.839,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.868,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.895,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.934,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 5.976,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.007,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.029,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.066,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.098,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.133,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.174,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.193,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.216,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.243,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.265,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.299,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.329,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.359,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.382,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.417,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.442,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.478,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.516,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.55,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.591,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.626,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.65,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.674,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.711,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.74,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.778,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.801,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.83,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.859,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.88,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.902,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.938,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 6.967,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.004,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.04,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.062,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.085,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.118,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.159,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.178,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.211,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.234,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.263,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.295,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.315,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.354,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.391,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.43,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.461,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.498,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.518,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.555,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.577,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.607,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.634,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.661,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.704,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.736,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.77,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.798,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.84,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.868,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.911,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.934,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.957,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 7.982,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.008,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.048,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.07,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.108,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.144,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.184,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.205,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.232,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.273,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.303,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.334,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.361,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.392,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.41,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.431,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.462,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.497,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.537,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.566,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.587,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.612,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.654,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.691,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.726,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.758,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.791,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.815,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.84,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.883,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.906,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.938,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 8.98,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.001,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.042,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.068,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.11,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.14,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.159,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.184,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.218,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.242,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.283,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.312,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.337,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.374,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.404,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.426,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.459,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.488,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.509,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.534,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.562,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.584,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.614,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.641,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.676,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.708,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.744,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.78,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.823,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.845,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.885,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.921,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.945,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 9.971,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 10,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 10.024,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 10.054,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 10.086,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 10.122,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 10.151,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 10.192,
+      "name": "key"
+    },
+    {
+      "scene": "10-python",
+      "t": 10.512,
+      "name": "run"
+    },
+    {
+      "scene": "10-python",
+      "t": 11.357,
+      "name": "click"
+    },
+    {
+      "scene": "10-python",
+      "t": 11.587,
+      "name": "success"
+    },
+    {
+      "scene": "11-curl",
+      "t": 0,
+      "name": "whoosh"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.413,
+      "name": "click"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.638,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.682,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.716,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.754,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.794,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.84,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.87,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.91,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.941,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 2.966,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.026,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.048,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.072,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.114,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.141,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.176,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.213,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.248,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.279,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.314,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.342,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.376,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.403,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.443,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.484,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.509,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.554,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.576,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.623,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.66,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.707,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.754,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.802,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.839,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.877,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.908,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.943,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 3.982,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.021,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.047,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.091,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.137,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.161,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.198,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.224,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.245,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.282,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.325,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.369,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.399,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.424,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.448,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.477,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.504,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.55,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.581,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.616,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.649,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.679,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.722,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.768,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.793,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.826,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.849,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.89,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.925,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.948,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 4.997,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.025,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.046,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.091,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.136,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.163,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.196,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.231,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.256,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.286,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.314,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.342,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.382,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.411,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.44,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.48,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.52,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.546,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.586,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.633,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.67,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.703,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.745,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.782,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.81,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.854,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.877,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.9,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.933,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 5.972,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.02,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.059,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.093,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.125,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.153,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.186,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.228,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.255,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.278,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.32,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.358,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.382,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.42,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.458,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.485,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.529,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.553,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.585,
+      "name": "key"
+    },
+    {
+      "scene": "11-curl",
+      "t": 6.866,
+      "name": "run"
+    },
+    {
+      "scene": "11-curl",
+      "t": 7.713,
+      "name": "click"
+    },
+    {
+      "scene": "11-curl",
+      "t": 8.72,
+      "name": "success"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 0.644,
+      "name": "whoosh"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 3.326,
+      "name": "click"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 3.631,
+      "name": "whoosh"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 4.991,
+      "name": "click"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 5.606,
+      "name": "draw"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 6.742,
+      "name": "click"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 6.972,
+      "name": "ding"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 8.317,
+      "name": "click"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 8.91,
+      "name": "draw"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 9.574,
+      "name": "draw"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 10.527,
+      "name": "click"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.198,
+      "name": "click"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.426,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.467,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.505,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.555,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.593,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.629,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.665,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.714,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.756,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.804,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.835,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.883,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.923,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 11.975,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.009,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.052,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.099,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.126,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.156,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.181,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.209,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.233,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.262,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.29,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.313,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.342,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.391,
+      "name": "key"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 12.416,
+      "name": "pop"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 13.017,
+      "name": "success"
+    },
+    {
+      "scene": "12-imagen",
+      "t": 13.469,
+      "name": "click"
+    },
+    {
+      "scene": "13-grupos",
+      "t": 0.001,
+      "name": "whoosh"
+    },
+    {
+      "scene": "13-grupos",
+      "t": 1.845,
+      "name": "whoosh"
+    },
+    {
+      "scene": "13-grupos",
+      "t": 2.328,
+      "name": "pop"
+    },
+    {
+      "scene": "13-grupos",
+      "t": 3.057,
+      "name": "click"
+    },
+    {
+      "scene": "13-grupos",
+      "t": 3.294,
+      "name": "success"
+    },
+    {
+      "scene": "13-grupos",
+      "t": 4.468,
+      "name": "click"
+    },
+    {
+      "scene": "13-grupos",
+      "t": 5.09,
+      "name": "keyEnter"
+    },
+    {
+      "scene": "13-grupos",
+      "t": 5.645,
+      "name": "ding"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 0,
+      "name": "whoosh"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 2.541,
+      "name": "click"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 4.418,
+      "name": "click"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 4.579,
+      "name": "pop"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 5.18,
+      "name": "whoosh"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 5.506,
+      "name": "click"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 6.866,
+      "name": "click"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.091,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.139,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.183,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.212,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.262,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.293,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.348,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.38,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.42,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.448,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.479,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.529,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.571,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.599,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.643,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.675,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.715,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.758,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.809,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.849,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.893,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.946,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 7.997,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 8.03,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 8.066,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 8.097,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 8.139,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 8.169,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 8.221,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 8.266,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 8.294,
+      "name": "key"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 8.357,
+      "name": "pop"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 9.486,
+      "name": "click"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 9.718,
+      "name": "ding"
+    },
+    {
+      "scene": "14-kanban",
+      "t": 10.945,
+      "name": "click"
+    },
+    {
+      "scene": "15-alarma",
+      "t": 0,
+      "name": "whoosh"
+    },
+    {
+      "scene": "15-alarma",
+      "t": 2.815,
+      "name": "click"
+    },
+    {
+      "scene": "15-alarma",
+      "t": 4.698,
+      "name": "click"
+    },
+    {
+      "scene": "15-alarma",
+      "t": 4.859,
+      "name": "ding"
+    },
+    {
+      "scene": "15-alarma",
+      "t": 9.08,
+      "name": "alarm"
+    },
+    {
+      "scene": "15-alarma",
+      "t": 12.007,
+      "name": "click"
+    },
+    {
+      "scene": "15-alarma",
+      "t": 12.232,
+      "name": "click"
+    },
+    {
+      "scene": "16-perdido",
+      "t": 0.001,
+      "name": "whoosh"
+    },
+    {
+      "scene": "16-perdido",
+      "t": 2.09,
+      "name": "click"
+    },
+    {
+      "scene": "16-perdido",
+      "t": 2.314,
+      "name": "pop"
+    },
+    {
+      "scene": "16-perdido",
+      "t": 2.921,
+      "name": "whoosh"
+    },
+    {
+      "scene": "16-perdido",
+      "t": 6.048,
+      "name": "click"
+    },
+    {
+      "scene": "16-perdido",
+      "t": 6.208,
+      "name": "ding"
+    },
+    {
+      "scene": "16-perdido",
+      "t": 7.109,
+      "name": "whoosh"
+    },
+    {
+      "scene": "16-perdido",
+      "t": 7.432,
+      "name": "click"
+    },
+    {
+      "scene": "16-perdido",
+      "t": 7.657,
+      "name": "success"
+    },
+    {
+      "scene": "17-cierre",
+      "t": 0.802,
+      "name": "magic"
+    }
+  ]
+}
