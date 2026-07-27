@@ -95,6 +95,24 @@
       .final { text-align:center; background:linear-gradient(160deg,#efe4d2,#e9dfcd); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
       footer { padding:30px 0 46px; text-align:center; color:var(--muted); font-size:13.5px; }
       footer a { color:var(--primary); }
+
+      /* Carrusel de videos por fila */
+      .frame.car video { display:none; }
+      .frame.car video.active { display:block; }
+      .car-chips { display:flex; gap:8px; justify-content:center; margin-top:12px; }
+      .car-chips button { border:1px solid var(--border); background:var(--card); color:var(--muted); border-radius:999px; padding:6px 16px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; transition:all .15s; }
+      .car-chips button:hover { color:var(--fg); transform:translateY(-1px); }
+      .car-chips button.on { background:var(--primary); border-color:var(--primary); color:#fff; }
+      /* Notas cayendo (decorativo, detrás del contenido) */
+      .fall-layer { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+      .fall-note { position:absolute; top:-8vh; animation:fall linear infinite; will-change:transform; }
+      @keyframes fall {
+        0% { transform:translateY(-8vh) rotate(-12deg); }
+        50% { transform:translateY(52vh) rotate(8deg) translateX(3vw); }
+        100% { transform:translateY(112vh) rotate(-6deg); }
+      }
+      nav, header, section, footer { position:relative; z-index:1; }
+      @media (prefers-reduced-motion: reduce) { .fall-layer { display:none; } .reveal { transition:none; opacity:1; transform:none; } }
     </style>
   </head>
   <body>
@@ -159,7 +177,7 @@
           <p>Pasa el ratón por una forma y pulsa «+»: el siguiente paso nace ya conectado — Paso, Decisión, Subproceso o Inicio/Fin. Y cuando mueves una caja, las flechas la siguen.</p>
           <ul><li>Rombos de decisión y conectores con etiqueta</li><li>Guías de alineación, agrupar y guardar como plantilla</li><li>Conviértelo a Mermaid cuando quieras</li></ul>
         </div>
-        <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/conexion.mp4" type="video/mp4" /></video></div></div>
+        <div class="feat-media reveal"><div class="frame car" data-car><div class="frame-bar"><span></span><span></span><span></span></div><video class="active" muted loop playsinline preload="metadata"><source src="public/clips/conexion.mp4" type="video/mp4" /></video><video muted loop playsinline preload="metadata"><source src="public/clips/grupos.mp4" type="video/mp4" /></video></div><div class="car-chips"><button class="on">Manijas «+»</button><button>Agrupar bloques</button></div></div>
       </div>
 
       <div class="feat flip">
@@ -204,12 +222,32 @@
 
       <div class="feat flip">
         <div class="reveal">
+          <span class="tag">Plantillas</span>
+          <h3>Empieza en 5 segundos con plantillas listas</h3>
+          <p>Business Model Canvas, Lean Canvas, DAFO, lluvia de ideas, arquitectura de software, pipeline de MVP, preguntas de producto… Se insertan como bloques normales: muévelos, edítalos y conéctalos.</p>
+          <ul><li>11 plantillas integradas + guarda las tuyas propias</li><li>El pipeline y la arquitectura usan formas nativas con flechas</li><li>Describe tu proyecto y la IA rellena las cajas</li></ul>
+        </div>
+        <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/plantillas.mp4" type="video/mp4" /></video></div></div>
+      </div>
+
+      <div class="feat">
+        <div class="reveal">
           <span class="tag terra">Organización</span>
           <h3>Plan del día con recordatorios que suenan</h3>
           <p>Escribe lo que tienes que hacer, registra cada acción con su hora y ponle una alarma en X minutos. Los pendientes de ayer te siguen hasta que los cierras.</p>
           <ul><li>Barras de progreso por tarea y del día</li><li>Kanban de ideas y mapa de conocimiento</li><li>Anida tareas a la hoja donde trabajas</li></ul>
         </div>
         <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/plan.mp4" type="video/mp4" /></video></div></div>
+      </div>
+
+      <div class="feat flip">
+        <div class="reveal">
+          <span class="tag ocre">Avance y memoria</span>
+          <h3>Kanban para avanzar, búsqueda para encontrar</h3>
+          <p>Mueve tus tarjetas entre «Por hacer», «En progreso» y «Hecho» con un clic. ¿No recuerdas dónde quedó algo? La búsqueda global recorre todos tus libros al instante.</p>
+          <ul><li>Kanban con filtro por libro y salto directo al bloque</li><li>Búsqueda en notas, bloques y libros con una tecla</li><li>Pestañas de hojas recientes para saltar sin perderte</li></ul>
+        </div>
+        <div class="feat-media reveal"><div class="frame car" data-car><div class="frame-bar"><span></span><span></span><span></span></div><video class="active" muted loop playsinline preload="metadata"><source src="public/clips/kanban.mp4" type="video/mp4" /></video><video muted loop playsinline preload="metadata"><source src="public/clips/busqueda.mp4" type="video/mp4" /></video></div><div class="car-chips"><button class="on">Kanban</button><button>Búsqueda global</button></div></div>
       </div>
 
       <div class="feat">
@@ -220,6 +258,15 @@
           <ul><li>Editor con flechas, formas, texto y recorte</li><li>Ejecuta Python y peticiones cURL en el lienzo</li><li>OCR de imágenes y fotos HEIC</li></ul>
         </div>
         <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/imagen.mp4" type="video/mp4" /></video></div></div>
+      </div>
+          <div class="feat flip">
+        <div class="reveal">
+          <span class="tag rose">Hazlo tuyo</span>
+          <h3>11 temas que re-pintan todo el lienzo</h3>
+          <p>Cozy, Bosque, Océano, Menta, Lavanda, Sakura, Durazno, Arena, Noche, Pizarra y Carbón. Un clic y cambia toda la interfaz — tarjetas, formas y conectores incluidos.</p>
+          <ul><li>Ajuste fino color por color</li><li>Texto en contraste automático (legible siempre)</li><li>Claros y oscuros, para el día y la noche</li></ul>
+        </div>
+        <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/temas.mp4" type="video/mp4" /></video></div></div>
       </div>
     </section>
 
@@ -350,27 +397,65 @@
     <footer>
       <div class="wrap">
         <p><a href="/">Abrir tuNota</a> · <a href="docs/showcase.html">Showcase completo</a> · <a href="/legal">Privacidad, términos y créditos</a></p>
-        <p>Hecho con 🌿 por Sergio Ramos · Perú</p>
+        <!-- <p>Hecho con 🌿 por Sergio Ramos · Perú</p> -->
       </div>
     </footer>
 
     <script>
-      // Aparición al hacer scroll + reproducir los clips solo cuando están a la vista.
       (function () {
+        // Aparición al hacer scroll
         var io = new IntersectionObserver(function (entries) {
-          entries.forEach(function (e) {
-            if (e.isIntersecting) e.target.classList.add('on');
-          });
+          entries.forEach(function (e) { if (e.isIntersecting) e.target.classList.add('on'); });
         }, { threshold: 0.18 });
         document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
-        var vio = new IntersectionObserver(function (entries) {
-          entries.forEach(function (e) {
-            var v = e.target;
-            if (e.isIntersecting) { v.play && v.play().catch(function () {}); }
-            else { v.pause && v.pause(); }
-          });
-        }, { threshold: 0.35 });
-        document.querySelectorAll('video[muted]').forEach(function (v) { vio.observe(v); });
+
+        // Videos: reproducir solo a la vista; carruseles con chips y auto-avance
+        function wireMedia(container) {
+          var frame = container.classList.contains('frame') ? container : container.querySelector('.frame');
+          if (!frame) return;
+          var vids = Array.prototype.slice.call(frame.querySelectorAll('video'));
+          var chips = Array.prototype.slice.call(container.querySelectorAll('.car-chips button'));
+          var idx = 0, visible = false, timer = null;
+          function show(i) {
+            idx = i;
+            vids.forEach(function (v, j) {
+              v.classList.toggle('active', j === i);
+              if (j === i && visible) { v.play && v.play().catch(function () {}); } else { v.pause && v.pause(); }
+            });
+            chips.forEach(function (c, j) { c.classList.toggle('on', j === i); });
+          }
+          function restart() {
+            clearInterval(timer);
+            if (vids.length > 1) timer = setInterval(function () { if (visible) show((idx + 1) % vids.length); }, 7000);
+          }
+          chips.forEach(function (c, i) { c.addEventListener('click', function () { show(i); restart(); }); });
+          var vio = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) { visible = e.isIntersecting; show(idx); });
+          }, { threshold: 0.35 });
+          vio.observe(frame);
+          if (vids.length === 1) vids[0].classList.add('active');
+          restart();
+        }
+        document.querySelectorAll('.feat-media, .hero-frame').forEach(wireMedia);
+
+        // Notas cayendo mientras bajas (decorativo y ligero)
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          var layer = document.createElement('div');
+          layer.className = 'fall-layer';
+          var glyphs = ['\ud83d\udcdd', '\ud83d\uddd2\ufe0f', '\ud83d\udccc', '\ud83c\udf3f', '\ud83d\udca1', '\u270f\ufe0f'];
+          for (var i = 0; i < 12; i++) {
+            var n = document.createElement('span');
+            n.className = 'fall-note';
+            n.textContent = glyphs[i % glyphs.length];
+            n.style.left = (4 + Math.random() * 92) + '%';
+            n.style.fontSize = (15 + Math.random() * 16) + 'px';
+            n.style.opacity = (0.10 + Math.random() * 0.14).toFixed(2);
+            n.style.animationDuration = (16 + Math.random() * 14) + 's';
+            n.style.animationDelay = (-Math.random() * 24) + 's';
+            layer.appendChild(n);
+          }
+          document.body.appendChild(layer);
+        }
       })();
     </script>
   </body>
