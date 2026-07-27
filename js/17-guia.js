@@ -152,7 +152,7 @@ function openDonate(pref) {
     h('button', { class: 'icon-btn donate-close', title: 'Cerrar', onclick: closeDonate }, icon('x')),
     h('div', { class: 'donate-heart' }, heart),
     h('h2', { class: 'donate-title' }, title),
-    h('p', { class: 'donate-text' }, 'tuNota es gratis y sin anuncios. Si te resulta útil, invítame un cafecito o mándame un poco de amor :)'),
+    h('p', { class: 'donate-text' }, 'tuNota es gratis y sin anuncios. Si te resulta útil, invítame un cafecito :D'),
     tabs, yapePane, stripePane);
   overlay.appendChild(card);
   document.body.appendChild(overlay);

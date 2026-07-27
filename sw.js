@@ -2,9 +2,9 @@
    Estrategia network-first para archivos propios (recibes lo último si hay red, y la copia
    cacheada si no la hay). NO tocamos /api/* ni CDNs/servicios externos (dinámicos/sensibles). */
 'use strict';
-var CACHE = 'tunota-v19';
+var CACHE = 'tunota-v20';
 var SHELL = [
-  './', './index.html', './styles.css', './note.html', './note.js', './manifest.json', './legal.html',
+  './', './index.html', './styles.css', './note.html', './note.js', './manifest.json', './legal',
   './public/leaf.svg', './public/app-icon.svg', './public/icon-192.png', './public/icon-512.png',
   './public/fonts/fonts.css',
   './js/01-storage.js', './js/02-state.js', './js/03-dom.js', './js/04-sidebar-theme-ai.js',

@@ -533,6 +533,21 @@ class Handler(SimpleHTTPRequestHandler):
     # Archivos que nunca deben servirse por HTTP (datos, claves, código del servidor).
     _BLOCKED_EXACT = ("/db.json", "/server.py", "/fly.toml", "/Dockerfile", "/package.json", "/package-lock.json")
     _BLOCKED_PREFIX = ("/.", "/__pycache__", "/node_modules", "/tests", "/src", "/dist")
+    # URLs limpias (sin .html): /landing y /legal se sirven directo; las versiones .html
+    # redirigen 301 a la limpia para no romper enlaces antiguos.
+    _CLEAN_ROUTES = {"/landing": "/landing.html", "/legal": "/legal.html"}
+
+    def _clean_url(self, route):
+        """Devuelve la ruta reescrita para servir, o emite el 301 y devuelve None."""
+        if route in self._CLEAN_ROUTES:
+            return self._CLEAN_ROUTES[route]
+        for clean, real in self._CLEAN_ROUTES.items():
+            if route == real:
+                self.send_response(301)
+                self.send_header("Location", clean)
+                self.end_headers()
+                return None
+        return route
 
     def _blocked_path(self, route):
         low = route.rstrip("/")
@@ -541,10 +556,15 @@ class Handler(SimpleHTTPRequestHandler):
         return any(route.startswith(p) for p in self._BLOCKED_PREFIX)
 
     def do_HEAD(self):
-        if self._blocked_path(self.path.split("?")[0]):
+        route = self.path.split("?")[0]
+        if self._blocked_path(route):
             self.send_response(404)
             self.end_headers()
             return
+        route = self._clean_url(route)
+        if route is None:
+            return
+        self.path = route
         super().do_HEAD()
 
     # --- routes ---
@@ -554,6 +574,12 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             return
+        rewritten = self._clean_url(route)
+        if rewritten is None:
+            return
+        if rewritten != route:
+            self.path = rewritten
+            route = rewritten
         if route == "/api/config":
             # Descubrimiento de capacidades del backend. NO expone las claves,
             # solo si estan disponibles y (para IA) la lista de modelos.

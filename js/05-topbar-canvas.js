@@ -146,8 +146,8 @@ function openTopbarMenu(anchor) {
     ['help', 'Atajos de teclado', openShortcuts, true],
     ['info', 'Integraciones y versiones', openIntegrations, true],
     ['heart', 'Apoyar tuNota (donación Yape)', openDonate, featureOn('donate')],
-    ['leaf', 'Conoce tuNota (página de funcionalidades)', function () { window.open('landing.html', '_blank'); }, true],
-    ['shield', 'Privacidad, términos y créditos', function () { window.open('legal.html', '_blank'); }, true],
+    ['leaf', 'Conoce tuNota (página de funcionalidades)', function () { window.open('/landing', '_blank'); }, true],
+    ['shield', 'Privacidad, términos y créditos', function () { window.open('/legal', '_blank'); }, true],
     ['shield', 'Control de funcionalidades (maestro)', openFeatureControl, true],
   ].forEach(function (it) {
     if (it[3] === false) return;

@@ -5,22 +5,22 @@ por prioridad aproximada dentro de cada bloque. Última revisión: 2026-07-08.
 
 ## Hecho recientemente
 
-- [x] **2026-07-08** — Doble clic, marquee y menú radial funcionan en los **márgenes** del
+- [X] **2026-07-08** — Doble clic, marquee y menú radial funcionan en los **márgenes** del
   lienzo (manejadores movidos a `#canvas`, no solo a `.canvas-content`).
-- [x] **2026-07-08** — Menú radial **sin solapes**: radio dinámico según nº de opciones +
+- [X] **2026-07-08** — Menú radial **sin solapes**: radio dinámico según nº de opciones +
   reencuadre para no salirse de la ventana.
-- [x] **2026-07-08** — Integración de **backend de IA (OpenCode Zen, multi-modelo)** y
+- [X] **2026-07-08** — Integración de **backend de IA (OpenCode Zen, multi-modelo)** y
   **búsqueda web (Tavily)** con las claves del `.env`; proveedor "Servidor" en el panel.
-- [x] **2026-07-08** — **Token Bearer** (`TUNOTA_TOKEN`) protegiendo `/api/*`; el navegador
+- [X] **2026-07-08** — **Token Bearer** (`TUNOTA_TOKEN`) protegiendo `/api/*`; el navegador
   lo envía con `apiFetch`.
-- [x] **2026-07-08** — **Token auto-provisto en local** (loopback vía `/api/config`): en el
+- [X] **2026-07-08** — **Token auto-provisto en local** (loopback vía `/api/config`): en el
   mismo equipo no hay que introducirlo; en remoto sigue exigiéndose. Arreglado el 401 de la
   búsqueda web. Orden de arranque `loadBackendConfig` → `serverLoad`.
-- [x] **2026-07-08** — Acción de tarjeta **“🌐 Buscar en la web”** sobre el contenido del
+- [X] **2026-07-08** — Acción de tarjeta **“🌐 Buscar en la web”** sobre el contenido del
   bloque (crea un bloque enlazado con fuentes).
-- [x] **2026-07-08** — Nuevo bloque **“Imagen IA”** en el lienzo: buscar imágenes (Tavily) o
+- [X] **2026-07-08** — Nuevo bloque **“Imagen IA”** en el lienzo: buscar imágenes (Tavily) o
   generar por prompt (`/api/image`, si hay `IMAGE_API_KEY`).
-- [x] **2026-07-08** — Diagramación estilo Lucidchart/Visio (lote 1): **guías inteligentes
+- [X] **2026-07-08** — Diagramación estilo Lucidchart/Visio (lote 1): **guías inteligentes
   de alineación + snap** (a otros bloques y a rejilla de 20px) al arrastrar; **conectores
   borde-a-borde con flecha direccional y etiqueta** (clic en el conector → menú etiquetar/
   eliminar, ya no borra de golpe); **z-order** (traer al frente / enviar al fondo) en el
@@ -123,6 +123,7 @@ mapa de conocimiento** (aristas curvas, auto-encuadre, zoom, contador, resaltado
 ratón); **paletas de color** (11 temas con vista previa + 2 categorías de tarjeta nuevas).
 
 Siguientes candidatos (encajan sin romper diseño):
+
 - [ ] **Contenedores / marcos / swimlanes** (ver más abajo). Es el siguiente “gran” paso.
 - [ ] **Anclas/puertos de conexión** por lado del bloque (arriba/abajo/izq/der) en vez de
   centro, para conectores aún más limpios. Medio.
@@ -131,7 +132,7 @@ Siguientes candidatos (encajan sin romper diseño):
 - [ ] **Agrupar/desagrupar** selección para moverla como una unidad (Ctrl+G). Medio.
 - [ ] **Tipos de conector**: recto / elbow (ortogonal) / curvo, y estilos (discontinuo,
   grosor, color/semántica: depende, bloquea, relaciona). Medio.
-- [x] **2026-07-09** — **Ayudas de navegación** (no perderse): botón Centrar (zoom 100% +
+- [X] **2026-07-09** — **Ayudas de navegación** (no perderse): botón Centrar (zoom 100% +
   contenido centrado), Ajustar todo, aviso "Volver al contenido" cuando no hay bloques a la
   vista, y **minimapa** con viewport y clic para navegar.
 - [ ] **Copiar/pegar formato** entre bloques (color, tamaño, estilo). Bajo.
@@ -155,6 +156,7 @@ Siguientes candidatos (encajan sin romper diseño):
 - [ ] **Roles/uso del token**: distinguir token de solo-lectura vs escritura para compartir.
 
 Ideas propias (ángulo notas + IA, más allá de copiar a Visio):
+
 - [ ] **Auto-diagrama con IA**: seleccionar varias notas y pedir a la IA que proponga las
   conexiones y etiquetas entre ellas (genera enlaces, no solo texto).
 - [ ] **Drill-down infinito**: un bloque que se abre en su propio sub-lienzo (notas dentro
