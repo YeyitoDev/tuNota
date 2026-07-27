@@ -146,6 +146,7 @@ function openTopbarMenu(anchor) {
     ['help', 'Atajos de teclado', openShortcuts, true],
     ['info', 'Integraciones y versiones', openIntegrations, true],
     ['heart', 'Apoyar tuNota (donación Yape)', openDonate, featureOn('donate')],
+    ['leaf', 'Conoce tuNota (página de funcionalidades)', function () { window.open('landing.html', '_blank'); }, true],
     ['shield', 'Privacidad, términos y créditos', function () { window.open('legal.html', '_blank'); }, true],
     ['shield', 'Control de funcionalidades (maestro)', openFeatureControl, true],
   ].forEach(function (it) {
@@ -318,7 +319,7 @@ function renderGroups(content) {
       var mv = function (ev) {
         var dx = (ev.clientX - sx) / z, dy = (ev.clientY - sy) / z;
         groupMembers(g).forEach(function (b) {
-          b.x = Math.max(0, starts[b.id].x + dx); b.y = Math.max(0, starts[b.id].y + dy);
+          b.x = starts[b.id].x + dx; b.y = starts[b.id].y + dy; // negativo permitido; se renormaliza al soltar
           var cel = cardEl(b.id); if (cel) { cel.style.left = b.x + 'px'; cel.style.top = b.y + 'px'; }
         });
         updateGroupRects();
@@ -328,6 +329,7 @@ function renderGroups(content) {
         document.removeEventListener('mousemove', mv);
         document.removeEventListener('mouseup', up);
         groupMembers(g).forEach(function (b) { b.x = Math.round(b.x); b.y = Math.round(b.y); });
+        if (typeof normalizeCanvasOrigin === 'function') normalizeCanvasOrigin();
         save();
       };
       document.addEventListener('mousemove', mv);
@@ -603,12 +605,13 @@ function quickCreate(type) {
 function createAt(clientX, clientY, type) {
   if (!ui.currentNoteId || !canvasContentEl) return null;
   var p = toContent(clientX, clientY);
-  var x = Math.max(0, p.x - 8);
-  var y = Math.max(0, p.y - 8);
+  var x = p.x - 8;   // el margen superior/izquierdo también es lienzo: se permite negativo
+  var y = p.y - 8;   // y el origen se renormaliza justo después (sin salto visual)
   var b = addBlock(ui.currentNoteId, type || 'text', x, y);
   var el = card(b);
   canvasContentEl.appendChild(el);
   cardEnterAnim(el);
+  if (typeof normalizeCanvasOrigin === 'function') normalizeCanvasOrigin();
   if (b.type === 'markdown') el.classList.add('editing-md'); // empezar en modo edici\u00f3n
   var ta = el.querySelector('textarea');
   if (ta) ta.focus();
@@ -1259,7 +1262,7 @@ function quickConnect(b, side, shapeKey, color) {
   else if (side === 'left') { nx = b.x - nw - gap; ny = b.y + (hh - nh) / 2; }
   else if (side === 'bottom') { nx = b.x + (w - nw) / 2; ny = b.y + hh + gap; }
   else { nx = b.x + (w - nw) / 2; ny = b.y - nh - gap; }
-  nx = Math.max(0, Math.round(nx)); ny = Math.max(0, Math.round(ny));
+  nx = Math.round(nx); ny = Math.round(ny); // puede caer en el margen: se renormaliza tras crear
   pushUndo('Conectar nuevo bloque');
   var t = now();
   var nb = { id: uid(), noteId: b.noteId, type: 'shape', x: nx, y: ny, width: nw, height: nh, content: { text: '', shape: shapeKey }, createdAt: t, updatedAt: t };
@@ -1270,6 +1273,7 @@ function quickConnect(b, side, shapeKey, color) {
   logChange('Bloque conectado', shapeKey);
   save();
   renderCanvas();
+  if (typeof normalizeCanvasOrigin === 'function') normalizeCanvasOrigin();
   cardEnterAnim(cardEl(nb.id));
   focusBlock(nb.id);
   var ne = cardEl(nb.id), ta = ne && ne.querySelector('.shape-ta');

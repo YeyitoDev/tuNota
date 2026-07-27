@@ -188,14 +188,14 @@ function attachDragHandler(head, el, b) {
       var ddx = (ev.clientX - sx) / z, ddy = (ev.clientY - sy) / z;
       // Guías inteligentes: engancha el bloque principal a los demás (y a la rejilla)
       // y aplica el mismo desplazamiento a todo el grupo.
-      var prim = { x: Math.max(0, starts[b.id].x + ddx), y: Math.max(0, starts[b.id].y + ddy), w: primC.w, h: primC.h };
+      var prim = { x: starts[b.id].x + ddx, y: starts[b.id].y + ddy, w: primC.w, h: primC.h };
       var snap = snapDrag(prim, othersStatic);
       ddx += snap.dx; ddy += snap.dy;
       drawSnapGuides(snap);
       groupIds.forEach(function (id) {
         var blk = getBlockById(id); if (!blk) return;
-        blk.x = Math.max(0, starts[id].x + ddx);
-        blk.y = Math.max(0, starts[id].y + ddy);
+        blk.x = starts[id].x + ddx;   // se permite negativo; el origen se renormaliza al soltar
+        blk.y = starts[id].y + ddy;
         var cel = cardEl(id);
         if (cel) { cel.style.left = blk.x + 'px'; cel.style.top = blk.y + 'px'; }
       });
@@ -223,6 +223,7 @@ function attachDragHandler(head, el, b) {
         if (target && target.getAttribute('data-id')) { mergeBlocks(target.getAttribute('data-id'), b.id); return; }
       }
       groupIds.forEach(function (id) { var blk = getBlockById(id); if (blk) { blk.x = Math.round(blk.x); blk.y = Math.round(blk.y); } });
+      normalizeCanvasOrigin();
       // Soltar un bloque dentro de un área de grupo → se añade a ese grupo.
       var joined = false;
       if (moved) groupIds.forEach(function (id) { var blk = getBlockById(id); if (blk && maybeJoinGroupOnDrop(blk)) joined = true; });
@@ -637,6 +638,34 @@ function getView() {
   var id = ui.currentNoteId || '_';
   if (!ui.views[id]) ui.views[id] = { zoom: 1, x: 0, y: 0 };
   return ui.views[id];
+}
+// El lienzo es infinito en TODAS las direcciones: se puede crear y mover contenido en
+// coordenadas negativas (margen superior/izquierdo) y, al terminar la interacción, el
+// origen se renormaliza: todo se desplaza a positivo y la vista se compensa exactamente,
+// así no hay salto visual y las capas SVG/minimapa (que asumen origen 0,0) siguen bien.
+function normalizeCanvasOrigin() {
+  if (!ui.currentNoteId) return;
+  var blocks = blocksOf(ui.currentNoteId);
+  var inks = (typeof inksOf === 'function') ? inksOf(ui.currentNoteId) : [];
+  if (!blocks.length && !inks.length) return;
+  var minX = Infinity, minY = Infinity;
+  blocks.forEach(function (b) { minX = Math.min(minX, b.x); minY = Math.min(minY, b.y); });
+  inks.forEach(function (k) { (k.points || []).forEach(function (p) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); }); });
+  if (minX >= 0 && minY >= 0) return;
+  var dx = minX < 0 ? 60 - minX : 0, dy = minY < 0 ? 60 - minY : 0;
+  blocks.forEach(function (b) {
+    b.x += dx; b.y += dy;
+    var el = cardEl(b.id);
+    if (el) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; }
+  });
+  inks.forEach(function (k) { (k.points || []).forEach(function (p) { p.x += dx; p.y += dy; }); });
+  var v = getView();
+  v.x -= dx * (v.zoom || 1);
+  v.y -= dy * (v.zoom || 1);
+  applyView();
+  drawLinks();
+  if (typeof drawInks === 'function') drawInks();
+  saveViewDebounced();
 }
 function saveView() { writeLS(LS_UI, JSON.stringify(ui)); }
 function saveViewDebounced() { clearTimeout(viewSaveT); viewSaveT = setTimeout(saveView, 250); }

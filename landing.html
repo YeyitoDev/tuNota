@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="public/leaf.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tuNota — un lienzo infinito para pensar, diagramar y avanzar</title>
+    <meta name="description" content="Notas en un lienzo infinito, flujogramas al estilo Lucid/Visio, IA con tu propia clave, plan del día y privacidad total: tus notas viven en tu navegador. Gratis." />
+    <link rel="stylesheet" href="public/fonts/fonts.css" />
+    <style>
+      :root { --bg:#f4ede0; --fg:#33302b; --card:#fdfaf3; --muted:#8a8378; --border:#e4dccc; --primary:#c2745b; --sage:#8a9a7b; --ocre:#d9a35a; --danger:#bd4b3f; }
+      * { box-sizing: border-box; }
+      body { margin:0; background:var(--bg); color:var(--fg); font:15.5px/1.65 Nunito, system-ui, sans-serif; }
+      h1,h2,h3 { font-family:Fraunces, Georgia, serif; }
+      .wrap { max-width:1020px; margin:0 auto; padding:0 22px; }
+      /* Hero */
+      header { padding:56px 0 40px; text-align:center; }
+      .logo { display:inline-flex; align-items:center; gap:10px; font-family:Fraunces,serif; font-size:26px; font-weight:700; }
+      .logo img { width:34px; height:34px; }
+      h1 { font-size:clamp(30px, 5vw, 46px); margin:24px 0 10px; }
+      .sub { font-size:18px; color:var(--muted); max-width:640px; margin:0 auto 26px; }
+      .cta-row { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+      .btn { display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:12px 26px; font-weight:800; font-size:15px; text-decoration:none; transition:transform .12s, filter .15s; }
+      .btn:hover { transform:translateY(-2px); filter:brightness(1.05); }
+      .btn-primary { background:var(--primary); color:#fff; box-shadow:0 8px 22px -8px rgba(194,116,91,.7); }
+      .btn-ghost { background:var(--card); color:var(--fg); border:1px solid var(--border); }
+      .free { margin-top:14px; font-size:13px; color:var(--muted); }
+      .hero-shot { margin:38px auto 0; max-width:940px; }
+      .hero-shot img { width:100%; border-radius:16px; border:1px solid var(--border); box-shadow:0 30px 70px -30px rgba(58,51,44,.45); }
+      /* Problemas */
+      section { padding:48px 0; }
+      h2 { font-size:clamp(24px,3.6vw,32px); text-align:center; margin:0 0 8px; }
+      .lead { text-align:center; color:var(--muted); max-width:620px; margin:0 auto 34px; }
+      .probs { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+      .prob { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px 20px; }
+      .prob b { display:block; margin-bottom:4px; font-size:15.5px; }
+      .prob span { color:var(--muted); font-size:13.8px; }
+      .prob em { color:var(--sage); font-style:normal; font-weight:800; }
+      /* Features */
+      .feat { display:grid; grid-template-columns:1fr 1fr; gap:34px; align-items:center; margin:44px 0; }
+      .feat:nth-child(even) .feat-img { order:2; }
+      .feat h3 { font-size:22px; margin:0 0 8px; }
+      .feat p { color:var(--muted); margin:0 0 10px; }
+      .feat ul { margin:0; padding-left:18px; color:var(--muted); font-size:14px; }
+      .feat-img img { width:100%; border-radius:12px; border:1px solid var(--border); box-shadow:0 16px 40px -18px rgba(58,51,44,.35); }
+      .tag { display:inline-block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#fff; background:var(--sage); border-radius:999px; padding:3px 10px; margin-bottom:8px; }
+      .tag.ocre { background:var(--ocre); } .tag.rose { background:#b0329b; } .tag.terra { background:var(--primary); }
+      @media (max-width:760px){ .feat { grid-template-columns:1fr; } .feat:nth-child(even) .feat-img { order:0; } }
+      /* Privacidad + precio */
+      .split { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+      @media (max-width:760px){ .split { grid-template-columns:1fr; } }
+      .panel { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:26px 28px; }
+      .panel h3 { margin:0 0 10px; font-size:20px; }
+      .panel ul { margin:0; padding-left:18px; color:var(--muted); font-size:14.2px; }
+      .price { font-family:Fraunces,serif; font-size:40px; margin:4px 0 2px; }
+      .coffee-btn { display:inline-flex; align-items:center; gap:8px; margin-top:14px; background:linear-gradient(120deg,#4a2e1c,#8a5a37 55%,#d8b48a); color:#fff6ea; border-radius:999px; padding:10px 22px; font-weight:800; text-decoration:none; text-shadow:0 1px 2px rgba(40,24,12,.55); }
+      /* Footer */
+      footer { border-top:1px solid var(--border); padding:30px 0 44px; text-align:center; color:var(--muted); font-size:13px; }
+      footer a { color:var(--primary); }
+    </style>
+  </head>
+  <body>
+    <header class="wrap">
+      <div class="logo"><img src="public/leaf.svg" alt="" />tuNota</div>
+      <h1>Un lienzo infinito para pensar,<br />diagramar y avanzar</h1>
+      <p class="sub">Notas, flujogramas al estilo Lucid/Visio, IA con tu propia clave y un plan del día — todo en un solo lugar, gratis y con tus datos siempre en tu navegador.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="index.html">Abrir tuNota →</a>
+        <a class="btn btn-ghost" href="docs/showcase.html">Ver todas las funciones</a>
+      </div>
+      <p class="free">Gratis, sin anuncios y sin registro. Funciona sin conexión (instalable como app).</p>
+      <div class="hero-shot"><img src="docs/screenshots/01-vista-general.png" alt="El lienzo de tuNota con notas, tablas, código y formas" loading="lazy" /></div>
+    </header>
+
+    <section class="wrap">
+      <h2>¿Qué problemas resuelve?</h2>
+      <p class="lead">Las ideas viven dispersas entre apps de notas, diagramadores caros y listas de tareas que nadie vuelve a mirar. tuNota lo junta todo.</p>
+      <div class="probs">
+        <div class="prob"><b>«Mis notas están regadas por todos lados»</b><span>Libros → secciones → notas en un <em>lienzo infinito</em>: cada idea es un bloque que se mueve, conecta y agrupa.</span></div>
+        <div class="prob"><b>«Los diagramadores son caros o complicados»</b><span>Formas, rombos de decisión y conectores con flecha que <em>siguen a las cajas</em>. Escribe una lista numerada y conviértela en <em>flujograma con un clic</em>.</span></div>
+        <div class="prob"><b>«La IA está lejos de donde trabajo»</b><span>Resume, clasifica, analiza y valida ideas <em>dentro del lienzo</em>, con tu propia clave (OpenAI, Claude, Gemini…).</span></div>
+        <div class="prob"><b>«Planifico en una app y trabajo en otra»</b><span>El <em>Plan del día</em> vive junto a tus notas: tareas, acciones realizadas con hora y recordatorios que suenan.</span></div>
+        <div class="prob"><b>«¿Y mis datos?»</b><span>No hay cuentas ni servidores con tus notas: <em>todo se guarda en tu navegador</em>, con copias de seguridad y sincronización opcional a tu Drive.</span></div>
+        <div class="prob"><b>«Otra suscripción más…»</b><span>tuNota es <em>gratis</em>. Si te sirve, me invitas un cafecito. Ya está.</span></div>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <h2>Lo que puedes hacer</h2>
+      <div class="feat">
+        <div>
+          <span class="tag">Diagramación</span>
+          <h3>Flujogramas como en Lucid o Visio</h3>
+          <p>Formas, decisiones y conectores con etiqueta que siguen a las cajas cuando las mueves. Con guías de alineación y conexión rápida «+».</p>
+          <ul><li>Lista numerada → flujograma con un clic</li><li>Pega código Mermaid y conviértelo en formas editables</li><li>…y de vuelta: selecciona el flujo y expórtalo a Mermaid</li></ul>
+        </div>
+        <div class="feat-img"><img src="docs/screenshots/23-mermaid-a-lienzo.png" alt="Mermaid convertido a formas nativas" loading="lazy" /></div>
+      </div>
+      <div class="feat">
+        <div>
+          <span class="tag ocre">Notas vivas</span>
+          <h3>Notas que se clasifican y se analizan solas</h3>
+          <p>Cada nota se clasifica (Relevante · Idea · Importante · Crucial) y cambia de color según el tono. El botón 🤖 la analiza con IA y deja el informe debajo.</p>
+          <ul><li>14 tipos de bloque: tablas, código, Python, Markdown, dibujo…</li><li>Valida ideas con evidencia web y veredicto honesto</li><li>Plantillas: BMC, DAFO, Lean Canvas, preguntas de producto…</li></ul>
+        </div>
+        <div class="feat-img"><img src="docs/screenshots/10-plantillas.png" alt="Plantillas de canvas" loading="lazy" /></div>
+      </div>
+      <div class="feat">
+        <div>
+          <span class="tag terra">Organización</span>
+          <h3>Todo conectado y a la vista</h3>
+          <p>Mapa de conocimiento (libro → sección → nota → grupos), kanban de ideas, búsqueda global con Ctrl+K y pestañas de acceso rápido.</p>
+          <ul><li>Mueve notas entre libros arrastrándolas</li><li>Guarda notas dentro de otras (lienzo sobre lienzo)</li><li>Plan del día con acciones, horas y recordatorios sonoros</li></ul>
+        </div>
+        <div class="feat-img"><img src="docs/screenshots/11-mapa-conocimiento.png" alt="Mapa de conocimiento" loading="lazy" /></div>
+      </div>
+      <div class="feat">
+        <div>
+          <span class="tag rose">Tuyo</span>
+          <h3>Privado, personalizable y sin instalación</h3>
+          <p>11 temas de color, modo tablet con lápiz, y una PWA instalable que funciona sin conexión. Tus notas nunca salen de tu navegador salvo que tú lo pidas.</p>
+          <ul><li>Copias de seguridad y restauración con un clic</li><li>Sincronización opcional con tu Google Drive y Apple</li><li>IA solo con tu propia clave: tú controlas el gasto</li></ul>
+        </div>
+        <div class="feat-img"><img src="docs/screenshots/17-paletas-color.png" alt="Temas de color" loading="lazy" /></div>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <div class="split">
+        <div class="panel">
+          <h3>🔒 Privacidad primero</h3>
+          <ul>
+            <li>Sin cuentas, sin rastreo, sin anuncios.</li>
+            <li>Tus notas viven en tu navegador (localStorage e IndexedDB).</li>
+            <li>La IA solo recibe lo que tú le envías, con tu clave.</li>
+            <li>Detalles en la <a href="legal.html">política de privacidad</a>.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>💚 Precio</h3>
+          <div class="price">Gratis</div>
+          <ul>
+            <li>Todas las funciones, sin límites artificiales.</li>
+            <li>Se sostiene con donaciones voluntarias.</li>
+          </ul>
+          <a class="coffee-btn" href="index.html">☕ Invítame un cafecito</a>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <p><a href="index.html">Abrir tuNota</a> · <a href="docs/showcase.html">Showcase de funciones</a> · <a href="legal.html">Privacidad, términos y créditos</a></p>
+        <p>Hecho con 🌿 por Sergio Martín Ramos Manrique · Perú</p>
+      </div>
+    </footer>
+  </body>
+</html>
