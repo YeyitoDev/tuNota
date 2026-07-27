@@ -308,7 +308,13 @@ function outlineParse(line) {
   var indent = (/^(\s*)/.exec(line) || ['', ''])[1];
   var level = Math.floor(indent.replace(/\t/g, '  ').length / 2);
   var rest = line.slice(indent.length), m;
-  if ((m = /^(\d+(?:\.\d+)*)[.)]\s+(.*)$/.exec(rest))) return { list: true, kind: 'ordered', level: level, num: parseInt(m[1], 10) || 1, text: m[2] };
+  if ((m = /^(\d+(?:\.\d+)*)[.)]\s+(.*)$/.exec(rest))) {
+    // Numeración decimal (3.1, 3.1.2…): el nivel sale de los puntos, aunque la línea
+    // no tenga sangría — así "3.1." escrito a mano se indenta solo al renderizar.
+    var segs = m[1].split('.');
+    var lv = Math.max(level, segs.length - 1);
+    return { list: true, kind: 'ordered', level: lv, num: parseInt(segs[segs.length - 1], 10) || 1, text: m[2] };
+  }
   if ((m = /^[-*+•·◦▪‣–—▸]\s+\[([ xX])\]\s+(.*)$/.exec(rest))) return { list: true, kind: 'task', level: level, checked: m[1] !== ' ', text: m[2] };
   if ((m = /^[-*+•·◦▪‣–—▸]\s+(.*)$/.exec(rest))) return { list: true, kind: 'bullet', level: level, text: m[1] };
   return { list: false, level: level, text: rest };

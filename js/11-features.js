@@ -10,7 +10,7 @@ function seed() {
   var note = { id: uid(), sectionId: sec.id, title: 'Bienvenida a tuNota', createdAt: t, updatedAt: t };
   var b1 = {
     id: uid(), noteId: note.id, type: 'text', x: 80, y: 80, width: 280, height: 150,
-    content: { text: 'Doble clic en el lienzo = nota.\nCtrl+clic o mant\u00e9n Alt = men\u00fa para insertar idea, tabla, c\u00f3digo, JSON o cURL.\nArrastra para seleccionar varias; arr\u00e1strala sobre otra para combinarlas.', images: [] },
+    content: { text: 'Doble clic en el lienzo = nota.\n' + MOD + '+clic o mant\u00e9n ' + ALTKEY + ' = men\u00fa para insertar idea, tabla, c\u00f3digo, JSON o cURL.\nArrastra para seleccionar varias; arr\u00e1strala sobre otra para combinarlas.', images: [] },
     createdAt: t, updatedAt: t,
   };
   var b2 = {

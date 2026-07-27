@@ -65,15 +65,40 @@ function buildSidebarGroups() {
   return wrap;
 }
 
+// Iconos sugeridos para los libros; tambi\u00E9n se puede escribir cualquier emoji.
+var BOOK_EMOJIS = ['\uD83D\uDCD3', '\uD83D\uDCD5', '\uD83D\uDCD7', '\uD83D\uDCD8', '\uD83D\uDCD9', '\uD83D\uDCDA', '\uD83C\uDF31', '\uD83C\uDF3F', '\uD83D\uDCA1', '\uD83C\uDFAF', '\uD83E\uDDE0', '\uD83D\uDCBC', '\uD83C\uDFE0', '\uD83C\uDFA8', '\uD83C\uDFAE', '\u2699\uFE0F', '\uD83D\uDD2C', '\uD83D\uDCC8', '\u2708\uFE0F', '\uD83C\uDF73', '\uD83D\uDCAA', '\u2764\uFE0F', '\u2B50', '\uD83D\uDD25'];
+function openEmojiPicker(nb, anchor) {
+  closeTopbarMenu();
+  var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
+  var pop = h('div', { class: 'card-menu-pop emoji-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  pop.appendChild(h('div', { class: 'cm-label' }, 'Icono del libro'));
+  var setEmoji = function (e) { nb.emoji = e; logChange('Icono de libro', e); save(); renderSidebar(); renderTopbar(); closeTopbarMenu(); };
+  var grid = h('div', { class: 'emoji-grid' });
+  BOOK_EMOJIS.forEach(function (e) {
+    grid.appendChild(h('button', { class: 'emoji-opt' + (nb.emoji === e ? ' on' : ''), onclick: function () { setEmoji(e); } }, e));
+  });
+  pop.appendChild(grid);
+  var inp = h('input', { class: 'ai-input emoji-inp', maxlength: '4', placeholder: 'Otro\u2026', value: '' });
+  inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); if (inp.value.trim()) setEmoji(inp.value.trim()); } });
+  pop.appendChild(h('div', { class: 'cm-quick emoji-row' }, inp,
+    h('button', { class: 'cm-chip', onclick: function (e) { e.stopPropagation(); if (inp.value.trim()) setEmoji(inp.value.trim()); } }, 'OK')));
+  bd.appendChild(pop);
+  document.body.appendChild(bd);
+  positionPop(pop, anchor, 230);
+  inp.focus();
+}
+
 function notebookNode(nb) {
   var open = !!ui.expN[nb.id];
   var editBtn = h('button', { class: 'act', title: 'Renombrar libro' }, icon('edit'));
   var name = editable(h('span', { class: 'item-name' }, nb.name), nb.name, function (v) { rename('nb', nb.id, v); }, editBtn);
+  var emojiBtn = h('button', { class: 'emoji', title: 'Cambiar el icono del libro' }, nb.emoji || '\uD83D\uDCD3');
+  emojiBtn.addEventListener('click', function (e) { e.stopPropagation(); openEmojiPicker(nb, emojiBtn); });
   var row = h(
     'div',
     { class: 'row nb-row' },
     h('button', { class: 'chev', onclick: function () { ui.expN[nb.id] = !open; save(); renderSidebar(); } }, icon(open ? 'chevronDown' : 'chevron')),
-    h('span', { class: 'emoji' }, nb.emoji || '\uD83D\uDCD3'),
+    emojiBtn,
     name,
     h('button', { class: 'act', title: 'A\u00f1adir secci\u00f3n', onclick: function (e) { e.stopPropagation(); addSection(nb.id); } }, icon('folderPlus')),
     editBtn,
@@ -851,57 +876,51 @@ function openAI() {
     if (ui.ai.provider === k) o.selected = true;
     provSel.appendChild(o);
   });
-  var modelList = h('datalist', { id: 'aiModelList' });
-  (BACKEND.models || []).forEach(function (m) { modelList.appendChild(h('option', { value: m })); });
-  var modelInp = h('input', { class: 'ai-input', list: 'aiModelList', placeholder: 'modelo', value: ui.ai.model || '' });
-  var baseInp = h('input', { class: 'ai-input', placeholder: 'URL base (opcional)', value: ui.ai.baseUrl || '' });
+  // Sin duplicados: el MODELO y el ESFUERZO viven solo en la barra del chat (abajo);
+  // el token solo aparece si el servidor lo exige; la URL base solo con «Personalizado».
+  var baseInp = h('input', { class: 'ai-input', placeholder: 'https://mi-proveedor.com/v1', value: ui.ai.baseUrl || '' });
   var keyInp = h('input', { class: 'ai-input', type: 'password', placeholder: 'API key', value: ui.ai.apiKey || '' });
-  var tokenInp = h('input', { class: 'ai-input', type: 'password', placeholder: 'token del servidor (si aplica)', value: ui.token || '' });
-  var effortSel = buildEffortSelect();
+  var tokenInp = h('input', { class: 'ai-input', type: 'password', placeholder: 'token de acceso del servidor', value: ui.token || '' });
   var backendNote = h('p', { class: 'ai-warn' }, 'Usa las claves configuradas en el servidor (.env): no necesitas introducir ninguna API key aqu\u00ed.');
   var keyRow = h('div', { class: 'ai-set-row' }, h('label', {}, 'API key'), keyInp);
   var baseRow = h('div', { class: 'ai-set-row' }, h('label', {}, 'URL base'), baseInp);
+  var tokenRow = h('div', { class: 'ai-set-row' }, h('label', {}, 'Token servidor'), tokenInp);
   function syncHints() {
     var pk = provSel.value;
     var p = AI_PROVIDERS[pk] || AI_PROVIDERS.openai;
     var isBackend = pk === 'backend';
-    modelInp.placeholder = isBackend ? (BACKEND.defaultModel || 'modelo del servidor') : (p.model || 'modelo');
-    baseInp.placeholder = p.baseUrl || 'URL base';
     keyInp.placeholder = p.keyHint || 'API key';
-    keyInp.disabled = isBackend;
-    baseInp.disabled = isBackend;
-    keyRow.style.opacity = isBackend ? '0.5' : '';
-    baseRow.style.opacity = isBackend ? '0.5' : '';
+    keyRow.style.display = isBackend ? 'none' : '';
+    baseRow.style.display = pk === 'custom' ? '' : 'none';          // solo el proveedor personalizado la necesita
+    tokenRow.style.display = BACKEND.tokenRequired ? '' : 'none';   // solo si el servidor exige token
     backendNote.style.display = isBackend ? '' : 'none';
   }
   provSel.addEventListener('change', function () { syncHints(); });
-  var saveBtn = h('button', { class: 'ai-save-btn', onclick: function () {
+  function applySettings() {
     ui.ai.provider = provSel.value;
-    ui.ai.model = modelInp.value.trim();
-    ui.ai.baseUrl = baseInp.value.trim();
+    ui.ai.baseUrl = provSel.value === 'custom' ? baseInp.value.trim() : '';
     ui.ai.apiKey = keyInp.value.trim();
-    ui.ai.effort = effortSel.value;
-    if (tokenInp.value.trim()) ui.token = tokenInp.value.trim();  // no borrar un token válido por accidente
+    if (tokenInp.value.trim()) ui.token = tokenInp.value.trim();  // no borrar un token v\u00e1lido por accidente
     save();
-    settings.classList.remove('open');
     renderTopbar();
+  }
+  var saveBtn = h('button', { class: 'ai-save-btn', onclick: function () {
+    applySettings();
+    settings.classList.remove('open');
     // Al cambiar el token puede habilitarse el backend protegido: reconecta y refresca.
     loadBackendConfig(function () { if (typeof SERVER !== 'undefined' && !SERVER) serverLoad(function () { renderAll(); }); });
     pushAIMsg('system-note', aiReady() ? 'Configuraci\u00f3n guardada. \u00a1Listo para chatear!' : 'Faltan datos de configuraci\u00f3n.');
   } }, 'Guardar');
   var testBtn = h('button', { class: 'ai-test-btn', title: 'Env\u00eda un mensaje de prueba para validar el proveedor y la clave', onclick: function () {
-    ui.ai.provider = provSel.value; ui.ai.model = modelInp.value.trim(); ui.ai.baseUrl = baseInp.value.trim(); ui.ai.apiKey = keyInp.value.trim(); ui.ai.effort = effortSel.value; if (tokenInp.value.trim()) ui.token = tokenInp.value.trim();
-    save(); renderTopbar();
+    applySettings();
     aiTestConnection();
   } }, 'Probar');
   settings.appendChild(h('div', { class: 'ai-set-row' }, h('label', {}, 'Proveedor'), provSel));
   settings.appendChild(backendNote);
-  settings.appendChild(h('div', { class: 'ai-set-row' }, h('label', {}, 'Modelo'), modelInp, modelList));
   settings.appendChild(baseRow);
   settings.appendChild(keyRow);
-  settings.appendChild(h('div', { class: 'ai-set-row' }, h('label', {}, 'Esfuerzo'), effortSel));
-  settings.appendChild(h('div', { class: 'ai-set-row' }, h('label', {}, 'Token servidor'), tokenInp));
-  settings.appendChild(h('p', { class: 'ai-warn' }, 'Las claves y el token se guardan en este navegador (localStorage). No los uses en equipos compartidos.'));
+  settings.appendChild(tokenRow);
+  settings.appendChild(h('p', { class: 'ai-warn' }, 'El modelo y el esfuerzo se eligen en la barra del chat, abajo. Las claves se guardan en este navegador; no las uses en equipos compartidos.'));
   settings.appendChild(h('div', { class: 'ai-btn-row' }, testBtn, saveBtn));
   syncHints();
   // Barra rápida: modelo + esfuerzo, sin abrir ajustes. Se muestra con cualquier proveedor.

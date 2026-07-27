@@ -5580,8 +5580,29 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
 .shape-round { border-radius: 16px; }
 .shape-pill { border-radius: 999px; }
 .shape-ellipse { border-radius: 50%; }
+/* Rombo y paralelogramo: el clip-path recortaba el borde rectangular y la figura se veía
+   incompleta. El borde se dibuja con la capa exterior (color sólido) y el relleno con un
+   ::before encogido — así el contorno completo del rombo siempre es visible. */
+.shape-diamond,
+.shape-parallelogram {
+  border: none;
+  background: var(--primary);
+  position: relative;
+}
 .shape-diamond { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .shape-parallelogram { clip-path: polygon(14% 0, 100% 0, 86% 100%, 0 100%); }
+.shape-diamond::before,
+.shape-parallelogram::before {
+  content: '';
+  position: absolute;
+  inset: 2.5px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+  z-index: 0;
+}
+.shape-diamond::before { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.shape-parallelogram::before { clip-path: polygon(14% 0, 100% 0, 86% 100%, 0 100%); }
+.shape-diamond .shape-ta,
+.shape-parallelogram .shape-ta { position: relative; z-index: 1; }
 .shape-ta {
   width: 84%;
   height: 70%;
@@ -6490,3 +6511,13 @@ body.fc-picking .card { cursor: crosshair !important; }
 .planner-meta .act:hover { opacity: 1; }
 .planner-min-inp { width: 110px; font-size: 12px; padding: 5px 9px; }
 .planner-min-row { align-items: center; }
+
+/* ---------- Picker de emoji del libro ---------- */
+.emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 4px 6px; }
+.emoji-opt { border: 1px solid transparent; background: none; font-size: 19px; padding: 4px; border-radius: 8px; cursor: pointer; line-height: 1; }
+.emoji-opt:hover { background: var(--secondary); }
+.emoji-opt.on { border-color: var(--primary); background: var(--secondary); }
+.emoji-row { padding: 4px 8px 8px; align-items: center; }
+.emoji-inp { width: 90px; font-size: 14px; }
+.nb-row .emoji { border: none; background: none; cursor: pointer; padding: 1px 3px; border-radius: 6px; font-size: inherit; }
+.nb-row .emoji:hover { background: var(--secondary); }
