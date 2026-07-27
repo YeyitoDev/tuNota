@@ -5,129 +5,201 @@
     <link rel="icon" type="image/svg+xml" href="public/leaf.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tuNota — un lienzo infinito para pensar, diagramar y avanzar</title>
-    <meta name="description" content="Notas en un lienzo infinito, flujogramas al estilo Lucid/Visio, IA con tu propia clave, plan del día y privacidad total: tus notas viven en tu navegador. Gratis." />
+    <meta name="description" content="Notas en un lienzo infinito, flujogramas al estilo Lucid/Visio, IA con tu propia clave y plan del día. Gratis, sin cuentas y con tus datos siempre en tu navegador." />
     <link rel="stylesheet" href="public/fonts/fonts.css" />
     <style>
       :root { --bg:#f4ede0; --fg:#33302b; --card:#fdfaf3; --muted:#8a8378; --border:#e4dccc; --primary:#c2745b; --sage:#8a9a7b; --ocre:#d9a35a; --danger:#bd4b3f; }
       * { box-sizing: border-box; }
-      body { margin:0; background:var(--bg); color:var(--fg); font:15.5px/1.65 Nunito, system-ui, sans-serif; }
+      html { scroll-behavior: smooth; }
+      body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 Nunito, system-ui, sans-serif; overflow-x:hidden; }
       h1,h2,h3 { font-family:Fraunces, Georgia, serif; }
-      .wrap { max-width:1020px; margin:0 auto; padding:0 22px; }
-      /* Hero */
-      header { padding:56px 0 40px; text-align:center; }
-      .logo { display:inline-flex; align-items:center; gap:10px; font-family:Fraunces,serif; font-size:26px; font-weight:700; }
-      .logo img { width:34px; height:34px; }
-      h1 { font-size:clamp(30px, 5vw, 46px); margin:24px 0 10px; }
-      .sub { font-size:18px; color:var(--muted); max-width:640px; margin:0 auto 26px; }
-      .cta-row { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-      .btn { display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:12px 26px; font-weight:800; font-size:15px; text-decoration:none; transition:transform .12s, filter .15s; }
+      .wrap { max-width:1080px; margin:0 auto; padding:0 22px; }
+      /* Nav pegajosa */
+      nav { position:sticky; top:0; z-index:50; background:rgba(244,237,224,.82); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); }
+      .nav-in { display:flex; align-items:center; gap:14px; padding:12px 0; }
+      .logo { display:inline-flex; align-items:center; gap:9px; font-family:Fraunces,serif; font-size:21px; font-weight:700; color:var(--fg); text-decoration:none; }
+      .logo img { width:28px; height:28px; }
+      .nav-links { margin-left:auto; display:flex; gap:18px; align-items:center; font-size:14px; font-weight:700; }
+      .nav-links a { color:var(--muted); text-decoration:none; }
+      .nav-links a:hover { color:var(--fg); }
+      .btn { display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:11px 24px; font-weight:800; font-size:15px; text-decoration:none; transition:transform .15s, filter .15s, box-shadow .15s; }
       .btn:hover { transform:translateY(-2px); filter:brightness(1.05); }
       .btn-primary { background:var(--primary); color:#fff; box-shadow:0 8px 22px -8px rgba(194,116,91,.7); }
       .btn-ghost { background:var(--card); color:var(--fg); border:1px solid var(--border); }
-      .free { margin-top:14px; font-size:13px; color:var(--muted); }
-      .hero-shot { margin:38px auto 0; max-width:940px; }
-      .hero-shot img { width:100%; border-radius:16px; border:1px solid var(--border); box-shadow:0 30px 70px -30px rgba(58,51,44,.45); }
+      .btn-sm { padding:8px 18px; font-size:13.5px; }
+      /* Hero */
+      header { padding:64px 0 26px; text-align:center; position:relative; }
+      .blob { position:absolute; border-radius:50%; filter:blur(70px); opacity:.5; pointer-events:none; }
+      .b1 { width:340px; height:340px; background:#e8c8a8; top:-80px; left:-120px; }
+      .b2 { width:300px; height:300px; background:#c9d6b8; top:40px; right:-100px; }
+      h1 { font-size:clamp(32px, 5.4vw, 52px); line-height:1.12; margin:10px 0 14px; }
+      h1 em { font-style:normal; color:var(--primary); }
+      .sub { font-size:18.5px; color:var(--muted); max-width:640px; margin:0 auto 28px; }
+      .cta-row { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+      .free { margin-top:13px; font-size:13.5px; color:var(--muted); }
+      /* Marco de navegador para los clips */
+      .frame { background:#efe7d8; border:1px solid var(--border); border-radius:16px; box-shadow:0 30px 70px -28px rgba(58,51,44,.4); overflow:hidden; }
+      .frame-bar { display:flex; gap:6px; padding:10px 14px; border-bottom:1px solid var(--border); }
+      .frame-bar span { width:10px; height:10px; border-radius:50%; background:#ddd2bd; }
+      .frame-bar span:first-child { background:#e8a49a; }
+      .frame-bar span:nth-child(2) { background:#e8cfa0; }
+      .frame-bar span:nth-child(3) { background:#b9cbab; }
+      .frame video { display:block; width:100%; height:auto; }
+      .hero-frame { max-width:880px; margin:44px auto 0; }
+      /* Secciones */
+      section { padding:64px 0; }
+      h2 { font-size:clamp(26px,3.8vw,36px); text-align:center; margin:0 0 10px; }
+      .lead { text-align:center; color:var(--muted); max-width:620px; margin:0 auto 40px; font-size:16.5px; }
+      /* Filas de funcionalidades (alternadas, con video en vivo) */
+      .feat { display:grid; grid-template-columns:1fr 1fr; gap:44px; align-items:center; margin:70px 0; }
+      .feat.flip .feat-media { order:2; }
+      .feat h3 { font-size:25px; margin:0 0 10px; line-height:1.25; }
+      .feat p { color:var(--muted); margin:0 0 12px; font-size:15.5px; }
+      .feat ul { margin:0; padding-left:18px; color:var(--muted); font-size:14.5px; }
+      .feat li { margin:3px 0; }
+      .tag { display:inline-block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#fff; background:var(--sage); border-radius:999px; padding:4px 12px; margin-bottom:12px; }
+      .tag.ocre { background:var(--ocre); } .tag.rose { background:#b0329b; } .tag.terra { background:var(--primary); } .tag.dark { background:#5a5245; }
+      @media (max-width:820px){ .feat { grid-template-columns:1fr; gap:22px; } .feat.flip .feat-media { order:0; } }
+      /* Reveal al hacer scroll */
+      .reveal { opacity:0; transform:translateY(34px); transition:opacity .7s ease, transform .7s cubic-bezier(.22,1,.36,1); }
+      .reveal.on { opacity:1; transform:none; }
+      .feat-media.reveal { transform:translateY(34px) scale(.97); }
+      .feat-media.reveal.on { transform:none; }
       /* Problemas */
-      section { padding:48px 0; }
-      h2 { font-size:clamp(24px,3.6vw,32px); text-align:center; margin:0 0 8px; }
-      .lead { text-align:center; color:var(--muted); max-width:620px; margin:0 auto 34px; }
-      .probs { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
-      .prob { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px 20px; }
-      .prob b { display:block; margin-bottom:4px; font-size:15.5px; }
+      .probs { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; }
+      .prob { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:20px 22px; transition:transform .18s, box-shadow .18s; }
+      .prob:hover { transform:translateY(-4px); box-shadow:0 14px 34px -16px rgba(58,51,44,.3); }
+      .prob b { display:block; margin-bottom:5px; font-size:15.5px; }
       .prob span { color:var(--muted); font-size:13.8px; }
       .prob em { color:var(--sage); font-style:normal; font-weight:800; }
-      /* Features */
-      .feat { display:grid; grid-template-columns:1fr 1fr; gap:34px; align-items:center; margin:44px 0; }
-      .feat:nth-child(even) .feat-img { order:2; }
-      .feat h3 { font-size:22px; margin:0 0 8px; }
-      .feat p { color:var(--muted); margin:0 0 10px; }
-      .feat ul { margin:0; padding-left:18px; color:var(--muted); font-size:14px; }
-      .feat-img img { width:100%; border-radius:12px; border:1px solid var(--border); box-shadow:0 16px 40px -18px rgba(58,51,44,.35); }
-      .tag { display:inline-block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#fff; background:var(--sage); border-radius:999px; padding:3px 10px; margin-bottom:8px; }
-      .tag.ocre { background:var(--ocre); } .tag.rose { background:#b0329b; } .tag.terra { background:var(--primary); }
-      @media (max-width:760px){ .feat { grid-template-columns:1fr; } .feat:nth-child(even) .feat-img { order:0; } }
       /* Privacidad + precio */
-      .split { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+      .split { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
       @media (max-width:760px){ .split { grid-template-columns:1fr; } }
-      .panel { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:26px 28px; }
-      .panel h3 { margin:0 0 10px; font-size:20px; }
-      .panel ul { margin:0; padding-left:18px; color:var(--muted); font-size:14.2px; }
-      .price { font-family:Fraunces,serif; font-size:40px; margin:4px 0 2px; }
-      .coffee-btn { display:inline-flex; align-items:center; gap:8px; margin-top:14px; background:linear-gradient(120deg,#4a2e1c,#8a5a37 55%,#d8b48a); color:#fff6ea; border-radius:999px; padding:10px 22px; font-weight:800; text-decoration:none; text-shadow:0 1px 2px rgba(40,24,12,.55); }
-      /* Footer */
-      footer { border-top:1px solid var(--border); padding:30px 0 44px; text-align:center; color:var(--muted); font-size:13px; }
+      .panel { background:var(--card); border:1px solid var(--border); border-radius:18px; padding:28px 30px; }
+      .panel h3 { margin:0 0 10px; font-size:21px; }
+      .panel ul { margin:0; padding-left:18px; color:var(--muted); font-size:14.4px; }
+      .price { font-family:Fraunces,serif; font-size:44px; margin:2px 0; }
+      .coffee-btn { display:inline-flex; align-items:center; gap:8px; margin-top:14px; background:linear-gradient(120deg,#4a2e1c,#8a5a37 55%,#d8b48a); color:#fff6ea; border-radius:999px; padding:11px 24px; font-weight:800; text-decoration:none; text-shadow:0 1px 2px rgba(40,24,12,.55); transition:transform .15s; }
+      .coffee-btn:hover { transform:translateY(-2px); }
+      /* CTA final */
+      .final { text-align:center; background:linear-gradient(160deg,#efe4d2,#e9dfcd); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+      footer { padding:30px 0 46px; text-align:center; color:var(--muted); font-size:13.5px; }
       footer a { color:var(--primary); }
     </style>
   </head>
   <body>
-    <header class="wrap">
-      <div class="logo"><img src="public/leaf.svg" alt="" />tuNota</div>
-      <h1>Un lienzo infinito para pensar,<br />diagramar y avanzar</h1>
-      <p class="sub">Notas, flujogramas al estilo Lucid/Visio, IA con tu propia clave y un plan del día — todo en un solo lugar, gratis y con tus datos siempre en tu navegador.</p>
-      <div class="cta-row">
-        <a class="btn btn-primary" href="/">Abrir tuNota →</a>
-        <a class="btn btn-ghost" href="docs/showcase.html">Ver todas las funciones</a>
+    <nav>
+      <div class="wrap nav-in">
+        <a class="logo" href="/landing"><img src="public/leaf.svg" alt="" />tuNota</a>
+        <div class="nav-links">
+          <a href="#funciones">Funciones</a>
+          <a href="#problemas">Por qué</a>
+          <a href="/legal">Privacidad</a>
+          <a class="btn btn-primary btn-sm" href="/">Abrir tuNota</a>
+        </div>
       </div>
-      <p class="free">Gratis, sin anuncios y sin registro. Funciona sin conexión (instalable como app).</p>
-      <div class="hero-shot"><img src="docs/screenshots/01-vista-general.png" alt="El lienzo de tuNota con notas, tablas, código y formas" loading="lazy" /></div>
+    </nav>
+
+    <header class="wrap">
+      <div class="blob b1"></div><div class="blob b2"></div>
+      <h1>Un lienzo infinito para <em>pensar</em>,<br />diagramar y avanzar</h1>
+      <p class="sub">Notas, flujogramas al estilo Lucid/Visio, IA con tu propia clave y un plan del día — todo junto, gratis y con tus datos siempre en tu navegador.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="/">Empezar gratis →</a>
+        <a class="btn btn-ghost" href="#funciones">Ver cómo funciona</a>
+      </div>
+      <p class="free">Sin cuentas · Sin anuncios · Funciona sin conexión (instalable como app)</p>
+      <div class="frame hero-frame reveal">
+        <div class="frame-bar"><span></span><span></span><span></span></div>
+        <video autoplay muted loop playsinline preload="auto" poster="docs/screenshots/01-vista-general.png">
+          <source src="public/clips/ia-estructura.mp4" type="video/mp4" />
+        </video>
+      </div>
     </header>
 
-    <section class="wrap">
-      <h2>¿Qué problemas resuelve?</h2>
-      <p class="lead">Las ideas viven dispersas entre apps de notas, diagramadores caros y listas de tareas que nadie vuelve a mirar. tuNota lo junta todo.</p>
-      <div class="probs">
-        <div class="prob"><b>«Mis notas están regadas por todos lados»</b><span>Libros → secciones → notas en un <em>lienzo infinito</em>: cada idea es un bloque que se mueve, conecta y agrupa.</span></div>
-        <div class="prob"><b>«Los diagramadores son caros o complicados»</b><span>Formas, rombos de decisión y conectores con flecha que <em>siguen a las cajas</em>. Escribe una lista numerada y conviértela en <em>flujograma con un clic</em>.</span></div>
-        <div class="prob"><b>«La IA está lejos de donde trabajo»</b><span>Resume, clasifica, analiza y valida ideas <em>dentro del lienzo</em>, con tu propia clave (OpenAI, Claude, Gemini…).</span></div>
-        <div class="prob"><b>«Planifico en una app y trabajo en otra»</b><span>El <em>Plan del día</em> vive junto a tus notas: tareas, acciones realizadas con hora y recordatorios que suenan.</span></div>
-        <div class="prob"><b>«¿Y mis datos?»</b><span>No hay cuentas ni servidores con tus notas: <em>todo se guarda en tu navegador</em>, con copias de seguridad y sincronización opcional a tu Drive.</span></div>
-        <div class="prob"><b>«Otra suscripción más…»</b><span>tuNota es <em>gratis</em>. Si te sirve, me invitas un cafecito. Ya está.</span></div>
+    <section id="funciones" class="wrap">
+      <h2 class="reveal">Míralo en acción</h2>
+      <p class="lead reveal">Cada función, reproduciéndose en vivo. Así se trabaja en tuNota.</p>
+
+      <div class="feat">
+        <div class="reveal">
+          <span class="tag">Diagramación</span>
+          <h3>Escribe una lista, obtén un flujograma</h3>
+          <p>Numera tus pasos (1., 2., 3.1.…) y conviértelos en un flujograma con un clic: decisiones en rombo, ramas Sí/No etiquetadas y flechas que se conectan solas.</p>
+          <ul><li>Formas, píldoras de inicio/fin y conectores con etiqueta</li><li>Guías de alineación y conexión rápida «+»</li><li>Plantilla-guía incluida con el formato</li></ul>
+        </div>
+        <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/flujograma.mp4" type="video/mp4" /></video></div></div>
+      </div>
+
+      <div class="feat flip">
+        <div class="reveal">
+          <span class="tag dark">Mermaid ↔ lienzo</span>
+          <h3>Pega Mermaid y edítalo como formas</h3>
+          <p>¿Vienes de Mermaid? Pega tu código y «explótalo» a formas nativas: muévelas y las flechas las siguen. Cuando termines, expórtalo de vuelta a código Mermaid.</p>
+          <ul><li>Rombos, etiquetas Sí/No y estilos conservados</li><li>Ida y vuelta completa: código → formas → código</li></ul>
+        </div>
+        <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/mermaid.mp4" type="video/mp4" /></video></div></div>
+      </div>
+
+      <div class="feat">
+        <div class="reveal">
+          <span class="tag rose">Inteligencia artificial</span>
+          <h3>La IA ordena el caos por ti</h3>
+          <p>Dale una idea y la IA elige la metodología (Lean Startup, Design Thinking…), desarrolla las fases con contenido concreto y te las deja numeradas, conectadas y agrupadas.</p>
+          <ul><li>Valida ideas con búsqueda en internet y fuentes citadas</li><li>Clasifica y analiza notas con el botón 🤖</li><li>Con tu propia clave: OpenAI, Claude, Gemini, Groq…</li></ul>
+        </div>
+        <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/ia-estructura.mp4" type="video/mp4" /></video></div></div>
+      </div>
+
+      <div class="feat flip">
+        <div class="reveal">
+          <span class="tag ocre">Notas vivas</span>
+          <h3>Notas que se clasifican por color</h3>
+          <p>Relevante, Idea, Importante o Crucial: un clic en la insignia y la nota cambia de tono. De un vistazo sabes qué importa hoy.</p>
+          <ul><li>14 tipos de bloque: tablas, código, Markdown, dibujo…</li><li>Viñetas, numeración y casillas con un clic</li><li>Plantillas: BMC, DAFO, Lean Canvas, preguntas de producto</li></ul>
+        </div>
+        <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/clasificar.mp4" type="video/mp4" /></video></div></div>
+      </div>
+
+      <div class="feat">
+        <div class="reveal">
+          <span class="tag terra">Organización</span>
+          <h3>Plan del día con recordatorios que suenan</h3>
+          <p>Escribe lo que tienes que hacer, registra cada acción con su hora y ponle una alarma en X minutos. Los pendientes de ayer te siguen hasta que los cierras.</p>
+          <ul><li>Barras de progreso por tarea y del día</li><li>Kanban de ideas y mapa de conocimiento</li><li>Anida tareas a la hoja donde trabajas</li></ul>
+        </div>
+        <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/plan.mp4" type="video/mp4" /></video></div></div>
+      </div>
+
+      <div class="feat flip">
+        <div class="reveal">
+          <span class="tag dark">Multimedia</span>
+          <h3>Anota sobre tus imágenes</h3>
+          <p>Doble clic sobre cualquier imagen y dibuja encima: flechas, texto, recortes. Aplica y sigue trabajando, sin abrir otro programa.</p>
+          <ul><li>Editor con flechas, formas, texto y recorte</li><li>Ejecuta Python y peticiones cURL en el lienzo</li><li>OCR de imágenes y fotos HEIC</li></ul>
+        </div>
+        <div class="feat-media reveal"><div class="frame"><div class="frame-bar"><span></span><span></span><span></span></div><video muted loop playsinline preload="metadata"><source src="public/clips/imagen.mp4" type="video/mp4" /></video></div></div>
       </div>
     </section>
 
-    <section class="wrap">
-      <h2>Lo que puedes hacer</h2>
-      <div class="feat">
-        <div>
-          <span class="tag">Diagramación</span>
-          <h3>Flujogramas como en Lucid o Visio</h3>
-          <p>Formas, decisiones y conectores con etiqueta que siguen a las cajas cuando las mueves. Con guías de alineación y conexión rápida «+».</p>
-          <ul><li>Lista numerada → flujograma con un clic</li><li>Pega código Mermaid y conviértelo en formas editables</li><li>…y de vuelta: selecciona el flujo y expórtalo a Mermaid</li></ul>
+    <section id="problemas" class="final">
+      <div class="wrap">
+        <h2 class="reveal">¿Qué problemas resuelve?</h2>
+        <p class="lead reveal">Las ideas viven dispersas entre apps de notas, diagramadores caros y listas que nadie vuelve a mirar. tuNota lo junta todo.</p>
+        <div class="probs">
+          <div class="prob reveal"><b>«Mis notas están regadas por todos lados»</b><span>Libros → secciones → notas en un <em>lienzo infinito</em>: cada idea es un bloque que se mueve, conecta y agrupa.</span></div>
+          <div class="prob reveal"><b>«Los diagramadores son caros o complicados»</b><span>Flujogramas al estilo Lucid/Visio con flechas que <em>siguen a las cajas</em>, gratis.</span></div>
+          <div class="prob reveal"><b>«La IA está lejos de donde trabajo»</b><span>Resume, clasifica y valida ideas <em>dentro del lienzo</em>, con tu propia clave.</span></div>
+          <div class="prob reveal"><b>«Planifico en una app y trabajo en otra»</b><span>El <em>Plan del día</em> vive junto a tus notas, con alarmas que suenan.</span></div>
+          <div class="prob reveal"><b>«¿Y mis datos?»</b><span>Sin cuentas ni servidores con tus notas: <em>todo en tu navegador</em>, con copias de seguridad y Drive opcional.</span></div>
+          <div class="prob reveal"><b>«Otra suscripción más…»</b><span>tuNota es <em>gratis</em>. Si te sirve, me invitas un cafecito. Ya está.</span></div>
         </div>
-        <div class="feat-img"><img src="docs/screenshots/23-mermaid-a-lienzo.png" alt="Mermaid convertido a formas nativas" loading="lazy" /></div>
-      </div>
-      <div class="feat">
-        <div>
-          <span class="tag ocre">Notas vivas</span>
-          <h3>Notas que se clasifican y se analizan solas</h3>
-          <p>Cada nota se clasifica (Relevante · Idea · Importante · Crucial) y cambia de color según el tono. El botón 🤖 la analiza con IA y deja el informe debajo.</p>
-          <ul><li>14 tipos de bloque: tablas, código, Python, Markdown, dibujo…</li><li>Valida ideas con evidencia web y veredicto honesto</li><li>Plantillas: BMC, DAFO, Lean Canvas, preguntas de producto…</li></ul>
-        </div>
-        <div class="feat-img"><img src="docs/screenshots/10-plantillas.png" alt="Plantillas de canvas" loading="lazy" /></div>
-      </div>
-      <div class="feat">
-        <div>
-          <span class="tag terra">Organización</span>
-          <h3>Todo conectado y a la vista</h3>
-          <p>Mapa de conocimiento (libro → sección → nota → grupos), kanban de ideas, búsqueda global con Ctrl+K y pestañas de acceso rápido.</p>
-          <ul><li>Mueve notas entre libros arrastrándolas</li><li>Guarda notas dentro de otras (lienzo sobre lienzo)</li><li>Plan del día con acciones, horas y recordatorios sonoros</li></ul>
-        </div>
-        <div class="feat-img"><img src="docs/screenshots/11-mapa-conocimiento.png" alt="Mapa de conocimiento" loading="lazy" /></div>
-      </div>
-      <div class="feat">
-        <div>
-          <span class="tag rose">Tuyo</span>
-          <h3>Privado, personalizable y sin instalación</h3>
-          <p>11 temas de color, modo tablet con lápiz, y una PWA instalable que funciona sin conexión. Tus notas nunca salen de tu navegador salvo que tú lo pidas.</p>
-          <ul><li>Copias de seguridad y restauración con un clic</li><li>Sincronización opcional con tu Google Drive y Apple</li><li>IA solo con tu propia clave: tú controlas el gasto</li></ul>
-        </div>
-        <div class="feat-img"><img src="docs/screenshots/17-paletas-color.png" alt="Temas de color" loading="lazy" /></div>
       </div>
     </section>
 
     <section class="wrap">
       <div class="split">
-        <div class="panel">
+        <div class="panel reveal">
           <h3>🔒 Privacidad primero</h3>
           <ul>
             <li>Sin cuentas, sin rastreo, sin anuncios.</li>
@@ -136,7 +208,7 @@
             <li>Detalles en la <a href="/legal">política de privacidad</a>.</li>
           </ul>
         </div>
-        <div class="panel">
+        <div class="panel reveal">
           <h3>💚 Precio</h3>
           <div class="price">Gratis</div>
           <ul>
@@ -148,11 +220,39 @@
       </div>
     </section>
 
+    <section class="final">
+      <div class="wrap" style="text-align:center">
+        <h2 class="reveal">Tu lienzo te espera</h2>
+        <p class="lead reveal">Abre tuNota y empieza a pensar en grande. Sin registro, en 2 segundos.</p>
+        <p class="reveal"><a class="btn btn-primary" href="/">Abrir tuNota gratis →</a></p>
+      </div>
+    </section>
+
     <footer>
       <div class="wrap">
-        <p><a href="/">Abrir tuNota</a> · <a href="docs/showcase.html">Showcase de funciones</a> · <a href="/legal">Privacidad, términos y créditos</a></p>
+        <p><a href="/">Abrir tuNota</a> · <a href="docs/showcase.html">Showcase completo</a> · <a href="/legal">Privacidad, términos y créditos</a></p>
         <p>Hecho con 🌿 por Sergio Martín Ramos Manrique · Perú</p>
       </div>
     </footer>
+
+    <script>
+      // Aparición al hacer scroll + reproducir los clips solo cuando están a la vista.
+      (function () {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) e.target.classList.add('on');
+          });
+        }, { threshold: 0.18 });
+        document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+        var vio = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            var v = e.target;
+            if (e.isIntersecting) { v.play && v.play().catch(function () {}); }
+            else { v.pause && v.pause(); }
+          });
+        }, { threshold: 0.35 });
+        document.querySelectorAll('video[muted]').forEach(function (v) { vio.observe(v); });
+      })();
+    </script>
   </body>
 </html>
