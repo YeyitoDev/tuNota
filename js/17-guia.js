@@ -105,10 +105,15 @@ function guideLightbox(src, alt) {
   document.body.appendChild(lb);
 }
 
-// ---------- Apoyar tuNota (Yape para Perú · Stripe/Apple Pay para el resto) ----------
-// Enlace de pago de Stripe (soporta tarjeta, Apple Pay y Google Pay automáticamente).
-// Pega aquí tu Payment Link de Stripe (https://buy.stripe.com/…) cuando lo tengas.
-var STRIPE_LINK = '';
+// ---------- Apoyar tuNota (Yape para Perú · tarjeta/Apple Pay para el resto) ----------
+// PEGA AQUÍ tu enlace de pago internacional cuando lo tengas. Sirve cualquiera:
+//  · Lemon Squeezy (Stripe para países sin Stripe, como Perú): https://TU-TIENDA.lemonsqueezy.com/buy/…
+//  · Ko-fi (con PayPal): https://ko-fi.com/TU-USUARIO
+//  · Mercado Pago Perú (link de cobro): https://mpago.la/…
+//  · Stripe Payment Link (si algún día hay cuenta en país soportado): https://buy.stripe.com/…
+// Todos incluyen tarjeta; Lemon Squeezy y Stripe muestran Apple Pay/Google Pay automáticamente.
+var PAY_LINK = '';
+var STRIPE_LINK = PAY_LINK; // alias legado
 function closeDonate() { var o = document.getElementById('donateOverlay'); if (o) o.remove(); }
 function openDonate(pref) {
   closeDonate();
@@ -125,9 +130,9 @@ function openDonate(pref) {
     h('p', { class: 'donate-small' }, 'Yape opera en soles (S/) y solo dentro de Perú. ¡Gracias! 💜'));
 
   // --- Stripe (tarjeta / Apple Pay / Google Pay) ---
-  var stripeBtn = STRIPE_LINK
-    ? h('a', { class: 'donate-stripe-btn', href: STRIPE_LINK, target: '_blank', rel: 'noopener' }, icon('heart'), 'Pagar con tarjeta o  Apple Pay')
-    : h('div', { class: 'donate-qr-missing' }, 'Pago con tarjeta / Apple Pay: en cuanto configure Stripe. (Pega tu Payment Link en STRIPE_LINK).');
+  var stripeBtn = PAY_LINK
+    ? h('a', { class: 'donate-stripe-btn', href: PAY_LINK, target: '_blank', rel: 'noopener' }, icon('heart'), 'Pagar con tarjeta o Apple Pay')
+    : h('div', { class: 'donate-qr-missing' }, 'El pago con tarjeta llega muy pronto. Mientras tanto, ¡el QR de Yape funciona dentro de Perú! 💜');
   var stripePane = h('div', { class: 'donate-pane', 'data-pane': 'stripe', style: { display: 'none' } },
     h('p', { class: 'donate-text' }, 'Paga con tarjeta, Apple Pay o Google Pay desde cualquier país (procesado por Stripe).'),
     stripeBtn,
