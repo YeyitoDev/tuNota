@@ -840,6 +840,114 @@ function kanbanCard(b, status) {
   return card;
 }
 
+// ---------- Copiar / pegar bloques entre lienzos ----------
+// Copia los bloques seleccionados al portapapeles como JSON con un tipo MIME personalizado.
+// Esto permite pegar bloques completos (texto, imágenes, PDF, markdown, etc.) en otro lienzo,
+// manteniendo formato, contenido y blobs. Las imágenes/PDF se re-almacenan como blobs nuevos
+// para que el bloque pegado sea independiente del original.
+var CLIPBOARD_MIME = 'application/x-tunota-blocks';
+var _tunotaClipboard = null;
+function copySelectedBlocks() {
+  var ids = Object.keys(selectedIds).filter(function (id) { return getBlockById(id); });
+  if (!ids.length) return;
+  var blocks = ids.map(function (id) {
+    var b = JSON.parse(JSON.stringify(getBlockById(id)));
+    // Re-almacena blobs para que las copias sean independientes
+    var c = b.content || {};
+    var reBlob = function (ref) { return isBlobRef(ref) ? storeBlob(resolveSrc(ref)) : ref; };
+    if (c.images) c.images = c.images.map(function (it) {
+      return typeof it === 'string' ? reBlob(it) : Object.assign({}, it, { src: reBlob(it.src) });
+    });
+    if (isBlobRef(c.pdf)) c.pdf = reBlob(c.pdf);
+    if (c.result && isBlobRef(c.result.img)) c.result.img = reBlob(c.result.img);
+    delete b.kanban; delete b.kanbanAt; delete b.kanbanOrder; delete b.reminder;
+    return b;
+  });
+  // Copia también los enlaces entre los bloques seleccionados
+  var links = (data.links || []).filter(function (l) {
+    return selectedIds[l.a] && selectedIds[l.b];
+  }).map(function (l) {
+    return { a: l.a, b: l.b, label: l.label || '', type: l.type || '', style: l.style || '' };
+  });
+  var payload = JSON.stringify({ app: 'tunota-blocks', blocks: blocks, links: links });
+  var textFallback = blocks.map(function (b) { return (b.content && b.content.text) || ''; }).filter(function (t) { return t.trim(); }).join('\n\n');
+  // Guarda en memoria como fallback
+  _tunotaClipboard = payload;
+  // Intenta escribir al portapapeles del sistema
+  if (navigator.clipboard && navigator.clipboard.write) {
+    try {
+      var blob = new Blob([payload], { type: CLIPBOARD_MIME });
+      var textBlob = new Blob([textFallback], { type: 'text/plain' });
+      var item = new ClipboardItem({});
+      item[CLIPBOARD_MIME] = blob;
+      item['text/plain'] = textBlob;
+      navigator.clipboard.write([item]).catch(function () {});
+    } catch (er) {}
+  }
+  toast(ids.length + ' bloque' + (ids.length > 1 ? 's' : '') + ' copiado' + (ids.length > 1 ? 's' : ''), 'ok');
+}
+function pasteBlocksAt(cx, cy) {
+  if (!ui.currentNoteId || !getNote(ui.currentNoteId)) return;
+  // Lee del portapapeles asíncrono (navigator.clipboard) o del evento paste
+  if (navigator.clipboard && navigator.clipboard.read) {
+    navigator.clipboard.read().then(function (items) {
+      for (var i = 0; i < items.length; i++) {
+        for (var j = 0; j < items[i].types.length; j++) {
+          if (items[i].types[j] === CLIPBOARD_MIME) {
+            items[i].getType(CLIPBOARD_MIME).then(function (blob) {
+              var reader = new FileReader();
+              reader.onload = function () { doPasteBlocks(String(reader.result), cx, cy); };
+              reader.readAsText(blob);
+            });
+            return;
+          }
+        }
+      }
+      toast('No hay bloques en el portapapeles.', 'info');
+    }).catch(function () { toast('Permite el acceso al portapapeles para pegar bloques.', 'warn'); });
+  }
+}
+function doPasteBlocks(jsonStr, cx, cy) {
+  var payload;
+  try { payload = JSON.parse(jsonStr); } catch (e) { return; }
+  if (!payload || !payload.blocks || !payload.blocks.length) return;
+  pushUndo('Pegar bloques');
+  var t = now();
+  var map = {};
+  var minX = Infinity, minY = Infinity;
+  payload.blocks.forEach(function (b) {
+    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+  });
+  var dx = (cx != null ? cx : 200) - minX;
+  var dy = (cy != null ? cy : 200) - minY;
+  payload.blocks.forEach(function (b) {
+    var copy = JSON.parse(JSON.stringify(b));
+    copy.id = uid();
+    copy.noteId = ui.currentNoteId;
+    copy.x = Math.round(b.x + dx);
+    copy.y = Math.round(b.y + dy);
+    copy.createdAt = t; copy.updatedAt = t;
+    data.blocks.push(copy);
+    map[b.id] = copy.id;
+  });
+  if (payload.links) {
+    payload.links.forEach(function (l) {
+      if (map[l.a] && map[l.b]) {
+        data.links.push({ id: uid(), noteId: ui.currentNoteId, a: map[l.a], b: map[l.b], label: l.label, type: l.type, style: l.style, createdAt: t });
+      }
+    });
+  }
+  touchNote(ui.currentNoteId);
+  logChange('Bloques pegados', payload.blocks.length + ' bloque(s)');
+  save();
+  renderCanvas();
+  // Selecciona los bloques pegados
+  clearSelection();
+  Object.keys(map).forEach(function (oldId) { selectedIds[map[oldId]] = true; });
+  refreshSelectionUI();
+  toast(payload.blocks.length + ' bloque(s) pegado(s)', 'ok');
+}
+
 // ---------- Atajos globales ----------
 document.addEventListener('keydown', function (e) {
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
@@ -857,6 +965,47 @@ document.addEventListener('keydown', function (e) {
     var da = document.activeElement;
     if (da && (da.tagName === 'TEXTAREA' || da.tagName === 'INPUT' || da.isContentEditable)) return;
     if (Object.keys(selectedIds).length) { e.preventDefault(); duplicateSelected(); }
+    return;
+  }
+  // Ctrl+C: copiar bloques seleccionados al portapapeles (formato completo, no solo texto)
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'c' || e.key === 'C')) {
+    var ce = document.activeElement;
+    if (ce && (ce.tagName === 'TEXTAREA' || ce.tagName === 'INPUT' || ce.isContentEditable)) return; // deja el copy nativo del texto
+    if (Object.keys(selectedIds).length) {
+      e.preventDefault();
+      copySelectedBlocks();
+    }
+    return;
+  }
+  // Ctrl+V: pegar bloques del portapapeles en el lienzo actual
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'v' || e.key === 'V')) {
+    var ve = document.activeElement;
+    if (ve && (ve.tagName === 'TEXTAREA' || ve.tagName === 'INPUT' || ve.isContentEditable)) return; // deja el paste nativo del texto
+    if (!ui.currentNoteId || document.querySelector('.overlay')) return;
+    e.preventDefault();
+    // Intenta primero el portapapeles asíncrono
+    if (navigator.clipboard && navigator.clipboard.read) {
+      navigator.clipboard.read().then(function (items) {
+        for (var i = 0; i < items.length; i++) {
+          for (var j = 0; j < items[i].types.length; j++) {
+            if (items[i].types[j] === CLIPBOARD_MIME) {
+              items[i].getType(CLIPBOARD_MIME).then(function (bl) {
+                var reader = new FileReader();
+                reader.onload = function () { doPasteBlocks(String(reader.result), 200, 200); };
+                reader.readAsText(bl);
+              });
+              return;
+            }
+          }
+        }
+        // Si no encontró el MIME personalizado, usa el fallback en memoria
+        if (_tunotaClipboard) { doPasteBlocks(_tunotaClipboard, 200, 200); }
+      }).catch(function () {
+        if (_tunotaClipboard) { doPasteBlocks(_tunotaClipboard, 200, 200); }
+      });
+    } else if (_tunotaClipboard) {
+      doPasteBlocks(_tunotaClipboard, 200, 200);
+    }
     return;
   }
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'a' || e.key === 'A')) {

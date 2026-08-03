@@ -309,15 +309,16 @@ function outlineParse(line) {
   var indent = (/^(\s*)/.exec(line) || ['', ''])[1];
   var level = Math.floor(indent.replace(/\t/g, '  ').length / 2);
   var rest = line.slice(indent.length), m;
-  if ((m = /^(\d+(?:\.\d+)*)[.)]\s+(.*)$/.exec(rest))) {
+  // Numeración: "1. " o "1. " o "1." solo (sin texto después aún)
+  if ((m = /^(\d+(?:\.\d+)*)[.)](?:\s+(.*))?$/.exec(rest))) {
     // Numeración decimal (3.1, 3.1.2…): el nivel sale de los puntos, aunque la línea
     // no tenga sangría — así "3.1." escrito a mano se indenta solo al renderizar.
     var segs = m[1].split('.');
     var lv = Math.max(level, segs.length - 1);
-    return { list: true, kind: 'ordered', level: lv, num: parseInt(segs[segs.length - 1], 10) || 1, text: m[2] };
+    return { list: true, kind: 'ordered', level: lv, num: parseInt(segs[segs.length - 1], 10) || 1, text: m[2] || '' };
   }
   if ((m = /^[-*+•·◦▪‣–—▸]\s+\[([ xX])\]\s+(.*)$/.exec(rest))) return { list: true, kind: 'task', level: level, checked: m[1] !== ' ', text: m[2] };
-  if ((m = /^[-*+•·◦▪‣–—▸]\s+(.*)$/.exec(rest))) return { list: true, kind: 'bullet', level: level, text: m[1] };
+  if ((m = /^[-*+•·◦▪‣–—▸](?:\s+(.*))?$/.exec(rest))) return { list: true, kind: 'bullet', level: level, text: m[1] || '' };
   return { list: false, level: level, text: rest };
 }
 function outlineMarker(it, counters, dotted) {
@@ -328,7 +329,7 @@ function outlineMarker(it, counters, dotted) {
 // Ningún ítem puede estar más de un nivel por debajo del anterior (evita "1..1").
 function outlineClamp(items) {
   for (var i = 0; i < items.length; i++) {
-    var maxL = i === 0 ? 0 : items[i - 1].level + 1;
+    var maxL = i === 0 ? 1 : items[i - 1].level + 1;
     items[i].level = Math.max(0, Math.min(items[i].level, maxL));
   }
   return items;
@@ -380,7 +381,9 @@ function outlineApply(ta, onChange, action, dotted) {
       focus = ci + 1; focusOffset = 0;
     }
   } else if (action === 'indent') {
-    it.level = Math.min(it.level + 1, ci > 0 ? items[ci - 1].level + 1 : 0);
+    // Permite sangrar el primer ítem de la lista (a nivel 1) para que Tab cree sub-ítems
+    // tipo 1.1, 1.1.1 incluso en una lista de un solo elemento.
+    it.level = Math.min(it.level + 1, ci > 0 ? items[ci - 1].level + 1 : 1);
   } else if (action === 'outdent') {
     it.level = Math.max(0, it.level - 1);
   }
@@ -437,6 +440,25 @@ function attachListAutoContinue(ta, onChange, dotted) {
   ta.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (outlineApply(ta, onChange, 'enter', dot)) e.preventDefault();
+    } else if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Auto-formato: al escribir espacio después de "N." o "N)" o viñeta al inicio de línea,
+      // normaliza el marcador y activa la lista para que Tab y Enter funcionen.
+      var v = ta.value, pos = ta.selectionStart;
+      if (pos === ta.selectionEnd) {
+        var ls = v.lastIndexOf('\n', pos - 1) + 1;
+        var lineSoFar = v.slice(ls, pos);
+        var im2 = /^(\s*)/.exec(lineSoFar);
+        var indent2 = im2 ? im2[1] : '';
+        var body2 = lineSoFar.slice(indent2.length);
+        // "1." o "1)" justo antes del espacio que se va a escribir
+        if (/^\d+[.)]$/.test(body2) || /^[-*+•·–—▸]$/.test(body2)) {
+          e.preventDefault();
+          ta.value = v.slice(0, pos) + ' ' + v.slice(pos);
+          ta.selectionStart = ta.selectionEnd = pos + 1;
+          if (onChange) onChange();
+          return;
+        }
+      }
     } else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
       if (ta.selectionStart !== ta.selectionEnd) { outlineIndentSelection(ta, onChange, e.shiftKey, dot); return; }

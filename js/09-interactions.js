@@ -272,6 +272,7 @@ function updateSelInfo() {
       h('button', { class: 'sel-tpl', title: 'Guardar la selecci\u00f3n como plantilla reutilizable (acceso r\u00e1pido en Plantillas)', onclick: function () { saveSelectionAsTemplate(); } }, icon('layout'), 'Plantilla'),
       h('button', { class: 'sel-dl', title: 'Descargar todas las imágenes de la selección', onclick: function () { downloadSelectedImages(); } }, icon('download'), 'Descargar'),
       h('button', { class: 'sel-mini', title: 'Duplicar la selecci\u00f3n (Ctrl/Cmd+D)', onclick: function () { duplicateSelected(); } }, icon('copy')),
+      h('button', { class: 'sel-mini', title: 'Copiar bloques al portapapeles (Ctrl/Cmd+C) — p\u00e9galos en otro lienzo con Ctrl/Cmd+V', onclick: function () { copySelectedBlocks(); } }, icon('clipboard')),
       h('button', { class: 'sel-del', title: 'Eliminar selecci\u00f3n', onclick: deleteSelected }, icon('trash'), 'Eliminar'));
     document.body.appendChild(bar);
   }
