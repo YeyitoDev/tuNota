@@ -95,6 +95,9 @@
         var s = typeof it === 'string' ? it : (it && it.src);
         if (isBlobRef(s) && !blobCache[blobRefId(s)]) missing = true;
       });
+      if (c.inlineImages) c.inlineImages.forEach(function (it) {
+        if (it && isBlobRef(it.src) && !blobCache[blobRefId(it.src)]) missing = true;
+      });
       if (isBlobRef(c.pdf) && !blobCache[blobRefId(c.pdf)]) missing = true;
     });
     if (!missing) { if (done) done(false); return; }
@@ -357,8 +360,19 @@
     refs.ta.value = formatted;
     persist(function (fresh) {
       var fb = fresh.blocks.find(function (x) { return x.id === id; });
-      if (fb) { fb.content = fb.content || {}; fb.content.text = formatted; fb.updatedAt = now(); }
-      logTo(fresh, 'Texto formateado', snippet(formatted));
+      if (fb) {
+        fb.content = fb.content || {};
+        if (fb.content.inlineImages && fb.content.inlineImages.length) {
+          var fullText = fb.content.text || '';
+          var firstMarker = fullText.indexOf('\u0001');
+          if (firstMarker >= 0) { fb.content.text = formatted + fullText.slice(firstMarker); }
+          else { fb.content.text = formatted; }
+        } else {
+          fb.content.text = formatted;
+        }
+        fb.updatedAt = now();
+        logTo(fresh, 'Texto formateado', snippet(formatted));
+      }
     });
   }
 
@@ -708,53 +722,190 @@
     return h('div', { class: 'nw-body nw-mmd-body' }, toolbar, wrap);
   }
 
+  // ---------- Im\u00e1genes inline en notas (ventana pop-out) ----------
+  var INLINE_RE = /\u0001(\d+)\u0001/g;
+  function splitNoteSegments(text) {
+    var segments = [], last = 0, m;
+    INLINE_RE.lastIndex = 0;
+    while ((m = INLINE_RE.exec(text))) {
+      if (m.index > last) segments.push({ type: 'text', text: text.slice(last, m.index) });
+      segments.push({ type: 'image', imgIndex: parseInt(m[1], 10) });
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) segments.push({ type: 'text', text: text.slice(last) });
+    if (!segments.length) segments.push({ type: 'text', text: '' });
+    return segments;
+  }
+  function removeInlineImage(b, imgIndex) {
+    if (!b.content.inlineImages) return;
+    var marker = '\u0001' + imgIndex + '\u0001';
+    b.content.text = (b.content.text || '').replace(marker, '');
+    var removed = b.content.inlineImages.splice(imgIndex, 1)[0];
+    if (removed && isBlobRef(removed.src)) { delete blobCache[blobRefId(removed.src)]; BlobStore.del(blobRefId(removed.src)).catch(function () {}); }
+    b.content.text = b.content.text.replace(/\u0001(\d+)\u0001/g, function (match, num) {
+      var n = parseInt(num, 10);
+      return n > imgIndex ? '\u0001' + (n - 1) + '\u0001' : match;
+    });
+  }
+  function buildInlineFig(b, imgIndex, imgData) {
+    var src = resolveSrc(imgData.src);
+    var w = imgData.w || 260;
+    var img = h('img', { src: src, alt: '', class: 'inline-note-img', draggable: 'false' });
+    img.style.width = w + 'px';
+    var del = h('button', { class: 'fig-del', title: 'Quitar imagen', onclick: function (e) {
+      e.stopPropagation();
+      persist(function (fresh) {
+        var fb = fresh.blocks.find(function (x) { return x.id === id; });
+        if (fb) { fb.content = fb.content || {}; removeInlineImageInline(fb, imgIndex); fb.updatedAt = now(); logTo(fresh, 'Imagen inline eliminada', ''); }
+      });
+      render();
+    }}, icon('trash'));
+    var handle = h('span', { class: 'fig-resize inline-img-resize', title: 'Arrastra para redimensionar' });
+    handle.addEventListener('mousedown', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      var startX = e.clientX, startW = img.offsetWidth || w;
+      function move(ev) { var nw = Math.max(48, Math.round(startW + (ev.clientX - startX))); img.style.width = nw + 'px'; }
+      function up() {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        persist(function (fresh) {
+          var fb = fresh.blocks.find(function (x) { return x.id === id; });
+          if (fb && fb.content && fb.content.inlineImages && fb.content.inlineImages[imgIndex]) {
+            fb.content.inlineImages[imgIndex].w = img.offsetWidth; fb.updatedAt = now();
+            logTo(fresh, 'Imagen inline redimensionada', img.offsetWidth + ' px');
+          }
+        });
+      }
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    });
+    var fig = h('figure', { class: 'card-fig inline-note-fig' }, img, del, handle);
+    fig.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    return fig;
+  }
+  // removeInlineImage que opera sobre el bloque fresco del localStorage (no el en memoria)
+  function removeInlineImageInline(fb, imgIndex) {
+    if (!fb.content || !fb.content.inlineImages) return;
+    var marker = '\u0001' + imgIndex + '\u0001';
+    fb.content.text = (fb.content.text || '').replace(marker, '');
+    var removed = fb.content.inlineImages.splice(imgIndex, 1)[0];
+    if (removed && isBlobRef(removed.src)) { delete blobCache[blobRefId(removed.src)]; BlobStore.del(blobRefId(removed.src)).catch(function () {}); }
+    fb.content.text = fb.content.text.replace(/\u0001(\d+)\u0001/g, function (match, num) {
+      var n = parseInt(num, 10);
+      return n > imgIndex ? '\u0001' + (n - 1) + '\u0001' : match;
+    });
+  }
+  function insertInlineAt(b, seg, segIdx, segs, cursorPos, files, done) {
+    var arr = Array.prototype.slice.call(files || []).filter(function (f) { return /^image\//.test(f.type); });
+    if (!arr.length) { if (done) done(); return; }
+    b.content.inlineImages = b.content.inlineImages || [];
+    var beforeText = seg.text.slice(0, cursorPos);
+    var afterText = seg.text.slice(cursorPos);
+    var newSegs = [{ type: 'text', text: beforeText }];
+    var pending = arr.length;
+    arr.forEach(function (f) {
+      fileToScaledDataURL(f, function (url) {
+        var ref = storeBlob(url);
+        var imgIdx = b.content.inlineImages.length;
+        b.content.inlineImages.push({ src: ref, w: 260 });
+        newSegs.push({ type: 'image', imgIndex: imgIdx });
+        pending--;
+        if (pending <= 0) {
+          newSegs.push({ type: 'text', text: afterText });
+          segs.splice.apply(segs, [segIdx, 1].concat(newSegs));
+          b.content.text = segs.map(function (s) { return s.type === 'text' ? s.text : '\u0001' + s.imgIndex + '\u0001'; }).join('');
+          persist(function (fresh) {
+            var fb = fresh.blocks.find(function (x) { return x.id === id; });
+            if (fb) { fb.content = fb.content || {}; fb.content.text = b.content.text; fb.content.inlineImages = b.content.inlineImages; fb.updatedAt = now(); logTo(fresh, 'Imagen inline insertada', ''); }
+          });
+          if (done) done();
+        }
+      });
+    });
+  }
+
   function renderTextBody(b, isIdea) {
+    b.content = b.content || {};
+    b.content.inlineImages = b.content.inlineImages || [];
+    var text = (b.content && b.content.text) || '';
+    var segs = splitNoteSegments(text);
     var fileInput = h('input', { type: 'file', accept: 'image/*', multiple: '', style: { display: 'none' } });
     fileInput.addEventListener('change', function () { handleFiles(fileInput.files); fileInput.value = ''; });
     var toolbar = h('div', { class: 'nw-toolbar' },
       h('button', { class: 'nw-btn', title: 'Formatear texto (listas, vi\u00f1etas, saltos de l\u00ednea)', onclick: function () { formatTA(); } }, icon('format'), 'Formatear'),
-      h('button', { class: 'nw-btn', onclick: function () { fileInput.click(); } }, icon('image'), 'Insertar imagen'),
-      h('span', { class: 'nw-hint' }, 'o pega con Ctrl+V'),
+      h('button', { class: 'nw-btn', onclick: function () { fileInput.click(); } }, icon('image'), 'Insertar imagen al pie'),
+      h('span', { class: 'nw-hint' }, 'o pega/arrastra una imagen dentro del texto'),
       fileInput
     );
 
-    var ta = h('textarea', { class: 'nw-ta', placeholder: isIdea ? 'Desarrolla tu idea...' : 'Escribe tu nota...' });
-    ta.value = (b.content && b.content.text) || '';
-    var taT;
-    ta.addEventListener('input', function () {
-      clearTimeout(taT);
-      taT = setTimeout(function () {
-        persist(function (fresh) {
-          var fb = fresh.blocks.find(function (x) { return x.id === id; });
-          if (fb) {
-            fb.content = fb.content || {};
-            fb.content.text = ta.value;
-            fb.updatedAt = now();
-            var fn = fresh.notes.find(function (n) { return n.id === fb.noteId; });
-            if (fn) fn.updatedAt = now();
-          }
-        });
-      }, 250);
-    });
-    ta.addEventListener('change', function () {
+    var body = h('div', { class: 'nw-body' });
+    body.appendChild(toolbar);
+
+    function rebuildText() {
+      b.content.text = segs.map(function (s) { return s.type === 'text' ? s.text : '\u0001' + s.imgIndex + '\u0001'; }).join('');
+    }
+    function syncSave(ta) {
+      rebuildText();
       persist(function (fresh) {
         var fb = fresh.blocks.find(function (x) { return x.id === id; });
-        if (fb) { fb.content = fb.content || {}; fb.content.text = ta.value; fb.updatedAt = now(); }
-        logTo(fresh, isIdea ? 'Idea editada (ventana)' : 'Nota editada (ventana)', snippet(ta.value));
+        if (fb) { fb.content = fb.content || {}; fb.content.text = b.content.text; fb.content.inlineImages = b.content.inlineImages; fb.updatedAt = now(); var fn = fresh.notes.find(function (n) { return n.id === fb.noteId; }); if (fn) fn.updatedAt = now(); }
       });
+    }
+    var taT;
+    segs.forEach(function (seg, idx) {
+      if (seg.type === 'text') {
+        (function (seg, idx) {
+          var ta = h('textarea', { class: 'nw-ta', placeholder: isIdea ? 'Desarrolla tu idea...' : 'Escribe tu nota...' });
+          ta.value = seg.text;
+          ta.addEventListener('input', function () {
+            seg.text = ta.value; rebuildText();
+            clearTimeout(taT);
+            taT = setTimeout(function () { syncSave(ta); }, 250);
+          });
+          ta.addEventListener('change', function () {
+            seg.text = ta.value; rebuildText();
+            persist(function (fresh) {
+              var fb = fresh.blocks.find(function (x) { return x.id === id; });
+              if (fb) { fb.content = fb.content || {}; fb.content.text = b.content.text; fb.content.inlineImages = b.content.inlineImages; fb.updatedAt = now(); }
+              logTo(fresh, isIdea ? 'Idea editada (ventana)' : 'Nota editada (ventana)', snippet(ta.value));
+            });
+          });
+          // Paste inline
+          ta.addEventListener('paste', function (e) {
+            var items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            var files = [];
+            for (var i = 0; i < items.length; i++) { if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { var f = items[i].getAsFile(); if (f) files.push(f); } }
+            if (files.length) {
+              e.preventDefault();
+              insertInlineAt(b, seg, idx, segs, ta.selectionStart, files, function () { render(); });
+            }
+          });
+          // Drag-and-drop inline
+          ta.addEventListener('dragover', function (e) {
+            if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) { e.preventDefault(); ta.classList.add('drag-over'); }
+          });
+          ta.addEventListener('dragleave', function () { ta.classList.remove('drag-over'); });
+          ta.addEventListener('drop', function (e) {
+            var files = [];
+            if (e.dataTransfer) { for (var i = 0; i < e.dataTransfer.files.length; i++) { if (/^image\//.test(e.dataTransfer.files[i].type)) files.push(e.dataTransfer.files[i]); } }
+            if (files.length) { e.preventDefault(); ta.classList.remove('drag-over'); insertInlineAt(b, seg, idx, segs, ta.selectionStart, files, function () { render(); }); }
+          });
+          if (!refs.ta) refs.ta = ta;
+          body.appendChild(ta);
+        })(seg, idx);
+      } else {
+        var imgData = b.content.inlineImages[seg.imgIndex];
+        if (imgData) body.appendChild(buildInlineFig(b, seg.imgIndex, imgData));
+      }
     });
-    refs.ta = ta;
 
     var grid = h('div', { class: 'nw-grid' });
     renderImages(grid, b);
     refs.grid = grid;
-
-    return h('div', { class: 'nw-body' },
-      toolbar,
-      ta,
-      h('div', { class: 'nw-imgs-title' }, icon('image'), 'Im\u00e1genes'),
-      grid
-    );
+    body.appendChild(h('div', { class: 'nw-imgs-title' }, icon('image'), 'Im\u00e1genes al pie'));
+    body.appendChild(grid);
+    return body;
   }
 
   function renderImageBody(b) {
@@ -831,6 +982,14 @@
     var ctx = getCtx(d);
     if (!ctx) { render(); return; }
     var b = ctx.b;
+    // Si hay inlineImages, re-renderiza todo el cuerpo del texto para reflejar cambios
+    if (b.content && b.content.inlineImages && b.content.inlineImages.length) {
+      // Solo re-renderiza si el usuario no est\u00e1 editando activamente
+      var active = document.activeElement;
+      if (!active || !active.classList || !active.classList.contains('nw-ta')) {
+        render();
+      }
+    }
     if (refs.ta && document.activeElement !== refs.ta) {
       var txt = (b.content && b.content.text) || '';
       if (refs.ta.value !== txt) refs.ta.value = txt;
@@ -858,7 +1017,10 @@
   if (bc) bc.onmessage = function (ev) { if (ev && ev.data && ev.data.app === 'tunota') scheduleExternal(); };
   window.addEventListener('storage', function (e) { if (e.key === LS_DATA) scheduleExternal(); });
 
+  // Paste global: solo inserta al pie si el foco NO est\u00e1 en un textarea (los textareas manejan su propio paste inline)
   document.addEventListener('paste', function (e) {
+    var active = document.activeElement;
+    if (active && active.classList && active.classList.contains('nw-ta')) return; // el textarea lo maneja
     var items = e.clipboardData && e.clipboardData.items;
     if (!items) return;
     var files = [];
