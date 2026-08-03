@@ -802,36 +802,179 @@ function autoGrowNote(ta) {
   ta.style.height = Math.max(22, ta.scrollHeight) + 'px';
 }
 // ---------- Cuerpos por tipo ----------
+// Marker para imágenes inline en notas: \u0001N\u0001 donde N es el índice en b.content.inlineImages
+var INLINE_RE = /\u0001(\d+)\u0001/g;
+function splitNoteSegments(text) {
+  var segments = [], last = 0, m;
+  INLINE_RE.lastIndex = 0;
+  while ((m = INLINE_RE.exec(text))) {
+    if (m.index > last) segments.push({ type: 'text', text: text.slice(last, m.index) });
+    segments.push({ type: 'image', imgIndex: parseInt(m[1], 10) });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) segments.push({ type: 'text', text: text.slice(last) });
+  if (!segments.length) segments.push({ type: 'text', text: '' });
+  return segments;
+}
+function removeInlineImage(b, imgIndex) {
+  if (!b.content.inlineImages) return;
+  var marker = '\u0001' + imgIndex + '\u0001';
+  b.content.text = (b.content.text || '').replace(marker, '');
+  var removed = b.content.inlineImages.splice(imgIndex, 1)[0];
+  if (removed) deleteBlobRef(imgItemRaw(removed));
+  // Reindexa marcadores restantes (decrementa los > imgIndex)
+  b.content.text = b.content.text.replace(/\u0001(\d+)\u0001/g, function (match, num) {
+    var n = parseInt(num, 10);
+    return n > imgIndex ? '\u0001' + (n - 1) + '\u0001' : match;
+  });
+}
+function buildInlineImageFigure(b, imgIndex, imgData, onResize) {
+  var src = resolveSrc(imgData.src);
+  var w = imgData.w || 260;
+  var img = h('img', { src: src, alt: '', class: 'inline-note-img', draggable: 'false' });
+  img.style.width = w + 'px';
+  img.addEventListener('dblclick', function (e) { e.stopPropagation(); e.preventDefault(); });
+  var del = h('button', { class: 'fig-del', title: 'Quitar imagen', onclick: function (e) {
+    e.stopPropagation();
+    removeInlineImage(b, imgIndex);
+    touchNote(b.noteId); logChange('Imagen inline eliminada', ''); save();
+    var el = cardEl(b.id); if (el) renderCanvas();
+  }}, icon('trash'));
+  var handle = h('span', { class: 'fig-resize inline-img-resize', title: 'Arrastra para redimensionar' });
+  handle.addEventListener('mousedown', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    var startX = e.clientX, startW = img.offsetWidth || w;
+    function move(ev) {
+      var scale = getView().zoom || 1;
+      var nw = Math.max(48, Math.round(startW + (ev.clientX - startX) / scale));
+      img.style.width = nw + 'px';
+    }
+    function up() {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+      b.content.inlineImages[imgIndex].w = img.offsetWidth;
+      touchNote(b.noteId); logChange('Imagen inline redimensionada', img.offsetWidth + ' px'); save();
+      if (onResize) onResize();
+    }
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+  var fig = h('figure', { class: 'card-fig inline-note-fig' }, img, del, handle);
+  fig.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  return fig;
+}
+function insertInlineImagesAt(b, seg, segIdx, segs, cursorPos, files, done) {
+  convertHeicFilesIfNeeded(files, function (arr) {
+    arr = arr.filter(function (f) { return /^image\//.test(f.type); });
+    if (!arr.length) { if (done) done(); return; }
+    b.content.inlineImages = b.content.inlineImages || [];
+    var beforeText = seg.text.slice(0, cursorPos);
+    var afterText = seg.text.slice(cursorPos);
+    var newSegs = [{ type: 'text', text: beforeText }];
+    var pending = arr.length;
+    arr.forEach(function (f) {
+      fileToScaledDataURL(f, function (url, cw) {
+        var dw = cw ? Math.min(cw, DEFAULT_IMG_W) : 0;
+        var ref = storeBlob(url);
+        var imgIdx = b.content.inlineImages.length;
+        b.content.inlineImages.push(dw ? { src: ref, w: dw } : { src: ref });
+        newSegs.push({ type: 'image', imgIndex: imgIdx });
+        pending--;
+        if (pending <= 0) {
+          newSegs.push({ type: 'text', text: afterText });
+          segs.splice.apply(segs, [segIdx, 1].concat(newSegs));
+          touchNote(b.noteId); logChange('Imagen insertada en nota', ''); save();
+          if (done) done();
+        }
+      });
+    });
+  });
+}
 function textBody(b) {
   var isIdea = b.type === 'idea';
   b.content = b.content || {};
-  var ta = h('textarea', { class: 'card-ta', placeholder: isIdea ? 'Escribe tu idea\u2026 p. ej. "app de recetas con lo que hay en la nevera". Luego pulsa \u00abRevisar idea\u00bb para validarla con internet + IA' : 'Escribe...' });
-  ta.value = b.content.text || '';
-  attachListAutoContinue(ta, function () { b.content.text = ta.value; autoGrowNote(ta); touchNote(b.noteId); debouncedSave(); });
-  ta.addEventListener('input', function () { b.content.text = ta.value; autoGrowNote(ta); touchNote(b.noteId); debouncedSave(); });
-  ta.addEventListener('change', function () { logChange(isIdea ? 'Idea editada' : 'Nota editada', snippet(ta.value)); save(); });
-  ta.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-  ta.addEventListener('paste', function (e) {
-    var items = e.clipboardData && e.clipboardData.items;
-    if (!items) return;
-    var files = [];
-    for (var i = 0; i < items.length; i++) {
-      if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { var f = items[i].getAsFile(); if (f) files.push(f); }
-    }
-    if (files.length) {
-      e.preventDefault();
-      var el = ta.closest('.card');
-      addImagesToBlock(b, files, function () { if (el) updateCardMedia(el, b); });
+  b.content.inlineImages = b.content.inlineImages || [];
+  var text = b.content.text || '';
+  var segs = splitNoteSegments(text);
+  var elements = [];
+  function rebuildText() {
+    b.content.text = segs.map(function (s) {
+      return s.type === 'text' ? s.text : '\u0001' + s.imgIndex + '\u0001';
+    }).join('');
+  }
+  function syncChange(ta) {
+    rebuildText();
+    autoGrowNote(ta);
+    touchNote(b.noteId);
+    debouncedSave();
+  }
+  segs.forEach(function (seg, idx) {
+    if (seg.type === 'text') {
+      (function (seg, idx) {
+        var ta = h('textarea', { class: 'card-ta', placeholder: isIdea ? 'Escribe tu idea\u2026 p. ej. "app de recetas con lo que hay en la nevera". Luego pulsa \u00abRevisar idea\u00bb para validarla con internet + IA' : 'Escribe...' });
+        ta.value = seg.text;
+        attachListAutoContinue(ta, function () { seg.text = ta.value; syncChange(ta); });
+        ta.addEventListener('input', function () { seg.text = ta.value; syncChange(ta); });
+        ta.addEventListener('change', function () { logChange(isIdea ? 'Idea editada' : 'Nota editada', snippet(ta.value)); save(); });
+        ta.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+        // Paste: inserta imagen inline en la posición del cursor
+        ta.addEventListener('paste', function (e) {
+          var items = e.clipboardData && e.clipboardData.items;
+          if (!items) return;
+          var files = [];
+          for (var i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { var f = items[i].getAsFile(); if (f) files.push(f); }
+          }
+          if (files.length) {
+            e.preventDefault();
+            var cursorPos = ta.selectionStart;
+            insertInlineImagesAt(b, seg, idx, segs, cursorPos, files, function () {
+              var el = cardEl(b.id); if (el) renderCanvas();
+            });
+          }
+        });
+        // Drag-and-drop de archivos de imagen
+        ta.addEventListener('dragover', function (e) {
+          if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) {
+            e.preventDefault();
+            ta.classList.add('drag-over');
+          }
+        });
+        ta.addEventListener('dragleave', function () { ta.classList.remove('drag-over'); });
+        ta.addEventListener('drop', function (e) {
+          var files = [];
+          if (e.dataTransfer) {
+            for (var i = 0; i < e.dataTransfer.files.length; i++) {
+              if (/^image\//.test(e.dataTransfer.files[i].type)) files.push(e.dataTransfer.files[i]);
+            }
+          }
+          if (files.length) {
+            e.preventDefault();
+            ta.classList.remove('drag-over');
+            var cursorPos = ta.selectionStart;
+            insertInlineImagesAt(b, seg, idx, segs, cursorPos, files, function () {
+              var el = cardEl(b.id); if (el) renderCanvas();
+            });
+          }
+        });
+        attachSelFmtBar(ta, b);
+        ta.addEventListener('click', function () { toggleTaskAtCaret(ta, b); });
+        requestAnimationFrame(function () { refreshAutoText(ta); autoGrowNote(ta); });
+        elements.push(ta);
+      })(seg, idx);
+    } else {
+      var imgData = b.content.inlineImages[seg.imgIndex];
+      if (imgData) {
+        elements.push(buildInlineImageFigure(b, seg.imgIndex, imgData));
+      }
     }
   });
-  attachSelFmtBar(ta, b);                                   // barra flotante de formato sobre la selección
-  ta.addEventListener('click', function () { toggleTaskAtCaret(ta, b); }); // clic en "- [ ]" marca la tarea
-  requestAnimationFrame(function () { refreshAutoText(ta); autoGrowNote(ta); }); // contraste + ajuste de alto al contenido
-  var hlinks = h('div', { class: 'card-hlinks' });          // chips de hipervínculo (texto → bloque/nota)
+  var hlinks = h('div', { class: 'card-hlinks' });
   renderHlinksInto(hlinks, b);
-  var out = [ta, hlinks, h('div', { class: 'card-media' })];
-  if (b.content && b.content.analysis && typeof buildNoteAnalysis === 'function') out.push(buildNoteAnalysis(b));
-  return out;
+  elements.push(hlinks);
+  elements.push(h('div', { class: 'card-media' }));
+  if (b.content && b.content.analysis && typeof buildNoteAnalysis === 'function') elements.push(buildNoteAnalysis(b));
+  return elements;
 }
 // Tipos de letra disponibles para el texto libre (usa las fuentes cargadas + las del sistema).
 var FREE_FONTS = [

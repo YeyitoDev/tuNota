@@ -109,6 +109,9 @@ function eachBlobRef(d, fn) {
       var s = typeof it === 'string' ? it : (it && it.src);
       if (isBlobRef(s)) fn(s);
     });
+    if (c.inlineImages) c.inlineImages.forEach(function (it) {
+      if (it && isBlobRef(it.src)) fn(it.src);
+    });
     if (isBlobRef(c.pdf)) fn(c.pdf);
     if (c.result && isBlobRef(c.result.img)) fn(c.result.img);
   }

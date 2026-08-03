@@ -1318,6 +1318,41 @@ body.panning {
   width: 14px;
   height: 14px;
 }
+/* Imágenes inline en notas (siguen el flujo del texto) */
+.inline-note-fig {
+  display: block;
+  margin: 6px 12px;
+  max-width: calc(100% - 24px);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+  background: var(--card);
+  line-height: 0;
+}
+.inline-note-fig .inline-note-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  width: 260px;
+  user-select: none;
+}
+.inline-note-fig .inline-img-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.9) 46%, rgba(255,255,255,0.9) 58%, transparent 59%),
+    rgba(20, 16, 12, 0.45);
+  border-top-left-radius: 8px;
+  z-index: 3;
+}
+.card-ta.drag-over {
+  border: 2px dashed var(--primary);
+  background: rgba(var(--primary-rgb, 99, 102, 241), 0.05);
+}
 .card-fig .fig-dl {
   position: absolute;
   bottom: 5px;

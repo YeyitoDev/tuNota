@@ -1088,7 +1088,7 @@ var AI_BLOCK_ACTIONS = [
 function aiBlockText(b) {
   var c = b.content || {};
   if (c.table && c.table.rows) return c.table.rows.map(function (r) { return r.join(' | '); }).join('\n');
-  return c.text || '';
+  return (c.text || '').replace(/\u0001\d+\u0001/g, '');
 }
 function aiCanActOn(b) {
   if (typeof featureOn === 'function' && !featureOn('ai')) return false;

@@ -222,6 +222,7 @@ function cloneTplContent(content) {
   var c = JSON.parse(JSON.stringify(content || {}));
   var reBlob = function (ref) { return (typeof isBlobRef === 'function' && isBlobRef(ref)) ? storeBlob(resolveSrc(ref)) : ref; };
   if (c.images) c.images = c.images.map(function (it) { return typeof it === 'string' ? reBlob(it) : Object.assign({}, it, { src: reBlob(it.src) }); });
+  if (c.inlineImages) c.inlineImages = c.inlineImages.map(function (it) { return Object.assign({}, it, { src: reBlob(it.src) }); });
   if (c.pdf) c.pdf = reBlob(c.pdf);
   if (c.result && c.result.img) c.result.img = reBlob(c.result.img);
   return c;

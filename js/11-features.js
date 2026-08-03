@@ -458,6 +458,9 @@ function duplicateBlock(b) {
   if (c.images) c.images = c.images.map(function (it) {
     return typeof it === 'string' ? reBlob(it) : Object.assign({}, it, { src: reBlob(it.src) });
   });
+  if (c.inlineImages) c.inlineImages = c.inlineImages.map(function (it) {
+    return Object.assign({}, it, { src: reBlob(it.src) });
+  });
   if (isBlobRef(c.pdf)) c.pdf = reBlob(c.pdf);
   if (c.result && isBlobRef(c.result.img)) c.result.img = reBlob(c.result.img);
   data.blocks.push(copy);
@@ -482,6 +485,7 @@ function duplicateSelected() {
     delete copy.kanban; delete copy.kanbanAt; delete copy.kanbanOrder; delete copy.reminder;
     var c = copy.content || {};
     if (c.images) c.images = c.images.map(function (it) { return typeof it === 'string' ? reBlob(it) : Object.assign({}, it, { src: reBlob(it.src) }); });
+    if (c.inlineImages) c.inlineImages = c.inlineImages.map(function (it) { return Object.assign({}, it, { src: reBlob(it.src) }); });
     if (isBlobRef(c.pdf)) c.pdf = reBlob(c.pdf);
     if (c.result && isBlobRef(c.result.img)) c.result.img = reBlob(c.result.img);
     data.blocks.push(copy); map[id] = copy.id;
@@ -857,6 +861,9 @@ function copySelectedBlocks() {
     var reBlob = function (ref) { return isBlobRef(ref) ? storeBlob(resolveSrc(ref)) : ref; };
     if (c.images) c.images = c.images.map(function (it) {
       return typeof it === 'string' ? reBlob(it) : Object.assign({}, it, { src: reBlob(it.src) });
+    });
+    if (c.inlineImages) c.inlineImages = c.inlineImages.map(function (it) {
+      return Object.assign({}, it, { src: reBlob(it.src) });
     });
     if (isBlobRef(c.pdf)) c.pdf = reBlob(c.pdf);
     if (c.result && isBlobRef(c.result.img)) c.result.img = reBlob(c.result.img);
