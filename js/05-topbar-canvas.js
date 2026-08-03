@@ -45,11 +45,24 @@ function renderNoteTabs() {
   recents.forEach(function (id) {
     var n = getNote(id); if (!n) return;
     var active = id === ui.currentNoteId;
-    var tab = h('button', { class: 'note-tab' + (active ? ' active' : ''), title: n.title || 'Nota', onclick: function () { if (!active) selectNote(id); } },
-      icon('file'), h('span', { class: 'note-tab-title' }, n.title || 'Nota'));
+    var titleSpan = h('span', { class: 'note-tab-title' }, n.title || 'Nota');
+    // Doble clic en el título de la pestaña para renombrar la nota.
+    editable(titleSpan, n.title || 'Nota', function (v) { rename('note', n.id, v); });
+    var tab = h('button', { class: 'note-tab' + (active ? ' active' : ''), 'data-note-id': id, title: n.title || 'Nota', onclick: function () { if (!active) selectNote(id); } },
+      icon('file'), titleSpan);
     tab.appendChild(h('span', { class: 'note-tab-close', title: 'Cerrar pestaña', onclick: function (e) { e.stopPropagation(); closeNoteTab(id); } }, '×'));
     el.appendChild(tab);
   });
+}
+// Actualiza solo la marca de pestaña activa sin reconstruir las pestañas
+// (preserva el dblclick para renombrar).
+function updateNoteTabsActive(noteId) {
+  var el = document.getElementById('noteTabs');
+  if (!el) return;
+  var tabs = el.querySelectorAll('.note-tab');
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].classList.toggle('active', tabs[i].getAttribute('data-note-id') === noteId);
+  }
 }
 
 // ---------- Render: Topbar ----------

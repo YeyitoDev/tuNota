@@ -531,6 +531,25 @@ function openCardMenu(b, anchor) {
     gRow.appendChild(h('button', { class: 'cm-chip', title: 'Meter este bloque en el grupo', onclick: function () { addBlockToGroup(g, b.id); closeCardMenu(); } }, '→ ' + g.name));
   });
   pop.appendChild(gRow);
+  if (b.type === 'text' || b.type === 'idea') {
+    pop.appendChild(h('div', { class: 'cm-sep' }));
+    pop.appendChild(h('div', { class: 'cm-label' }, icon('image'), 'Imagen'));
+    pop.appendChild(h('button', { class: 'cm-item', onclick: function () {
+      closeCardMenu();
+      var inp = h('input', { type: 'file', accept: 'image/*', multiple: '', style: { display: 'none' } });
+      inp.addEventListener('change', function () {
+        if (inp.files && inp.files.length) {
+          addImagesToBlock(b, inp.files, function () {
+            var el = cardEl(b.id); if (el) { updateCardMedia(el, b); drawLinks(); }
+          });
+        }
+        inp.value = '';
+      });
+      document.body.appendChild(inp);
+      inp.click();
+      setTimeout(function () { inp.remove(); }, 60000);
+    }}, icon('image'), h('span', {}, 'Añadir imagen al pie')));
+  }
   if (b.type === 'text') {
     pop.appendChild(h('div', { class: 'cm-sep' }));
     pop.appendChild(h('div', { class: 'cm-label' }, icon('leaf'), 'Clasificaci\u00f3n'));

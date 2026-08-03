@@ -293,7 +293,10 @@ function rename(kind, id, val) {
   logChange('Renombrado', '\u2192 "' + val + '"');
   save();
   renderSidebar();
-  if (kind === 'note') renderTopbar();
+  if (kind === 'note') {
+    renderTopbar();
+    if (typeof renderNoteTabs === 'function') renderNoteTabs(); // Actualiza el título en las pestañas
+  }
 }
 
 function removeNoteData(id) {
@@ -337,16 +340,44 @@ function deleteNote(id) {
 function selectNote(id) {
   var n = getNote(id);
   if (n) {
+    var prevId = ui.currentNoteId;
     ui.currentNoteId = id;
     var s = getSection(n.sectionId);
+    // Si la sección/libro padre ya están expandidos, la estructura del árbol no cambia:
+    // no hace falta reconstruir el sidebar (lo que destruiría el span y rompería el
+    // doble clic para renombrar). Solo se actualiza la clase .active de las filas.
+    var needSidebarRebuild = false;
     if (s) {
-      ui.expS[s.id] = true;
-      ui.expN[s.notebookId] = true;
+      if (!ui.expS[s.id]) { ui.expS[s.id] = true; needSidebarRebuild = true; }
+      if (!ui.expN[s.notebookId]) { ui.expN[s.notebookId] = true; needSidebarRebuild = true; }
     }
+    // Si la nota ya está en las pestañas recientes, el conjunto de pestañas no cambia:
+    // tampoco reconstruimos las pestañas (mismo motivo: preserva el dblclick para renombrar).
+    var recentsBefore = (ui.recentNotes || []).slice();
     if (typeof pushRecentNote === 'function') pushRecentNote(id); // barra de pestañas (lienzos recientes)
+    var tabsChanged = !arrEq(recentsBefore, ui.recentNotes || []);
+    save();
+    if (needSidebarRebuild || tabsChanged) {
+      renderAll();
+    } else {
+      // Actualiza solo la marca de fila activa, sin reconstruir el árbol ni las pestañas.
+      updateSidebarActive(id);
+      if (typeof updateNoteTabsActive === 'function') updateNoteTabsActive(id);
+      renderTopbar();
+      renderCanvas();
+      applySidebar();
+    }
+  } else {
+    save();
+    renderAll();
   }
-  save();
-  renderAll();
+}
+
+// Comparación de arrays por contenido (para saber si el conjunto de pestañas cambió).
+function arrEq(a, b) {
+  if (a.length !== b.length) return false;
+  for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 function touchNote(id) {

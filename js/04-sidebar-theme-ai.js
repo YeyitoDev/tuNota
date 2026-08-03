@@ -23,6 +23,19 @@ function renderSidebar() {
   aside.appendChild(tree);
   aside.appendChild(addBtn);
 }
+// Actualiza solo la marca de fila activa en el árbol sin reconstruirlo.
+// Así el doble clic para renombrar una hoja no se rompe (selectNote ya no llama a
+// renderSidebar cuando la estructura no cambia).
+function updateSidebarActive(noteId) {
+  var aside = document.getElementById('sidebar');
+  if (!aside) return;
+  var rows = aside.querySelectorAll('.note-row');
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    var isActive = row.getAttribute('data-note-id') === noteId;
+    row.classList.toggle('active', isActive);
+  }
+}
 // Navega a un grupo desde el árbol: abre su nota si hace falta y centra el lienzo en él.
 function goToGroup(noteId, g) {
   if (ui.currentNoteId !== noteId) { selectNote(noteId); requestAnimationFrame(function () { centerOnGroup(g); }); }
@@ -275,7 +288,7 @@ function noteRow(n) {
   moveBtn.addEventListener('click', function (e) { e.stopPropagation(); openMovePicker(n, moveBtn); });
   var row = h(
     'div',
-    { class: 'row note-row' + (active ? ' active' : ''), onclick: function () { selectNote(n.id); } },
+    { class: 'row note-row' + (active ? ' active' : ''), 'data-note-id': n.id, onclick: function () { selectNote(n.id); } },
     icon('file'),
     name,
     moveBtn,
