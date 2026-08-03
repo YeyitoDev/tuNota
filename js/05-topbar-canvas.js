@@ -896,6 +896,11 @@ function insertInlineImagesAt(b, seg, segIdx, segs, cursorPos, files, done) {
         if (pending <= 0) {
           newSegs.push({ type: 'text', text: afterText });
           segs.splice.apply(segs, [segIdx, 1].concat(newSegs));
+          // Reconstruye b.content.text desde los segmentos modificados ANTES de re-renderizar,
+          // para que textBody() encuentre el marcador al volver a leer b.content.text.
+          b.content.text = segs.map(function (s) {
+            return s.type === 'text' ? s.text : '\u0001' + s.imgIndex + '\u0001';
+          }).join('');
           touchNote(b.noteId); logChange('Imagen insertada en nota', ''); save();
           if (done) done();
         }
