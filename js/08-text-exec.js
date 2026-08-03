@@ -413,7 +413,7 @@ function monoBody(b) {
     } }, 'Copiar');
     copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
     out.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-    out.addEventListener('wheel', function (e) { e.stopPropagation(); });
+    out.addEventListener('wheel', function (e) { if (!(e.ctrlKey || e.metaKey)) e.stopPropagation(); }); // Ctrl/Cmd+rueda = zoom del lienzo
     var resize = h('div', { class: 'curl-resize', title: 'Arrastra para ajustar el alto de la salida' });
     var outH = (b.content.ui && b.content.ui.outH) || 150;
     out.style.height = outH + 'px';
@@ -437,7 +437,7 @@ function monoBody(b) {
     } }, 'Copiar');
     copyBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
     out.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-    out.addEventListener('wheel', function (e) { e.stopPropagation(); });
+    out.addEventListener('wheel', function (e) { if (!(e.ctrlKey || e.metaKey)) e.stopPropagation(); }); // Ctrl/Cmd+rueda = zoom del lienzo
     var resize = h('div', { class: 'curl-resize', title: 'Arrastra para ajustar el alto de la respuesta' });
     var outH = (b.content.ui && b.content.ui.outH) || 130;
     out.style.height = outH + 'px';

@@ -106,15 +106,50 @@ Bloques de **diagrama Mermaid** que se renderizan en vivo (diagramas de flujo, s
 etc.). Incluyen herramienta de tipo de diagrama, formas rápidas, generación con IA, edición
 del código y exportación a PNG.
 
+**Vista dividida** (botón ▯ de la cabecera, o «Ver código y diagrama en paralelo» en la
+herramienta de diagramas): pone el código a la izquierda y el dibujo a la derecha, los dos a
+la vez y en vivo — al escribir, el diagrama se repinta. La tarjeta se ensancha sola la
+primera vez y el modo se recuerda en el bloque. La ventana emergente («Abrir en ventana»)
+tiene el mismo botón, **Paralelo**.
+
 ### Puente Mermaid ↔ lienzo
 
 ![Explotar Mermaid a formas del lienzo](screenshots/23-mermaid-a-lienzo.png)
 
-Un flowchart Mermaid (arriba) **explotado** a formas y conectores nativos (abajo): cada nodo
-es una forma editable —rectángulo, rombo de decisión, píldora, paralelogramo— y las flechas
-**siguen a las cajas** cuando las arrastras (lo que el modo interactivo del SVG no hacía
-bien). El botón **A diagrama** de la barra de selección hace el camino inverso: convierte las
-formas y sus conexiones de vuelta en un diagrama Mermaid.
+Un diagrama Mermaid **explotado** a formas y conectores nativos: cada nodo es una forma
+editable y las flechas **siguen a las cajas** cuando las arrastras (lo que el modo
+interactivo del SVG no hacía bien). El botón **A diagrama** de la barra de selección hace el
+camino inverso: convierte las formas y sus conexiones de vuelta en un diagrama Mermaid.
+
+Funciona con **cualquier tipo de diagrama**, no solo con flowcharts:
+
+| Tipo | Cómo se convierte |
+| --- | --- |
+| `flowchart` / `graph` | Nodo → forma según sus corchetes; aristas → conectores con etiqueta |
+| `sequenceDiagram` | Participantes en columnas (actor, cilindro o nube según el nombre) y cada mensaje como una caja en la columna de quien lo recibe, encadenada con flechas; `autonumber` numera, `loop`/`alt`/`opt` salen como hexágonos al margen y `Note` como nota |
+| `stateDiagram-v2` | Estados → formas; `[*]` → píldoras «Inicio» y «Fin» |
+| `classDiagram` | Clase → caja con sus miembros; relaciones → conectores |
+| `erDiagram` | Entidad → cilindro con sus atributos; relación → conector etiquetado |
+| `mindmap` | Árbol por sangría: raíz en elipse y ramas colgando |
+| `journey`, `gantt`, `timeline` | Secciones en hexágonos y pasos encadenados (con puntuación, fechas o duración) |
+| `pie` | Elipse central con el título y una caja por porción con su porcentaje |
+| Cualquier otro | Lector genérico: busca `A --> B` y, si no hay flechas, encadena las líneas |
+
+El lector genérico es la red de seguridad: explotar a formas nunca se queda sin hacer nada.
+
+### Catálogo de formas
+
+18 formas en tres familias, con selector agrupado tanto al insertar (paleta del topbar) como
+al cambiar el tipo de una forma existente:
+
+- **Básicas**: rectángulo, redondeado, elipse, píldora.
+- **Flujo**: rombo (decisión), datos (paralelogramo), hexágono (preparación), subproceso,
+  operación manual, entrada manual, espera/retardo, etiqueta (flecha).
+- **Sistemas**: base de datos (cilindro), nube / servicio externo, documento, nota, actor /
+  persona, triángulo.
+
+Las cuatro últimas se dibujan con SVG interno para que el contorno salga limpio a cualquier
+tamaño; el resto con `clip-path`. Todas heredan el color de categoría de la tarjeta.
 
 ---
 
@@ -154,12 +189,39 @@ muestra todos los bloques y un recuadro con la zona que estás viendo (clic para
 En el control de zoom tienes **Centrar** (diana: vuelve al 100% centrado en el contenido),
 **Ajustar todo** y el interruptor del minimapa. Atajos: `Ctrl+0` centra, `Ctrl+1` ajusta.
 
-### Búsqueda global
+### Búsqueda global con filtros
 
 ![Búsqueda global](screenshots/13-busqueda-global.png)
 
-Con **Ctrl+K** abres la búsqueda que recorre todas las notas y bloques y te lleva al
-resultado. En la captura, «refuerzo» encuentra los bloques que lo mencionan.
+Con **Ctrl+K** abres la búsqueda, que recorre **notas, tarjetas, libros, secciones,
+subgrupos, conexiones y las tareas del plan del día** y te lleva al resultado (si es una
+tarjeta, centra el lienzo en ella y la resalta). En la captura, «refuerzo» encuentra los
+bloques que lo mencionan.
+
+El botón **Filtros** despliega todo lo que puedes acotar:
+
+| Filtro | Qué hace |
+| --- | --- |
+| Qué buscar | Notas, tarjetas, libros, secciones, subgrupos, conexiones o tareas |
+| Tipo de tarjeta | Texto, código, Python, tabla, imagen, Markdown, Mermaid, PDF, dibujo… |
+| Dónde | Libro › sección › nota › subgrupo (y «Solo esta nota») |
+| Fecha | Creado o modificado: hoy, ayer, 7/30/90 días, este año o entre dos fechas |
+| Color | Las categorías de color de tarjeta (Pregunta, Respuesta, Pendiente…) |
+| Tono | Relevante · Idea · Importante · Crucial |
+| Kanban | Por hacer · En progreso · Hecho |
+| Estado | Con recordatorio, vencido, importante, en el kanban, pendiente, completado, con imagen, con conexiones, en un subgrupo, con color, con título propio, vacías |
+| Coincidencia | Contiene · palabra exacta · expresión regular, distinguir mayúsculas y orden |
+
+Los mismos filtros se pueden **teclear en la caja** como operadores:
+`tipo:python`, `libro:"Ideas"`, `seccion:`, `nota:`, `grupo:`, `color:pregunta`,
+`tono:crucial`, `kanban:done`, `desde:hoy`, `hasta:2026-08-31`, `tiene:recordatorio`,
+`en:notas` y `-palabra` para excluir. Bajo la caja, el recuento por tipo funciona también
+como filtro rápido, y los filtros y las últimas búsquedas se conservan entre sesiones.
+
+Notas sobre las fechas: los libros y las secciones no guardan fecha propia, así que se
+deduce de sus notas (la más reciente al filtrar por «modificado», la más antigua por
+«creado»). Acotar a un libro, sección o subgrupo deja fuera las tareas del plan del día,
+porque no viven dentro de ningún libro.
 
 ---
 

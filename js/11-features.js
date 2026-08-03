@@ -632,8 +632,30 @@ function kanbanItems(status) {
   return (data.blocks || []).filter(function (b) {
     if (b.kanban !== status) return false;
     if (ui.kanbanBook && notebookIdOfBlock(b) !== ui.kanbanBook) return false;
+    if (ui.kanbanBlockedOnly && !b.blocked) return false;
     return true;
   }).sort(function (a, b) { return kanbanOrderOf(a) - kanbanOrderOf(b); });
+}
+function toggleBlocked(b) {
+  b.blocked = !b.blocked;
+  touchNote(b.noteId);
+  logChange(b.blocked ? 'Bloqueado' : 'Desbloqueado', reminderText(b));
+  save();
+  renderCanvas();
+  renderKanbanBody();
+}
+function ensureKanbanDefaultSection() {
+  if (ui.kanbanDefaultSec && getSection(ui.kanbanDefaultSec)) return ui.kanbanDefaultSec;
+  var nb = data.notebooks[0];
+  if (!nb) { nb = { id: uid(), name: 'Mi primer libro', emoji: '\uD83C\uDF3F', order: 0, createdAt: now() }; data.notebooks.push(nb); }
+  var sec = null;
+  sectionsOf(nb.id).forEach(function (s) { if (!sec) sec = s; });
+  if (!sec) { sec = { id: uid(), notebookId: nb.id, name: 'Kanban', order: sectionsOf(nb.id).length }; data.sections.push(sec); }
+  ui.kanbanDefaultSec = sec.id;
+  ui.expN[nb.id] = true; ui.expS[sec.id] = true;
+  save();
+  renderSidebar();
+  return sec.id;
 }
 function addToKanban(b) {
   var t = now();
@@ -692,9 +714,17 @@ function openKanban() {
     writeLS(LS_UI, JSON.stringify(ui));
     renderKanbanBody();
   });
+  var blockedBtn = h('button', { class: 'icon-btn kanban-blocked-btn' + (ui.kanbanBlockedOnly ? ' on' : ''), title: 'Mostrar solo bloqueadas' }, icon('bellRing'));
+  blockedBtn.addEventListener('click', function () {
+    ui.kanbanBlockedOnly = !ui.kanbanBlockedOnly;
+    writeLS(LS_UI, JSON.stringify(ui));
+    blockedBtn.classList.toggle('on', ui.kanbanBlockedOnly);
+    renderKanbanBody();
+  });
   panel.appendChild(h('div', { class: 'kanban-head' },
     h('div', { class: 'kanban-title' }, icon('board'), 'Kanban de ideas'),
     h('div', { class: 'kanban-head-right' },
+      blockedBtn,
       h('span', { class: 'kanban-filter-wrap' }, icon('book'), sel),
       h('button', { class: 'icon-btn', title: 'Cerrar', onclick: closeKanban }, icon('x')))
   ));
@@ -715,17 +745,22 @@ function renderKanbanBody() {
     col.appendChild(h('div', { class: 'kanban-col-head' },
       h('span', { class: 'kc-dot' }), h('span', { class: 'kc-name' }, k[1]), h('span', { class: 'kc-count' }, String(items.length))));
     if (status === 'todo') {
-      var inp = h('input', { class: 'kanban-add-inp', placeholder: ui.currentNoteId ? 'Nueva idea\u2026' : 'Abre una nota para a\u00f1adir', disabled: ui.currentNoteId ? null : '' });
+      var inp = h('input', { class: 'kanban-add-inp', placeholder: 'Nueva idea\u2026' });
       var addIt = function () {
         var v = inp.value.trim();
-        if (!v || !ui.currentNoteId) return;
-        var nb = addBlock(ui.currentNoteId, 'text', 36 + Math.round(Math.random() * 140), 36 + Math.round(Math.random() * 120));
-        nb.content = nb.content || {}; nb.content.text = v; nb.content.rank = 'idea';
-        addToKanban(nb);
+        if (!v) return;
+        var secId = ensureKanbanDefaultSection();
+        var t = now();
+        var note = { id: uid(), sectionId: secId, title: v.length > 40 ? v.slice(0, 40) + '\u2026' : v, createdAt: t, updatedAt: t };
+        data.notes.push(note);
+        var blk = addBlock(note.id, 'text', 36 + Math.round(Math.random() * 140), 36 + Math.round(Math.random() * 120));
+        blk.content = blk.content || {}; blk.content.text = v; blk.content.rank = 'idea';
+        addToKanban(blk);
+        logChange('Nota creada desde Kanban', note.title);
         inp.value = '';
       };
       inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addIt(); } });
-      var add = h('div', { class: 'kanban-add' }, inp, h('button', { class: 'kanban-add-btn', title: 'A\u00f1adir', onclick: addIt, disabled: ui.currentNoteId ? null : '' }, icon('plus')));
+      var add = h('div', { class: 'kanban-add' }, inp, h('button', { class: 'kanban-add-btn', title: 'A\u00f1adir', onclick: addIt }, icon('plus')));
       col.appendChild(add);
     }
     var body = h('div', { class: 'kanban-col-body' });
@@ -758,18 +793,45 @@ function kanbanCard(b, status) {
   // Muestra de qué libro viene la tarea: "📓 Libro · Sección"
   var bookLine = nb ? ((nb.emoji ? nb.emoji + ' ' : '📓 ') + nb.name + (sec ? ' · ' + sec.name : '')) : (sec ? sec.name : '');
   var task = (b.content && b.content.text) ? snippet(b.content.text) : typeMeta(b.type).label;
-  var card = h('div', { class: 'kanban-card' + (b.important ? ' important' : ''), 'data-id': b.id, draggable: 'true' });
+  var card = h('div', { class: 'kanban-card' + (b.important ? ' important' : '') + (b.blocked ? ' blocked' : ''), 'data-id': b.id, draggable: 'true' });
   card.addEventListener('dragstart', function (e) { dragKanId = b.id; card.classList.add('dragging'); try { e.dataTransfer.setData('text/plain', b.id); e.dataTransfer.effectAllowed = 'move'; } catch (er) {} });
   card.addEventListener('dragend', function () { card.classList.remove('dragging'); dragKanId = null; });
   var top = h('div', { class: 'kc-top' }, icon(typeMeta(b.type).icon), h('span', { class: 'kc-loc', title: loc }, loc));
   if (b.important) top.appendChild(h('span', { class: 'kc-star', title: 'Importante' }, icon('star')));
+  if (b.blocked) top.appendChild(h('span', { class: 'kc-blocked-badge', title: 'Bloqueado' }, icon('bellRing')));
   card.appendChild(top);
-  card.appendChild(h('div', { class: 'kc-task' }, task));
+  // Texto editable: doble clic para editar el contenido de la tarjeta
+  var taskEl = h('div', { class: 'kc-task', title: 'Doble clic para editar' }, task);
+  taskEl.addEventListener('dblclick', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    var currentText = (b.content && b.content.text) ? b.content.text : '';
+    var inp = h('textarea', { class: 'kanban-edit-inp', value: currentText });
+    inp.addEventListener('mousedown', function (ev) { ev.stopPropagation(); });
+    inp.addEventListener('click', function (ev) { ev.stopPropagation(); });
+    inp.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); inp.blur(); }
+      if (ev.key === 'Escape') { inp.value = currentText; inp.blur(); }
+    });
+    var commit = function () {
+      var v = inp.value.trim();
+      if (v && v !== currentText) {
+        b.content = b.content || {}; b.content.text = v;
+        touchNote(b.noteId); logChange('Tarjeta Kanban editada', v); save();
+        if (note) note.title = v.length > 40 ? v.slice(0, 40) + '\u2026' : v;
+      }
+      renderKanbanBody();
+    };
+    inp.addEventListener('blur', commit);
+    taskEl.replaceWith(inp);
+    inp.focus(); inp.select();
+  });
+  card.appendChild(taskEl);
   if (bookLine) card.appendChild(h('div', { class: 'kc-sub' }, bookLine));
   if (b.reminder && !b.reminder.done) card.appendChild(h('div', { class: 'kc-rem' }, icon('clock'), fmtShort(b.reminder.at)));
   var idx = KAN.map(function (k) { return k[0]; }).indexOf(status);
   var actions = h('div', { class: 'kc-actions' },
     h('button', { class: 'kc-btn', title: 'Mover a la izquierda', disabled: idx <= 0 ? '' : null, onclick: function () { if (idx > 0) setKanban(b, KAN[idx - 1][0]); } }, icon('chevronL')),
+    h('button', { class: 'kc-btn' + (b.blocked ? ' on' : ''), title: b.blocked ? 'Quitar bloqueo' : 'Marcar como bloqueado', onclick: function () { toggleBlocked(b); } }, icon('bellRing')),
     h('button', { class: 'kc-btn', title: 'Ver nota', onclick: function () { selectNote(b.noteId); closeKanban(); } }, icon('popout')),
     h('button', { class: 'kc-btn', title: 'Quitar del Kanban', onclick: function () { removeFromKanban(b); } }, icon('x')),
     h('button', { class: 'kc-btn', title: 'Mover a la derecha', disabled: idx >= KAN.length - 1 ? '' : null, onclick: function () { if (idx < KAN.length - 1) setKanban(b, KAN[idx + 1][0]); } }, icon('chevron'))

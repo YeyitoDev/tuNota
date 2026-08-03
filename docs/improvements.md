@@ -5,6 +5,22 @@ por prioridad aproximada dentro de cada bloque. Última revisión: 2026-07-08.
 
 ## Hecho recientemente
 
+- [X] **2026-07-27** — **Vista dividida** en los bloques Mermaid: código y diagrama en
+  paralelo (botón ▯ de la cabecera y en la herramienta de diagramas), con repintado en vivo
+  al escribir; se recuerda por bloque (`content.split`) y también está en la ventana
+  emergente («Paralelo», `note.js`).
+- [X] **2026-07-27** — **Explotar a formas: regla general para cualquier diagrama**. Antes
+  solo funcionaba con `flowchart`/`graph`; ahora `mmdGraph()` (js/06) reparte el código
+  entre lectores por familia —secuencia, estados, clases, ER, mapa mental, journey, gantt,
+  timeline, tarta— más un **lector genérico** de respaldo (busca `A --> B` y si no hay
+  flechas encadena las líneas), así que la acción nunca se queda sin hacer nada.
+- [X] **2026-07-27** — **12 formas nuevas** (18 en total, agrupadas en Básicas / Flujo /
+  Sistemas): hexágono, subproceso, operación manual, entrada manual, espera, etiqueta,
+  base de datos, nube, documento, nota, actor y triángulo. Las complejas se dibujan con
+  SVG (`SHAPE_SVG`/`shapeGlyph` en js/05) y el color de categoría viaja por variables CSS
+  (`--sh-stroke`/`--sh-fill`). Los corchetes de Mermaid mapean a las formas correctas
+  (`{{}}`→hexágono, `[[]]`→subproceso, `[()]`→cilindro, `[/\]`→trapecio, `>]`→etiqueta) en
+  ambos sentidos.
 - [X] **2026-07-08** — Doble clic, marquee y menú radial funcionan en los **márgenes** del
   lienzo (manejadores movidos a `#canvas`, no solo a `.canvas-content`).
 - [X] **2026-07-08** — Menú radial **sin solapes**: radio dinámico según nº de opciones +

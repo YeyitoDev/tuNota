@@ -1,7 +1,7 @@
 # tuNota — Posts para LinkedIn
 
 Tres borradores listos para publicar, más sugerencias de imágenes y consejos de
-publicación. App: https://tunota.fly.dev
+publicación. App: https://entunota.app
 
 ---
 
@@ -47,7 +47,7 @@ alineación con snap
 
 Es gratis, financiada por donaciones. Pruébala y cuéntame qué te parece 👇
 
-👉 https://tunota.fly.dev
+👉 https://entunota.app
 
 #lanzamiento #productividad #notas #buildinpublic
 
@@ -73,7 +73,7 @@ Algunas decisiones técnicas:
 - Persistencia local: localStorage + IndexedDB para blobs. Backend opcional en Python puro
   (solo stdlib).
 
-Está en https://tunota.fly.dev, gratis. Si eres dev y la destripas, tu feedback me
+Está en https://entunota.app, gratis. Si eres dev y la destripas, tu feedback me
 interesa muchísimo.
 
 #javascript #vanillajs #webdev #pwa #buildinpublic

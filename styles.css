@@ -51,6 +51,12 @@ body {
   height: 100dvh; /* PWA/standalone: la altura dinámica cuenta bien el área visible (evita que los
                      controles de abajo —zoom, minimapa, "¿dónde estoy?"— queden fuera de pantalla) */
   overflow: hidden;
+  /* `clip` en vez de `hidden`: con `hidden` la caja SIGUE siendo desplazable por el navegador
+     (revelar el foco, scrollIntoView, IME…) aunque no haya barra de desplazamiento. Eso sacaba
+     la sidebar y la fila de título fuera de la vista SIN forma de volver. `clip` no crea
+     contenedor de scroll, así que ya no puede pasar. Ver también la red de seguridad en
+     `guardChromeScroll()` (js/09) para navegadores sin soporte. */
+  overflow: clip;
 }
 
 /* ---------- Sidebar ---------- */
@@ -301,16 +307,27 @@ body {
                     controles de abajo (zoom/centrar/minimapa) hacia arriba con las notas */
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  overflow: clip; /* igual que #app: nada puede desplazar la fila de título fuera de la vista */
 }
 #topbar {
   display: flex;
   align-items: center;
   gap: 14px;
+  /* En ventanas estrechas los botones ya no caben. Que se desplace la PROPIA barra, no #app:
+     antes el navegador desplazaba #app para alcanzarlos y se llevaba la sidebar fuera de la
+     vista sin retorno. La barra de desplazamiento se oculta; se usa con el trackpad o
+     Mayús+rueda, y el menú "⋯" da acceso a todo igualmente. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--topbar, rgba(253, 250, 243, 0.75));
   backdrop-filter: blur(6px);
 }
+#topbar::-webkit-scrollbar { display: none; }
 .tb-left {
   flex: 1;
   min-width: 0;
@@ -347,6 +364,11 @@ body {
   font-size: 12px;
   padding: 6px 12px;
   border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+  max-width: 300px;
 }
 .hint .icon {
   width: 14px;
@@ -383,6 +405,16 @@ body {
     display: none;
   }
 }
+@media (max-width: 1100px) {
+  .hint {
+    max-width: 180px;
+  }
+}
+@media (max-width: 950px) {
+  .hint {
+    max-width: 120px;
+  }
+}
 
 /* ---------- Canvas ---------- */
 #canvas {
@@ -390,6 +422,10 @@ body {
   min-height: 0;
   position: relative;
   overflow: hidden;
+  /* `.canvas-content` mide 4000×3000, así que con `hidden` este contenedor era desplazable:
+     cualquier focus() sobre un bloque lejano lo movía miles de px sin barra ni forma de volver
+     (ni "Centrar" ni "Ajustar todo" lo recuperaban, porque solo tocan el transform). */
+  overflow: clip;
   background-color: var(--bg);
   background-image: radial-gradient(rgba(120, 108, 92, 0.18) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -1941,6 +1977,12 @@ body.panning {
   text-align: left;
   align-self: stretch;
 }
+.mmd-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .card.mmd .mmd-src {
   display: none;
 }
@@ -1952,8 +1994,37 @@ body.panning {
   flex: 1;
   min-height: 0;
 }
+/* ---- Vista dividida: código | diagrama ---- */
+.card.mmd.mmd-split .mmd-wrap {
+  flex-direction: row;
+  gap: 0;
+}
+.card.mmd.mmd-split .mmd-src {
+  display: block;
+  order: -1;              /* el código va a la izquierda y el dibujo a la derecha */
+  flex: 0 0 42%;
+  width: 42%;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  /* En media tarjeta las líneas largas no caben: aquí sí se parten. */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.card.mmd.mmd-split .mmd-render {
+  display: flex;
+  flex: 1 1 58%;
+  min-width: 0;
+}
+.card.mmd.mmd-split .card-mmd-split {
+  opacity: 1;
+  background: var(--primary);
+  color: #fff;
+}
 .card-mmd-edit,
 .card-mmd-dl,
+.card-mmd-split,
 .card-mmd-move {
   display: inline-flex;
   border: none;
@@ -1967,17 +2038,20 @@ body.panning {
 }
 .card:hover .card-mmd-edit,
 .card:hover .card-mmd-dl,
+.card:hover .card-mmd-split,
 .card:hover .card-mmd-move {
   opacity: 1;
 }
 .card-mmd-edit:hover,
 .card-mmd-dl:hover,
+.card-mmd-split:hover,
 .card-mmd-move:hover {
   background: var(--secondary);
   color: var(--fg);
 }
 .card-mmd-edit .icon,
 .card-mmd-dl .icon,
+.card-mmd-split .icon,
 .card-mmd-move .icon {
   width: 14px;
   height: 14px;
@@ -2132,6 +2206,28 @@ body.panning {
   border: 1px solid var(--border);
   border-radius: 12px;
 }
+/* Ventana emergente: código y diagrama en paralelo */
+.nw-mmd-body { overflow: hidden; }
+.nw-mmd-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.nw-mmd-wrap.nw-split { flex-direction: row; }
+.nw-mmd-wrap.nw-split .nw-ta {
+  order: -1;
+  flex: 0 0 42%;
+  width: 42%;
+  min-width: 0;
+  min-height: 0;
+  resize: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.nw-mmd-wrap.nw-split .nw-mmd { flex: 1 1 58%; min-width: 0; }
+.nw-btn.on { border-color: var(--primary); background: var(--secondary); color: var(--fg); }
 
 /* ---------- Tarjeta PDF ---------- */
 .pdf-wrap {
@@ -3751,6 +3847,43 @@ body.curl-resizing {
 .kanban-card.important {
   box-shadow: inset 3px 0 0 var(--ocre), var(--shadow);
 }
+.kanban-card.blocked {
+  box-shadow: inset 3px 0 0 #e0464a, var(--shadow);
+  border-color: rgba(224, 70, 74, 0.3);
+}
+.kc-blocked-badge {
+  flex: none;
+  margin-left: auto;
+}
+.kc-blocked-badge .icon {
+  width: 13px;
+  height: 13px;
+  color: #e0464a;
+}
+.kanban-edit-inp {
+  width: 100%;
+  min-height: 60px;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.35;
+  padding: 6px 8px;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--fg);
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+.kanban-blocked-btn.on {
+  background: rgba(224, 70, 74, 0.15);
+  color: #e0464a;
+}
+.kc-btn.on {
+  color: #e0464a;
+  border-color: rgba(224, 70, 74, 0.4);
+  background: rgba(224, 70, 74, 0.08);
+}
 .kc-top {
   display: flex;
   align-items: center;
@@ -5065,8 +5198,8 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
   padding-top: 11vh;
 }
 .search-panel {
-  width: min(92vw, 620px);
-  max-height: 64vh;
+  width: min(94vw, 780px);
+  max-height: 78vh;
   display: flex;
   flex-direction: column;
   background: var(--card);
@@ -5160,6 +5293,256 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
 @keyframes searchHit {
   0%, 55% { box-shadow: 0 0 0 3px var(--primary), var(--shadow-lg); }
   100% { box-shadow: none; }
+}
+
+/* ---------- Buscador: filtros, recuentos y resultados enriquecidos ---------- */
+.search-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 6px 11px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.search-tool-btn .icon {
+  width: 14px;
+  height: 14px;
+}
+.search-tool-btn:hover {
+  border-color: var(--primary);
+  color: var(--fg);
+}
+.search-tool-btn.on {
+  background: var(--secondary);
+  color: var(--fg);
+}
+.search-tool-btn.has {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.search-tool-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  background: var(--primary);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #fff;
+}
+.search-filters {
+  display: none;
+  flex-direction: column;
+  gap: 9px;
+  max-height: 34vh;
+  overflow-y: auto;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--secondary) 42%, transparent);
+}
+.search-filters.open {
+  display: flex;
+}
+.search-fgroup {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  align-items: start;
+  gap: 10px;
+}
+.search-flabel {
+  padding-top: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.search-flabel-in {
+  align-self: center;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.search-fchips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.search-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 4px 9px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.search-chip .icon {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--muted);
+}
+.search-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-chip:hover {
+  border-color: var(--primary);
+}
+.search-chip.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.search-chip.on .icon {
+  color: #fff;
+}
+/* Chip de color: lleva delante una muestra del color de la tarjeta */
+.search-chip-c::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: var(--muted2);
+}
+.search-chip-c.card-c-q::before { background: #b6473f; }
+.search-chip-c.card-c-a::before { background: #35855e; }
+.search-chip-c.card-c-p::before { background: #a9781f; }
+.search-chip-c.card-c-i::before { background: #366bb5; }
+.search-chip-c.card-c-n::before { background: #7a4fb8; }
+.search-chip-c.card-c-g::before { background: #2b7d72; }
+.search-chip-c.card-c-v::before { background: #b5497e; }
+.search-clear {
+  margin-left: auto;
+  color: var(--danger);
+}
+.search-clear .icon {
+  color: var(--danger);
+}
+.search-select,
+.search-date {
+  max-width: 190px;
+  padding: 4px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  cursor: pointer;
+}
+.search-select:focus,
+.search-date:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.search-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 15px;
+  border-bottom: 1px solid var(--border);
+}
+.search-summary:empty {
+  display: none;
+}
+.search-count {
+  margin-right: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.search-warn {
+  font-size: 11.5px;
+  color: var(--danger);
+}
+.search-recent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 11px 4px;
+}
+.search-recent .search-flabel {
+  width: 100%;
+  padding-top: 0;
+}
+.search-hint {
+  margin-top: 7px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--muted2);
+}
+.search-hint code {
+  padding: 1px 5px;
+  background: var(--secondary);
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+/* Fila de resultado: la ruta lleva delante la etiqueta del tipo */
+.search-kind {
+  margin-right: 6px;
+  padding: 1px 6px;
+  background: var(--secondary);
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.search-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+.search-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.search-mark {
+  padding: 0 1px;
+  background: color-mix(in srgb, var(--ocre) 45%, transparent);
+  border-radius: 3px;
+  color: inherit;
+}
+@media (max-width: 620px) {
+  .search-fgroup {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .search-select,
+  .search-date {
+    max-width: 100%;
+  }
 }
 
 /* ---------- Panel de atajos ---------- */
@@ -5492,14 +5875,15 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
   overflow: visible;   /* deja ver las manijas de conexión rápida */
   resize: none;        /* se redimensiona con su propia manija */
 }
-/* Formas coloreadas por categoría (para nodos de inicio/fin/decisión). */
-.card.card-c-q .shape-box { border-color: #c0563c; background: color-mix(in srgb, #c0563c 12%, var(--card)); }
-.card.card-c-a .shape-box { border-color: #3f9e6f; background: color-mix(in srgb, #3f9e6f 12%, var(--card)); }
-.card.card-c-p .shape-box { border-color: #d09a3a; background: color-mix(in srgb, #d09a3a 12%, var(--card)); }
-.card.card-c-i .shape-box { border-color: #4f84c4; background: color-mix(in srgb, #4f84c4 12%, var(--card)); }
-.card.card-c-n .shape-box { border-color: #9d72d6; background: color-mix(in srgb, #9d72d6 12%, var(--card)); }
-.card.card-c-g .shape-box { border-color: #43a291; background: color-mix(in srgb, #43a291 12%, var(--card)); }
-.card.card-c-v .shape-box { border-color: #cf6295; background: color-mix(in srgb, #cf6295 12%, var(--card)); }
+/* Formas coloreadas por categoría (para nodos de inicio/fin/decisión). Se cambian las
+   variables para que el color llegue igual al borde CSS, al clip-path y al <svg>. */
+.card.card-c-q .shape-box { --sh-stroke: #c0563c; --sh-fill: color-mix(in srgb, #c0563c 12%, var(--card)); }
+.card.card-c-a .shape-box { --sh-stroke: #3f9e6f; --sh-fill: color-mix(in srgb, #3f9e6f 12%, var(--card)); }
+.card.card-c-p .shape-box { --sh-stroke: #d09a3a; --sh-fill: color-mix(in srgb, #d09a3a 12%, var(--card)); }
+.card.card-c-i .shape-box { --sh-stroke: #4f84c4; --sh-fill: color-mix(in srgb, #4f84c4 12%, var(--card)); }
+.card.card-c-n .shape-box { --sh-stroke: #9d72d6; --sh-fill: color-mix(in srgb, #9d72d6 12%, var(--card)); }
+.card.card-c-g .shape-box { --sh-stroke: #43a291; --sh-fill: color-mix(in srgb, #43a291 12%, var(--card)); }
+.card.card-c-v .shape-box { --sh-stroke: #cf6295; --sh-fill: color-mix(in srgb, #cf6295 12%, var(--card)); }
 /* Manijas de conexión rápida (+) en los 4 costados de una forma. */
 .qc-handle {
   position: absolute;
@@ -5569,40 +5953,127 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
   flex: 1;
   min-height: 0;
   margin: 0 3px 3px;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--primary) 12%, var(--card));
-  border: 2px solid var(--primary);
+  --sh-stroke: var(--primary);
+  --sh-fill: color-mix(in srgb, var(--primary) 12%, var(--card));
+  background: var(--sh-fill);
+  border: 2px solid var(--sh-stroke);
   color: var(--fg);
   border-radius: 4px;
 }
 .shape-round { border-radius: 16px; }
 .shape-pill { border-radius: 999px; }
 .shape-ellipse { border-radius: 50%; }
+.shape-delay { border-radius: 4px 50% 50% 4px / 4px 50% 50% 4px; }
 /* Rombo y paralelogramo: el clip-path recortaba el borde rectangular y la figura se veía
    incompleta. El borde se dibuja con la capa exterior (color sólido) y el relleno con un
    ::before encogido — así el contorno completo del rombo siempre es visible. */
 .shape-diamond,
-.shape-parallelogram {
+.shape-parallelogram,
+.shape-hexagon,
+.shape-trapezoid,
+.shape-trapezoid-alt,
+.shape-flag,
+.shape-triangle {
   border: none;
-  background: var(--primary);
-  position: relative;
+  background: var(--sh-stroke);
 }
 .shape-diamond { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .shape-parallelogram { clip-path: polygon(14% 0, 100% 0, 86% 100%, 0 100%); }
+.shape-hexagon { clip-path: polygon(15% 0, 85% 0, 100% 50%, 85% 100%, 15% 100%, 0 50%); }
+.shape-trapezoid { clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%); }
+.shape-trapezoid-alt { clip-path: polygon(0 0, 100% 0, 82% 100%, 18% 100%); }
+.shape-flag { clip-path: polygon(0 0, 87% 0, 100% 50%, 87% 100%, 0 100%); }
+.shape-triangle { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .shape-diamond::before,
-.shape-parallelogram::before {
+.shape-parallelogram::before,
+.shape-hexagon::before,
+.shape-trapezoid::before,
+.shape-trapezoid-alt::before,
+.shape-flag::before,
+.shape-triangle::before {
   content: '';
   position: absolute;
   inset: 2.5px;
-  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+  background: var(--sh-fill);
   z-index: 0;
 }
 .shape-diamond::before { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .shape-parallelogram::before { clip-path: polygon(14% 0, 100% 0, 86% 100%, 0 100%); }
+.shape-hexagon::before { clip-path: polygon(15% 0, 85% 0, 100% 50%, 85% 100%, 15% 100%, 0 50%); }
+.shape-trapezoid::before { clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%); }
+.shape-trapezoid-alt::before { clip-path: polygon(0 0, 100% 0, 82% 100%, 18% 100%); }
+.shape-flag::before { clip-path: polygon(0 0, 87% 0, 100% 50%, 87% 100%, 0 100%); }
+.shape-triangle::before { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+/* Subproceso: rectángulo con las dos barras verticales del símbolo clásico. */
+.shape-subprocess::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-left: 2px solid var(--sh-stroke);
+  border-right: 2px solid var(--sh-stroke);
+  margin: 0 7%;
+  z-index: 0;
+}
 .shape-diamond .shape-ta,
-.shape-parallelogram .shape-ta { position: relative; z-index: 1; }
+.shape-parallelogram .shape-ta,
+.shape-hexagon .shape-ta,
+.shape-trapezoid .shape-ta,
+.shape-trapezoid-alt .shape-ta,
+.shape-flag .shape-ta,
+.shape-triangle .shape-ta,
+.shape-subprocess .shape-ta { position: relative; z-index: 1; }
+/* Formas dibujadas con SVG (cilindro, nube, documento, nota, actor): el contorno lo pinta
+   el <path>, así que la caja no lleva ni borde ni fondo propios. */
+.shape-box.has-svg {
+  background: none;
+  border: none;
+}
+.shape-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+.shape-svg .sh-fill {
+  fill: var(--sh-fill);
+  stroke: var(--sh-stroke);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.shape-svg .sh-line {
+  fill: none;
+  stroke: var(--sh-stroke);
+  stroke-width: 2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.shape-box.has-svg .shape-ta { position: relative; z-index: 1; }
+/* Actor: la figura ocupa la mitad superior y el texto va debajo. */
+.shape-actor .shape-svg {
+  inset: 6% 0 auto 0;
+  height: 48%;
+}
+.shape-actor .shape-ta {
+  align-self: flex-end;
+  height: 40%;
+  width: 92%;
+}
+.shape-cylinder .shape-ta { height: 56%; margin-top: 9%; }
+.shape-note .shape-ta { height: 62%; margin-top: 8%; }
+.shape-cloud .shape-ta { width: 60%; height: 42%; margin-top: 9%; }
+.shape-doc .shape-ta { height: 58%; margin-bottom: 8%; }
+.shape-triangle .shape-ta { width: 56%; height: 34%; align-self: flex-end; margin-bottom: 4%; }
+.shape-hexagon .shape-ta { width: 72%; }
+.shape-trapezoid .shape-ta,
+.shape-trapezoid-alt .shape-ta { width: 68%; }
+.shape-flag .shape-ta { width: 74%; }
+.shape-subprocess .shape-ta { width: 76%; }
 .shape-ta {
   width: 84%;
   height: 70%;
@@ -5659,15 +6130,45 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
   width: 26px;
   height: 18px;
   flex: none;
-  background: color-mix(in srgb, var(--primary) 16%, var(--card));
-  border: 1.5px solid var(--primary);
+  position: relative;
+  --sh-stroke: var(--primary);
+  --sh-fill: color-mix(in srgb, var(--primary) 16%, var(--card));
+  background: var(--sh-fill);
+  border: 1.5px solid var(--sh-stroke);
   border-radius: 3px;
 }
 .shape-mini.shape-round { border-radius: 6px; }
 .shape-mini.shape-pill { border-radius: 999px; }
 .shape-mini.shape-ellipse { border-radius: 50%; }
+.shape-mini.shape-delay { border-radius: 2px 50% 50% 2px / 2px 50% 50% 2px; }
 .shape-mini.shape-diamond { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .shape-mini.shape-parallelogram { clip-path: polygon(14% 0, 100% 0, 86% 100%, 0 100%); }
+.shape-mini.shape-hexagon { clip-path: polygon(15% 0, 85% 0, 100% 50%, 85% 100%, 15% 100%, 0 50%); }
+.shape-mini.shape-trapezoid { clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%); }
+.shape-mini.shape-trapezoid-alt { clip-path: polygon(0 0, 100% 0, 82% 100%, 18% 100%); }
+.shape-mini.shape-flag { clip-path: polygon(0 0, 87% 0, 100% 50%, 87% 100%, 0 100%); }
+.shape-mini.shape-triangle { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.shape-mini.shape-subprocess::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-left: 1.5px solid var(--sh-stroke);
+  border-right: 1.5px solid var(--sh-stroke);
+  margin: 0 5px;
+}
+.shape-mini.has-svg { background: none; border: none; }
+.shape-mini .shape-svg { inset: 0; }
+.shape-mini.shape-actor .shape-svg { inset: 0; height: 100%; }
+/* Encabezados de familia en la paleta de formas */
+.shape-sec {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 6px 2px;
+}
+.shape-pop-list { max-height: 62vh; overflow: auto; }
 .card-shape-type { color: var(--muted); }
 
 /* ---------- Título de bloque (doble clic en la etiqueta) ---------- */

@@ -18,7 +18,7 @@ entre vecinos— de la idea al plan de acción.
 | 1:31–1:39 | Nunca te pierdes | El lienzo se va lejos; botón «Volver al contenido» + «Ver todo» reencuadran | «¿Te perdiste en el lienzo infinito? Minimapa, "Volver al contenido" y listo.» |
 | 1:39–1:46 | Kanban | El tablero con «Diseñar el logo de PlantSwap» en Por hacer | «Tu avance, en un kanban: por hacer, en curso, hecho.» |
 | 1:46–1:53 | Alarmas | Un recordatorio vence: suena y aparece el aviso en pantalla | «Y los recordatorios suenan de verdad, estés donde estés.» |
-| 1:53–1:45* | Cierre | El cafecito ☕ + la landing con el CTA | «tuNota es gratis. Si te sirve, me invitas un cafecito. tunota.fly.dev» |
+| 1:53–1:45* | Cierre | El cafecito ☕ + la landing con el CTA | «tuNota es gratis. Si te sirve, me invitas un cafecito. entunota.app» |
 
 \* Los tiempos son aproximados (±2 s); el video dura 1:45.
 

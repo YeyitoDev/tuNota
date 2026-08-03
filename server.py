@@ -90,7 +90,7 @@ APPLE_ID = _envfirst("APPLE_ID", "ICLOUD_ID", "APPLE_EMAIL")
 APPLE_APP_PASSWORD = _envfirst("APPLE_APP_PASSWORD", "ICLOUD_APP_PASSWORD", "APPLE_PASSWORD")
 CALDAV_ROOT = _envfirst("APPLE_CALDAV_URL", default="https://caldav.icloud.com").rstrip("/")
 # User-Agent para las llamadas salientes (algunos CDN rechazan el de urllib).
-UPSTREAM_UA = "tuNota/1.0 (+https://tunota.fly.dev)"
+UPSTREAM_UA = "tuNota/1.0 (+https://entunota.app)"
 
 # Lista de modelos por defecto si no se puede consultar /models en vivo.
 _MODELS_FALLBACK = [

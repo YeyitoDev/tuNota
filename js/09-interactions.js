@@ -735,8 +735,10 @@ function updateLostHint() {
   });
   if (anyVisible) { if (hint) hint.remove(); return; }
   if (!hint) {
-    hint = h('button', { class: 'lost-hint', id: 'lostHint', title: 'Centrar la vista en tus bloques',
-      onclick: function () { centerView(); } }, icon('target'), 'Volver al contenido');
+    // Usa fitView, no centerView: con el contenido disperso, centrar al 100% deja mirando a un
+    // hueco vacío y el aviso reaparecía sin haber resuelto nada. "Ajustar" siempre encuadra.
+    hint = h('button', { class: 'lost-hint', id: 'lostHint', title: 'Ajustar la vista a tus bloques',
+      onclick: function () { fitView(); } }, icon('target'), 'Volver al contenido');
     wrap.appendChild(hint);
   }
 }
@@ -844,10 +846,39 @@ function buildZoomControl() {
     h('button', { class: 'zoom-btn', title: 'Mostrar/ocultar minimapa', onclick: function () { ui.hideMinimap = !ui.hideMinimap; saveView(); scheduleNavAids(); } }, icon('map'))
   );
 }
+// Las barras de la app (sidebar, fila de título) y el lienzo NUNCA deben poder desplazarse:
+// no tienen barra de desplazamiento, así que un desplazamiento "invisible" las deja fuera de la
+// vista para siempre. El CSS ya usa `overflow: clip`, que no crea contenedor de scroll; esto es
+// la red de seguridad para navegadores que solo entienden `hidden` (Safari < 16, Firefox < 81):
+// el navegador desplaza estas cajas por su cuenta al revelar el elemento con el foco.
+// En #canvas el desplazamiento no se descarta, se CONVIERTE en desplazamiento de la vista, para
+// que revelar un bloque lejano siga funcionando pero con coordenadas que la app sabe deshacer.
+function guardChromeScroll() {
+  ['app', 'main'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('scroll', function () {
+      if (el.scrollLeft) el.scrollLeft = 0;
+      if (el.scrollTop) el.scrollTop = 0;
+    });
+  });
+  var wrap = document.getElementById('canvas');
+  if (!wrap) return;
+  wrap.addEventListener('scroll', function () {
+    var sl = wrap.scrollLeft, st = wrap.scrollTop;
+    if (!sl && !st) return;
+    wrap.scrollLeft = 0; wrap.scrollTop = 0;
+    var v = getView();
+    v.x -= sl; v.y -= st;
+    applyView();
+    saveViewDebounced();
+  });
+}
 function initCanvasNav() {
   if (navReady) return; navReady = true;
   var wrap = document.getElementById('canvas');
   if (!wrap) return;
+  guardChromeScroll();
   // Creacion/seleccion sobre todo el area visible del lienzo, incluidos los margenes
   // que .canvas-content no cubre al hacer pan o zoom.
   wrap.addEventListener('mousemove', function (e) { lastMouse.x = e.clientX; lastMouse.y = e.clientY; lastMouse.over = true; });

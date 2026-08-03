@@ -33,7 +33,7 @@ servidor, también en `db.json` vía `/api/data`. Las imágenes/PDF grandes van 
 | `11-features.js` | Atajos de teclado, recordatorios, kanban, ayuda |
 | `12-boot.js` | Arranque: hidrata blobs → carga servidor → descubre backend → pinta |
 | `13-templates.js` | Plantillas de lienzo |
-| `14-search.js` | Búsqueda global (Ctrl+K) |
+| `14-search.js` | Búsqueda global con filtros (Ctrl+K) y panel de atajos |
 | `15-tour.js` | Tour visual guiado (coach marks), a demanda (`startTour`) |
 
 ## Bloques del lienzo
@@ -245,7 +245,7 @@ OpenCode Zen) rechaza el de urllib con `403`.
 ## Despliegue
 
 `Dockerfile` (python:3.12-alpine, copia explícita de ficheros — `.env` **no** entra en la
-imagen) + `fly.toml` (`tunota.fly.dev`). En Fly.io: `fly secrets set OPENCODE_API=…
+imagen) + `fly.toml` (app `tunota`; dominio público `entunota.app`, `tunota.fly.dev` sigue activo). En Fly.io: `fly secrets set OPENCODE_API=…
 TAVILY=… TUNOTA_TOKEN=…`.
 
 ## Persistencia y estado

@@ -72,7 +72,7 @@ Gotchas aprendidos:
 - PWA en el DEPLOY: el `Dockerfile` DEBE copiar `manifest.json` y `sw.js` (usa COPY explícito, no `COPY .`);
   iconos PNG `public/icon-192.png`/`icon-512.png` (generados rasterizando `app-icon.svg` con Chromium) en
   el manifest (any + maskable) para que el botón "Instalar" salga seguro. Fly da https (`force_https`), así
-  que la PWA es instalable en tunota.fly.dev. Probar simulando el deploy: sandbox solo con los archivos que
+  que la PWA es instalable en entunota.app (y en tunota.fly.dev). Probar simulando el deploy: sandbox solo con los archivos que
   copia el Dockerfile → curl a manifest.json/sw.js/icon-*.png y `navigator.serviceWorker.getRegistration()`.
 - PWA (instalable + sin conexión): `manifest.json` (iconos PNG 192/512 + `app-icon.svg`), `sw.js`
   (network-first para archivos propios, salta `/api/` y orígenes externos), registrado desde index.html.
@@ -206,6 +206,16 @@ Gotchas aprendidos:
 - El doble clic de crear bloque exige `e.target === .canvas-content`: dispara el
   evento con `dispatchEvent(new MouseEvent('dblclick', {bubbles:true, clientX, clientY}))`
   sobre `.canvas-content` (los clicks de Playwright suelen caer en tarjetas o el SVG).
+- Buscador con filtros (js/14): `searchMatches(q, f)` devuelve `{results, query, filters, total}` sobre
+  7 tipos (`SEARCH_KINDS`: note/block/book/section/group/link/task de `data.plan`). Filtros en `ui.search`
+  (`defaultSearchFilters`, persisten entre sesiones; 02-state solo hace `ui.search = {}` — NO puede llamar
+  a funciones de js/14 porque los tests cargan 02-state aislado). Los operadores tecleados (`SEARCH_OPS`:
+  `tipo: libro: seccion: nota: grupo: color: tono: kanban: desde: hasta: tiene: en:` y `-excluir`) se
+  fusionan con el panel en `parseSearchQuery` sin mutar `ui.search`. Reglas no obvias: la etiqueta genérica
+  del tipo NO es texto buscable (si no, "nota" devolvía toda tarjeta de texto); libros/secciones no tienen
+  fecha propia → `notebookTs`/`sectionTs` la deducen de sus notas; acotar por ubicación excluye las tareas
+  (`searchAllowedKinds`). Selectores: `.search-tool-btn`, `.search-filters.open`, `.search-fgroup`,
+  `.search-chip`, `.search-summary`, `.search-kind`, `.search-badge`, `.search-mark`, `.search-recent`.
 - Unit tests: `npm test` (Vitest, tests/ con arnés vm que carga js/ reales).
 - Backend IA/búsqueda (desde 2026-07-08): server.py carga `.env` (`OPENCODE-API`,
   `TAVILY`, `TUNOTA_TOKEN`) y expone `/api/config` (abierto), `/api/ai` (proxy OpenCode Zen)

@@ -652,14 +652,30 @@
     var ta = h('textarea', { class: 'nw-ta mono', spellcheck: 'false', placeholder: 'graph TD\n  A[Inicio] --> B[Fin]' });
     ta.value = b.content.text || '';
     ta.style.display = 'none';
-    var editing = false;
+    var editing = false, split = false;
+    var wrap = h('div', { class: 'nw-mmd-wrap' }, view, ta);
+    function applyMmdView() {
+      wrap.classList.toggle('nw-split', split);
+      ta.style.display = (split || editing) ? '' : 'none';
+      view.style.display = (!split && editing) ? 'none' : '';
+      toggleBtn.lastChild.textContent = editing ? 'Ver diagrama' : 'Editar';
+      splitBtn.classList.toggle('on', split);
+    }
     var toggleBtn = h('button', { class: 'nw-btn' }, icon('edit'), 'Editar');
     toggleBtn.addEventListener('click', function () {
       editing = !editing;
-      ta.style.display = editing ? '' : 'none';
-      view.style.display = editing ? 'none' : '';
-      toggleBtn.lastChild.textContent = editing ? 'Ver diagrama' : 'Editar';
+      if (editing) split = false;
+      applyMmdView();
       if (editing) ta.focus(); else renderMermaid(view, ta.value);
+    });
+    // Vista dividida: código a la izquierda y diagrama a la derecha, los dos a la vez.
+    var splitBtn = h('button', { class: 'nw-btn', title: 'Ver el código y el diagrama en paralelo' }, icon('panel'), 'Paralelo');
+    splitBtn.addEventListener('click', function () {
+      split = !split;
+      if (split) editing = false;
+      applyMmdView();
+      renderMermaid(view, ta.value);
+      if (split) ta.focus();
     });
     var dlBtn = h('button', { class: 'nw-btn', title: 'Descargar diagrama (PNG)' }, icon('download'), 'Descargar');
     dlBtn.addEventListener('click', function () {
@@ -667,7 +683,7 @@
       if (svg) { exportSvgAsPng(svg, 'diagrama-mermaid'); return; }
       renderMermaid(view, ta.value, function () { var s = view.querySelector('svg'); if (s) exportSvgAsPng(s, 'diagrama-mermaid'); else alert('Revisa la sintaxis del diagrama.'); });
     });
-    var reT;
+    var reT, drawT;
     ta.addEventListener('input', function () {
       clearTimeout(reT);
       reT = setTimeout(function () {
@@ -676,6 +692,8 @@
           if (fb) { fb.content = fb.content || {}; fb.content.text = ta.value; fb.updatedAt = now(); var fn = fresh.notes.find(function (n) { return n.id === fb.noteId; }); if (fn) fn.updatedAt = now(); }
         });
       }, 250);
+      // En paralelo el dibujo se actualiza mientras se escribe.
+      if (split) { clearTimeout(drawT); drawT = setTimeout(function () { renderMermaid(view, ta.value); }, 420); }
     });
     ta.addEventListener('change', function () {
       persist(function (fresh) {
@@ -684,10 +702,10 @@
         logTo(fresh, 'Diagrama Mermaid editado (ventana)', snippet(ta.value));
       });
     });
-    refs.mmdView = view; refs.mmdTa = ta; refs.mmdEditing = function () { return editing; };
-    var toolbar = h('div', { class: 'nw-toolbar' }, toggleBtn, dlBtn, h('span', { class: 'nw-hint' }, 'Diagrama Mermaid'));
+    refs.mmdView = view; refs.mmdTa = ta; refs.mmdEditing = function () { return editing && !split; };
+    var toolbar = h('div', { class: 'nw-toolbar' }, toggleBtn, splitBtn, dlBtn, h('span', { class: 'nw-hint' }, 'Diagrama Mermaid'));
     renderMermaid(view, b.content.text);
-    return h('div', { class: 'nw-body' }, toolbar, view, ta);
+    return h('div', { class: 'nw-body nw-mmd-body' }, toolbar, wrap);
   }
 
   function renderTextBody(b, isIdea) {

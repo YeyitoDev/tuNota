@@ -97,6 +97,7 @@ var I = {
   distH: S + '<line x1="4" y1="3" x2="4" y2="21"/><line x1="20" y1="3" x2="20" y2="21"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>',
   distV: S + '<line x1="3" y1="4" x2="21" y2="4"/><line x1="3" y1="20" x2="21" y2="20"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>',
   search: S + '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>',
+  filter: S + '<polygon points="22 3 2 3 10 12.5 10 19 14 21 14 12.5 22 3"/></svg>',
   help: S + '<circle cx="12" cy="12" r="9"/><path d="M9.2 9a3 3 0 0 1 5.8 1c0 2-2.9 2.6-2.9 4"/><circle cx="12" cy="17.3" r="0.6" fill="currentColor" stroke="none"/></svg>',
   pen: S + '<path d="M12 19l7-7 3-3a2.12 2.12 0 0 0 0-3l-3-3a2.12 2.12 0 0 0-3 0l-10 10v6h6z"/><circle cx="18.5" cy="5.5" r="0.5" fill="currentColor"/></svg>',
   highlighter: S + '<path d="M9 10l4-4 6 6-9 9-7-7z"/><line x1="3" y1="21" x2="12" y2="21"/></svg>',

@@ -475,7 +475,8 @@ function openTemplates() {
     body.appendChild(h('div', { class: 'tpl-sec-title' }, icon('star'), 'Mis plantillas'));
     var ug = h('div', { class: 'tpl-grid' });
     userTpls.slice().reverse().forEach(function (tpl) {
-      var nameEl = h('div', { class: 'tpl-name' }, tpl.name);
+      var nameEl = h('div', { class: 'tpl-name', title: 'Doble clic para renombrar' }, tpl.name);
+      nameEl.addEventListener('dblclick', function (e) { e.stopPropagation(); renameUserTemplateInline(tpl, nameEl); });
       var tools = h('div', { class: 'tpl-tools' },
         h('button', { class: 'tpl-tool', title: 'Renombrar', onclick: function (e) { e.stopPropagation(); renameUserTemplateInline(tpl, nameEl); } }, icon('edit')),
         h('button', { class: 'tpl-tool tpl-del', title: 'Eliminar esta plantilla', onclick: function (e) { e.stopPropagation(); deleteUserTemplate(tpl); } }, icon('trash'))

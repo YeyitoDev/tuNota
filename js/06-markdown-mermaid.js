@@ -292,7 +292,13 @@ function mermaidBody(b) {
   var view = h('div', { class: 'mmd-render' });
   view._block = b;
   view.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-  view.addEventListener('wheel', function (e) { if (!(view.closest('.card') && view.closest('.card').classList.contains('mmd-interactive'))) e.stopPropagation(); });
+  // La rueda a secas se queda dentro de la tarjeta (desplaza el diagrama), pero Ctrl/Cmd+rueda
+  // —y el pellizco del trackpad, que llega igual— SIEMPRE debe llegar al lienzo: si no, encima
+  // de un diagrama el zoom del lienzo no responde y no hay forma de alejarse y volver.
+  view.addEventListener('wheel', function (e) {
+    if (e.ctrlKey || e.metaKey) return;
+    if (!(view.closest('.card') && view.closest('.card').classList.contains('mmd-interactive'))) e.stopPropagation();
+  });
   mmdAttachHandlers(view);
   var ta = h('textarea', { class: 'card-ta mono mmd-src', spellcheck: 'false', placeholder: 'graph TD\n  A[Inicio] --> B[Fin]' });
   ta.value = b.content.text || '';
@@ -305,7 +311,9 @@ function mermaidBody(b) {
   ta.addEventListener('mousedown', function (e) { e.stopPropagation(); });
   ta.addEventListener('keydown', function (e) { if (e.key === 'Tab') { e.preventDefault(); insertAtCursor(ta, '  '); b.content.text = ta.value; debouncedSave(); } });
   scheduleMmdRender(view, b);
-  return [view, ta];
+  // Envoltorio: en columna es "o código o dibujo"; en modo dividido (.mmd-split) pasa a fila
+  // y se ven los dos a la vez. El código sigue buscándose con view.parentNode.querySelector.
+  return [h('div', { class: 'mmd-wrap' }, view, ta)];
 }
 function scheduleMmdRender(view, b, tries) {
   tries = tries || 0;
@@ -319,9 +327,30 @@ function renderMmdCard(view, b) {
   renderMermaid(view, b.content && b.content.text, function () { setupMmdController(view, b); });
 }
 function toggleMmdEdit(b, el) {
+  if (el.classList.contains('mmd-split')) { toggleMmdSplit(b, el); return; }
   var editing = el.classList.toggle('editing-mmd');
   if (editing) { el.classList.remove('mmd-interactive'); var ta = el.querySelector('.mmd-src'); if (ta) ta.focus(); }
   else { var view = el.querySelector('.mmd-render'); if (view) renderMmdCard(view, b); }
+}
+// Vista dividida: código a la izquierda y diagrama a la derecha, los dos a la vez.
+// Se recuerda en el bloque (b.content.split) para que sobreviva a los re-render.
+function toggleMmdSplit(b, el) {
+  b.content = b.content || {};
+  var on = !el.classList.contains('mmd-split');
+  el.classList.toggle('mmd-split', on);
+  b.content.split = on;
+  if (on) {
+    el.classList.remove('editing-mmd');
+    // Con la tarjeta estrecha el código y el dibujo no caben: se ensancha una vez.
+    var minW = 760;
+    if ((b.width || 0) < minW) { b.width = minW; el.style.width = minW + 'px'; }
+    if ((b.height || 0) < 380) { b.height = 380; el.style.height = '380px'; }
+  }
+  var view = el.querySelector('.mmd-render');
+  if (view) renderMmdCard(view, b);
+  touchNote(b.noteId); save();
+  if (typeof drawLinks === 'function') drawLinks();
+  if (on) { var ta = el.querySelector('.mmd-src'); if (ta) ta.focus(); }
 }
 var mmdMoveHinted = false;
 function toggleMmdMove(b, el) {
@@ -458,6 +487,54 @@ function mmdPlaceNode(n) {
   if ((n.sx && n.sx !== 1) || (n.sy && n.sy !== 1)) tr += ' scale(' + (n.sx || 1) + ',' + (n.sy || 1) + ')';
   n.g.setAttribute('transform', tr);
 }
+// Rectángulo del SVG que se ve dentro de la tarjeta, en unidades de usuario del SVG
+// (las mismas en las que trabaja el pan/zoom del viewport).
+function mmdVisibleRect(ctrl) {
+  var r = ctrl.svg.getBoundingClientRect();
+  var a = mmdClientToSpace(ctrl.svg, r.left, r.top);
+  var c = mmdClientToSpace(ctrl.svg, r.right, r.bottom);
+  return { x1: Math.min(a.x, c.x), y1: Math.min(a.y, c.y), x2: Math.max(a.x, c.x), y2: Math.max(a.y, c.y) };
+}
+// Caja del diagrama SIN el transform del viewport (getBBox ignora el transform propio).
+function mmdContentBox(ctrl) {
+  try {
+    var bb = ctrl.vp.getBBox();
+    return (bb && (bb.width || bb.height)) ? bb : null;
+  } catch (e) { return null; }
+}
+// El zoom se ancla en el cursor, así que si el cursor cae fuera del diagrama cada rueda lo
+// empuja hacia el borde hasta sacarlo por completo de la tarjeta, y no había forma de volver.
+// Esto lo retiene: siempre queda un trozo del diagrama dentro del área visible.
+function mmdClampPan(ctrl, L) {
+  var bb = mmdContentBox(ctrl);
+  if (!bb) return;
+  var vis = mmdVisibleRect(ctrl);
+  var k = L.pan.k;
+  var x1 = L.pan.x + bb.x * k, y1 = L.pan.y + bb.y * k;
+  var x2 = x1 + bb.width * k, y2 = y1 + bb.height * k;
+  var mx = Math.max(12, Math.min(60, (x2 - x1) / 2));
+  var my = Math.max(12, Math.min(60, (y2 - y1) / 2));
+  if (x1 > vis.x2 - mx) L.pan.x -= x1 - (vis.x2 - mx);
+  else if (x2 < vis.x1 + mx) L.pan.x += (vis.x1 + mx) - x2;
+  if (y1 > vis.y2 - my) L.pan.y -= y1 - (vis.y2 - my);
+  else if (y2 < vis.y1 + my) L.pan.y += (vis.y1 + my) - y2;
+}
+// Vuelve a encuadrar el diagrama entero en la tarjeta (salida de emergencia del zoom).
+function mmdFitView(view, ctrl, b) {
+  var bb = mmdContentBox(ctrl);
+  if (!bb) return;
+  var L = mmdEnsureLayout(b);
+  var vis = mmdVisibleRect(ctrl);
+  var pad = 8;
+  var vw = Math.max(1, (vis.x2 - vis.x1) - pad * 2), vh = Math.max(1, (vis.y2 - vis.y1) - pad * 2);
+  var k = Math.min(5, Math.max(0.2, Math.min(vw / Math.max(1, bb.width), vh / Math.max(1, bb.height))));
+  L.pan.k = k;
+  L.pan.x = (vis.x1 + vis.x2) / 2 - (bb.x + bb.width / 2) * k;
+  L.pan.y = (vis.y1 + vis.y2) / 2 - (bb.y + bb.height / 2) * k;
+  mmdApplyPan(ctrl, L);
+  if (ctrl.selEdge >= 0) mmdPositionEdgeToolbar(view, ctrl);
+  touchNote(b.noteId); debouncedSave();
+}
 function mmdApplyPan(ctrl, L) {
   ctrl.vp.setAttribute('transform', 'translate(' + L.pan.x + ',' + L.pan.y + ') scale(' + L.pan.k + ')');
 }
@@ -523,6 +600,7 @@ function mmdAttachHandlers(view) {
   view.addEventListener('wheel', function (e) {
     var card = view.closest('.card');
     if (!card || !card.classList.contains('mmd-interactive') || !view._mmd) return;
+    if (e.ctrlKey || e.metaKey) return; // Ctrl/Cmd+rueda = zoom del lienzo, no del diagrama
     e.preventDefault(); e.stopPropagation();
     mmdZoom(e, view, view._mmd, view._block);
   }, { passive: false });
@@ -533,7 +611,9 @@ function mmdAttachHandlers(view) {
     var hit = e.target.closest && e.target.closest('.mmd-edge-hit');
     if (hit && typeof hit.__edgeIndex === 'number') { mmdEditEdgeLabel(view, view._mmd, view._block, hit.__edgeIndex); return; }
     var g = e.target.closest && e.target.closest('.node');
-    if (g) mmdEditNodeLabel(view, view._mmd, view._block, g);
+    if (g) { mmdEditNodeLabel(view, view._mmd, view._block, g); return; }
+    // Doble clic en zona vacía: reencuadra el diagrama. Salida de emergencia del zoom.
+    mmdFitView(view, view._mmd, view._block);
   });
 }
 function mmdSelect(ctrl, raw) {
@@ -615,6 +695,7 @@ function mmdStartPan(e, view, ctrl, b) {
   function move(ev) {
     var p = mmdClientToSpace(ctrl.svg, ev.clientX, ev.clientY);
     L.pan.x = ox + (p.x - start.x); L.pan.y = oy + (p.y - start.y); moved = true;
+    mmdClampPan(ctrl, L);
     mmdApplyPan(ctrl, L);
   }
   function up() {
@@ -632,6 +713,7 @@ function mmdZoom(e, view, ctrl, b) {
   L.pan.x = c.x - (c.x - L.pan.x) * (nk / L.pan.k);
   L.pan.y = c.y - (c.y - L.pan.y) * (nk / L.pan.k);
   L.pan.k = nk;
+  mmdClampPan(ctrl, L);
   mmdApplyPan(ctrl, L);
   if (ctrl.selEdge >= 0) mmdPositionEdgeToolbar(view, ctrl);
   touchNote(b.noteId); debouncedSave();
@@ -1054,14 +1136,24 @@ var DIAGRAM_TYPES = [
   { key: 'gantt', name: 'Gantt', desc: 'Plan en el tiempo', code: 'gantt\n  title Plan\n  dateFormat YYYY-MM-DD\n  section Fase 1\n    Diseño :a1, 2026-07-07, 5d\n    Desarrollo :after a1, 10d\n  section Fase 2\n    Pruebas :5d\n    Lanzamiento :2d' },
   { key: 'mindmap', name: 'Mapa mental', desc: 'Ideas ramificadas', code: 'mindmap\n  root((Tema))\n    Rama 1\n      Detalle\n    Rama 2\n    Rama 3' },
   { key: 'journey', name: 'User journey', desc: 'Experiencia por pasos', code: 'journey\n  title Viaje del usuario\n  section Descubre\n    Encuentra la app: 4: Usuario\n    Prueba la demo: 3: Usuario\n  section Usa\n    Crea su primera nota: 5: Usuario' },
+  { key: 'class', name: 'Clases', desc: 'Entidades y herencia', code: 'classDiagram\n  class Cliente {\n    +String nombre\n    +String email\n    +registrar()\n  }\n  class Pedido {\n    +int numero\n    +total()\n  }\n  Cliente "1" --> "*" Pedido : realiza' },
+  { key: 'er', name: 'Entidad-relación', desc: 'Modelo de datos', code: 'erDiagram\n  CLIENTE ||--o{ PEDIDO : realiza\n  PEDIDO ||--|{ LINEA : contiene\n  PRODUCTO ||--o{ LINEA : aparece_en\n  CLIENTE {\n    string nombre\n    string email\n  }' },
+  { key: 'timeline', name: 'Línea de tiempo', desc: 'Hitos por periodo', code: 'timeline\n  title Historia del proyecto\n  2024 : Idea : Primeros bocetos\n  2025 : Prototipo : Primeros usuarios\n  2026 : Lanzamiento' },
   { key: 'pie', name: 'Tarta', desc: 'Proporciones', code: 'pie title Distribución\n  "A" : 45\n  "B" : 30\n  "C" : 25' },
 ];
 // Formas rápidas para diagramas de flujo (flowchart/graph).
 var DIAGRAM_SHAPES = [
   { key: 'step', label: '▭ Paso', open: '[', close: ']', text: 'Nuevo paso' },
   { key: 'decision', label: '◇ Decisión', open: '{', close: '}', text: 'Decisión' },
-  { key: 'data', label: '⬮ Datos', open: '[(', close: ')]', text: 'Datos' },
+  { key: 'round', label: '▢ Redondeado', open: '(', close: ')', text: 'Acción' },
+  { key: 'pill', label: '⬭ Inicio / Fin', open: '([', close: '])', text: 'Inicio' },
+  { key: 'hex', label: '⬡ Preparación', open: '{{', close: '}}', text: 'Preparar' },
+  { key: 'data', label: '⛁ Base de datos', open: '[(', close: ')]', text: 'Datos' },
   { key: 'sub', label: '⧉ Subproceso', open: '[[', close: ']]', text: 'Subproceso' },
+  { key: 'io', label: '▱ Entrada / Salida', open: '[/', close: '/]', text: 'Entrada' },
+  { key: 'manual', label: '⏢ Manual', open: '[/', close: '\\]', text: 'Paso manual' },
+  { key: 'circle', label: '◯ Círculo', open: '((', close: '))', text: 'Hito' },
+  { key: 'flag', label: '⯈ Etiqueta', open: '>', close: ']', text: 'Nota' },
 ];
 function mmdIsFlowchart(code) { return /^\s*(flowchart|graph)\b/.test(code || ''); }
 function mmdNodeIds(code) {
@@ -1155,8 +1247,10 @@ function openDiagramMenu(b, el, anchor) {
   pop.appendChild(shapes);
   pop.appendChild(h('div', { class: 'cm-sep' }));
   pop.appendChild(h('div', { class: 'cm-label' }, icon('shapes'), 'Editar en el lienzo'));
-  pop.appendChild(h('button', { class: 'cm-item', title: 'Convierte el diagrama en formas y conectores que puedes arrastrar (las flechas los siguen)', onclick: function () { closeDiagramMenu(); mermaidToCanvas(b); } },
+  pop.appendChild(h('button', { class: 'cm-item', title: 'Convierte el diagrama en formas y conectores que puedes arrastrar (las flechas los siguen). Funciona con cualquier tipo de diagrama.', onclick: function () { closeDiagramMenu(); mermaidToCanvas(b); } },
     icon('shapes'), h('span', {}, 'Explotar a formas del lienzo')));
+  pop.appendChild(h('button', { class: 'cm-item', title: 'Muestra el código y el dibujo al mismo tiempo', onclick: function () { closeDiagramMenu(); toggleMmdSplit(b, el); } },
+    icon('panel'), h('span', {}, 'Ver código y diagrama en paralelo')));
   pop.appendChild(h('div', { class: 'cm-sep' }));
   pop.appendChild(h('div', { class: 'cm-label' }, icon('spark'), 'Generar con IA'));
   var desc = h('input', { class: 'dg-ai-input', placeholder: 'p. ej. "proceso de alta de un cliente con validación"' });
@@ -1177,32 +1271,47 @@ function mmdDirection(src) {
   var m = /^\s*(?:graph|flowchart)\s+(TB|TD|BT|LR|RL)/i.exec(src || '');
   return m ? m[1].toUpperCase() : 'TD';
 }
-function mmdShapeFromOpen(open) {
+function mmdShapeFromOpen(open, close) {
   if (open === '([') return 'pill';
   if (open === '((') return 'ellipse';
-  if (open === '{{') return 'diamond';
-  if (open === '[[') return 'rect';
-  if (open === '[/' || open === '[\\') return 'parallelogram';
+  if (open === '{{') return 'hexagon';
+  if (open === '[[') return 'subprocess';
+  if (open === '[(') return 'cylinder';
+  if (open === '[/') return close === '\\]' ? 'trapezoid' : 'parallelogram';
+  if (open === '[\\') return close === '/]' ? 'trapezoid-alt' : 'parallelogram';
   var c = open.charAt(0);
+  if (c === '>') return 'flag';
   if (c === '{') return 'diamond';
   if (c === '(') return 'round';
   return 'rect';
 }
+// `[/ ... /]` y `[/ ... \]` abren igual pero cierran distinto: hay que mirar los dos.
+function mmdCloseAfter(src, open, from) {
+  var cands = (open === '[/' || open === '[\\') ? ['/]', '\\]'] : [mmdCloseFor(open)];
+  var best = -1, tok = '';
+  cands.forEach(function (c) {
+    if (!c) return;
+    var at = src.indexOf(c, from);
+    if (at >= 0 && (best < 0 || at < best)) { best = at; tok = c; }
+  });
+  return best < 0 ? null : { at: best, tok: tok };
+}
 function mmdCollectNodeDefs(src) {
   var defs = {}, re = /([A-Za-z0-9_]+)\s*([\[({>]{1,2}[/\\]?)/g, m;
   while ((m = re.exec(src))) {
-    var id = m[1], open = m[2], closeStr = mmdCloseFor(open);
+    var id = m[1], open = m[2];
     var openEnd = m.index + m[0].length;
-    var closeAt = closeStr ? src.indexOf(closeStr, openEnd) : -1;
-    if (closeAt < 0) continue;
-    var inner = src.slice(openEnd, closeAt);
-    defs[id] = { label: mmdStripQuotes(inner).replace(/<br\s*\/?>/gi, '\n').trim() || id, shape: mmdShapeFromOpen(open) };
-    re.lastIndex = closeAt + closeStr.length;
+    var close = mmdCloseAfter(src, open, openEnd);
+    if (!close) continue;
+    var inner = src.slice(openEnd, close.at);
+    defs[id] = { label: mmdStripQuotes(inner).replace(/<br\s*\/?>/gi, '\n').trim() || id, shape: mmdShapeFromOpen(open, close.tok) };
+    re.lastIndex = close.at + close.tok.length;
   }
   return defs;
 }
-// Disposición por capas (longest-path) según la dirección del diagrama.
-function mmdLayout(ids, edges, dir) {
+// Disposición por capas (longest-path) según la dirección del diagrama. `sizes` permite
+// separar más los niveles cuando los nodos son grandes (clases con miembros, etc.).
+function mmdLayout(ids, edges, dir, sizes) {
   var adj = {}, indeg = {};
   ids.forEach(function (id) { adj[id] = []; indeg[id] = 0; });
   edges.forEach(function (e) { if (adj[e.from] && indeg[e.to] != null && e.from !== e.to) { adj[e.from].push(e.to); indeg[e.to]++; } });
@@ -1212,7 +1321,10 @@ function mmdLayout(ids, edges, dir) {
   var layer = {}; order.forEach(function (id) { layer[id] = 0; });
   order.forEach(function (id) { adj[id].forEach(function (t) { layer[t] = Math.max(layer[t] || 0, (layer[id] || 0) + 1); }); });
   var byL = {}; ids.forEach(function (id) { (byL[layer[id]] = byL[layer[id]] || []).push(id); });
-  var horiz = dir === 'LR' || dir === 'RL', GL = horiz ? 270 : 175, GC = horiz ? 150 : 220, pos = {};
+  var maxW = 176, maxH = 104;
+  if (sizes) ids.forEach(function (id) { var s = sizes[id]; if (s) { maxW = Math.max(maxW, s.w || 0); maxH = Math.max(maxH, s.h || 0); } });
+  var horiz = dir === 'LR' || dir === 'RL';
+  var GL = horiz ? maxW + 94 : maxH + 71, GC = horiz ? maxH + 46 : maxW + 44, pos = {};
   Object.keys(byL).forEach(function (L) {
     byL[L].forEach(function (id, i) {
       var main = parseInt(L, 10) * GL, cross = i * GC - (byL[L].length - 1) * GC / 2;
@@ -1221,43 +1333,401 @@ function mmdLayout(ids, edges, dir) {
   });
   return pos;
 }
-function mermaidToCanvas(b) {
-  var src = (b.content && b.content.text) || '';
-  if (!mmdIsFlowchart(src)) { toast('Por ahora solo se pueden explotar diagramas de flujo (flowchart/graph).', 'warn'); return; }
-  var edges = mmdParseEdges(src), defs = mmdCollectNodeDefs(src), ids = [];
+
+// ---------- Regla general: CUALQUIER diagrama Mermaid → formas del lienzo ----------
+// Cada familia de diagrama tiene su lector, que devuelve nodos (forma + etiqueta) y
+// conexiones. Lo que no reconocemos cae en el lector genérico, así que explotar a formas
+// nunca se queda sin hacer nada.
+var MMD_KIND_LABEL = {
+  flow: 'flujo', sequence: 'secuencia', state: 'estados', class: 'clases', er: 'entidad-relación',
+  mindmap: 'mapa mental', journey: 'user journey', gantt: 'Gantt', timeline: 'línea de tiempo',
+  pie: 'tarta', generic: 'diagrama',
+};
+function mmdKind(src) {
+  var head = String(src || '').replace(/%%\{[\s\S]*?\}%%/g, '').trim().split('\n')[0].trim().toLowerCase();
+  if (/^(flowchart|graph)\b/.test(head)) return 'flow';
+  if (/^sequencediagram\b/.test(head)) return 'sequence';
+  if (/^statediagram(-v2)?\b/.test(head)) return 'state';
+  if (/^classdiagram(-v2)?\b/.test(head)) return 'class';
+  if (/^erdiagram\b/.test(head)) return 'er';
+  if (/^mindmap\b/.test(head)) return 'mindmap';
+  if (/^journey\b/.test(head)) return 'journey';
+  if (/^gantt\b/.test(head)) return 'gantt';
+  if (/^timeline\b/.test(head)) return 'timeline';
+  if (/^pie\b/.test(head)) return 'pie';
+  return 'generic';
+}
+// Líneas útiles: sin directivas %%{...}%%, sin comentarios y sin líneas en blanco.
+function mmdLines(src) {
+  return String(src || '').replace(/%%\{[\s\S]*?\}%%/g, '').replace(/\r\n?/g, '\n').split('\n')
+    .filter(function (l) { return l.trim() && !/^\s*%%/.test(l); });
+}
+function mmdClean(t) {
+  return mmdStripQuotes(String(t == null ? '' : t)).replace(/<br\s*\/?>/gi, '\n').replace(/[ \t]+/g, ' ').trim();
+}
+function mmdIndent(l) { var m = /^[ \t]*/.exec(l)[0]; return m.replace(/\t/g, '  ').length; }
+// Heurística de forma para "actores" de secuencia / entidades: la etiqueta suele decir
+// si es una persona, una base de datos o un servicio externo.
+function mmdGuessShape(text, isActor) {
+  if (isActor) return 'actor';
+  var t = String(text || '').toLowerCase();
+  if (/\b(db|bd|dynamo|dynamodb|sql|postgres|mysql|mongo|oracle|redis|cache|cach[eé]|base de datos|almacen|storage|bucket|s3|repositor|tabla)/.test(t)) return 'cylinder';
+  if (/\b(cloud|nube|external|externo|tercero|third|saas|internet|proveedor|gateway|cdn)/.test(t)) return 'cloud';
+  if (/\b(cola|queue|kafka|sqs|rabbit|topic|bus|stream)\b/.test(t)) return 'subprocess';
+  if (/\b(usuario|user|cliente|client|persona|admin|operador|analista|actor|visitante)\b/.test(t)) return 'actor';
+  if (/\b(informe|reporte|report|documento|document|factura|archivo|fichero|pdf)\b/.test(t)) return 'doc';
+  return 'round';
+}
+// --- Secuencia: participantes en columnas y cada mensaje como una caja en su columna,
+// encadenada con flechas (así se lee igual que el diagrama y se puede arrastrar). ---
+// Ojo: el identificador NO puede incluir "-" o se comería el primer guion de la flecha
+// (`API->>DYN` daría el participante "API-").
+var MMD_SEQ_MSG = /^([A-Za-z0-9_.À-ɏ]+)\s*(<<-{1,2}>>|-{1,2}(?:>>|>|x|\)))\s*([+-]?)\s*([A-Za-z0-9_.À-ɏ]+)\s*:\s*([\s\S]*)$/;
+function mmdGraphSequence(src) {
+  var parts = {}, order = [], nodes = [], edges = [], last = {};
+  var COL = 300, ROW = 132, HEAD_H = 104, BOX_W = 248, BOX_H = 96;
+  var row = 0, num = false, n = 0;
+  function part(id, label, isActor) {
+    id = String(id).trim();
+    var p = parts[id];
+    if (!p) { p = parts[id] = { id: id, col: order.length, label: label || id, actor: !!isActor, key: 'P' + order.length }; order.push(p); last[id] = p.key; }
+    if (label) p.label = label;
+    if (isActor) p.actor = true;
+    return p;
+  }
+  mmdLines(src).forEach(function (raw) {
+    var l = raw.trim();
+    if (/^sequenceDiagram\b/i.test(l) || /^(activate|deactivate|destroy|link|links|properties|create|box|end)\b/i.test(l)) return;
+    if (/^autonumber\b/i.test(l)) { num = true; return; }
+    if (/^title\b/i.test(l)) return;
+    var dec = /^(participant|actor)\s+([^\s:]+)(?:\s+as\s+(.*))?$/i.exec(l);
+    if (dec) { part(dec[2], mmdClean(dec[3] || ''), /actor/i.test(dec[1])); return; }
+    var note = /^note\s+(over|right of|left of)\s+([^:]+):\s*(.*)$/i.exec(l);
+    if (note) {
+      var who = note[2].split(',')[0].trim(), p0 = part(who);
+      nodes.push({ key: 'N' + row, label: mmdClean(note[3]), shape: 'note', color: 'p',
+        x: p0.col * COL + 24, y: HEAD_H + 68 + row * ROW, w: BOX_W - 40, h: BOX_H - 8 });
+      row++;
+      return;
+    }
+    var ctl = /^(loop|alt|else|opt|par|and|critical|option|break|rect)\b\s*(.*)$/i.exec(l);
+    if (ctl) {
+      var kw = ctl[1].toLowerCase();
+      var word = { loop: 'bucle', alt: 'si', else: 'si no', opt: 'opcional', par: 'en paralelo', and: 'y', critical: 'crítico', option: 'opción', break: 'corta', rect: 'bloque' }[kw] || kw;
+      nodes.push({ key: 'C' + row, label: word + (ctl[2] ? ': ' + mmdClean(ctl[2]) : ''), shape: 'hexagon', color: 'v',
+        x: -Math.round(COL * 0.92), y: HEAD_H + 68 + row * ROW, w: 210, h: 84 });
+      row++;
+      return;
+    }
+    var m = MMD_SEQ_MSG.exec(l);
+    if (!m) return;
+    var from = part(m[1]), to = part(m[4]);
+    n++;
+    var dashed = /^--/.test(m[2]);
+    var key = 'M' + n;
+    nodes.push({
+      key: key, label: (num ? n + '. ' : '') + mmdClean(m[5]), shape: dashed ? 'round' : 'rect',
+      color: dashed ? 'a' : 'i', x: to.col * COL, y: HEAD_H + 68 + row * ROW, w: BOX_W, h: BOX_H,
+    });
+    edges.push({ from: last[from.id] || from.key, to: key, label: '', line: dashed ? 'dotted' : 'solid' });
+    last[to.id] = key;
+    row++;
+  });
+  var heads = order.map(function (p) {
+    return { key: p.key, label: p.label, shape: mmdGuessShape(p.label + ' ' + p.id, p.actor), color: 'n',
+      x: p.col * COL, y: 0, w: BOX_W, h: HEAD_H };
+  });
+  return { nodes: heads.concat(nodes), edges: edges, fixed: true };
+}
+// --- Estados: [*] se convierte en píldoras de inicio y fin. ---
+function mmdGraphState(src) {
+  var nodes = {}, list = [], edges = [], alias = {}, starts = 0, ends = 0;
+  function node(id, label, shape, color) {
+    if (!nodes[id]) { nodes[id] = { key: id, label: label || alias[id] || id, shape: shape || 'round', color: color || '' }; list.push(nodes[id]); }
+    else if (label) nodes[id].label = label;
+    return nodes[id];
+  }
+  mmdLines(src).forEach(function (raw) {
+    var l = raw.trim();
+    if (/^stateDiagram/i.test(l) || /^direction\b/i.test(l) || l === '}' || /^(note|classDef|class|style)\b/i.test(l)) return;
+    var as = /^state\s+"([^"]*)"\s+as\s+([^\s{]+)/i.exec(l);
+    if (as) { alias[as[2]] = mmdClean(as[1]); node(as[2], mmdClean(as[1])); return; }
+    var comp = /^state\s+([^\s{:]+)\s*\{?/i.exec(l);
+    if (comp && !/-->/.test(l)) { node(comp[1]); return; }
+    var m = /^(.+?)\s*-{2,3}>\s*([^:]+?)\s*(?::\s*(.*))?$/.exec(l);
+    if (!m) return;
+    var a = m[1].trim(), z = m[2].trim(), lbl = mmdClean(m[3] || '');
+    var ka = a === '[*]' ? 'S_start' : a, kz = z === '[*]' ? 'S_end' : z;
+    if (a === '[*]') { node(ka, 'Inicio', 'pill', 'g'); starts++; } else node(ka);
+    if (z === '[*]') { node(kz, 'Fin', 'pill', 'q'); ends++; } else node(kz);
+    edges.push({ from: ka, to: kz, label: lbl });
+  });
+  return { nodes: list, edges: edges, dir: 'TD' };
+}
+// --- Clases: cada clase es una caja con sus miembros; las relaciones, conectores. ---
+// Escapadas para regex y de más larga a más corta (si no, "--" se comería a "-->").
+var MMD_CLASS_REL = ['<\\|--', '--\\|>', '<\\|\\.\\.', '\\.\\.\\|>', '\\*--', '--\\*', 'o--', '--o', '<\\.\\.', '\\.\\.>', '-->', '<--', '\\.\\.', '--'];
+function mmdGraphClass(src) {
+  var nodes = {}, list = [], edges = [], open = null;
+  function node(id, label) {
+    id = String(id).replace(/["~]/g, '').trim();
+    if (!nodes[id]) { nodes[id] = { key: id, label: label || id, shape: 'rect', members: [] }; list.push(nodes[id]); }
+    return nodes[id];
+  }
+  var rel = new RegExp('^\\s*([A-Za-z0-9_~"]+)\\s*(?:"[^"]*"\\s*)?(' + MMD_CLASS_REL.join('|') + ')\\s*(?:"[^"]*"\\s*)?([A-Za-z0-9_~"]+)\\s*(?::\\s*(.*))?$');
+  mmdLines(src).forEach(function (raw) {
+    var l = raw.trim();
+    if (/^classDiagram/i.test(l) || /^(direction|classDef|style|click|namespace)\b/i.test(l)) return;
+    if (l === '}') { open = null; return; }
+    if (open) { if (l) open.members.push(mmdClean(l)); return; }
+    var cl = /^class\s+([A-Za-z0-9_~]+)\s*(?:\["([^"]*)"\])?\s*(\{)?/i.exec(l);
+    if (cl) { var nd = node(cl[1], cl[2] ? mmdClean(cl[2]) : cl[1]); if (cl[3]) open = nd; return; }
+    var m = rel.exec(l);
+    if (m) { node(m[1]); node(m[3]); edges.push({ from: m[1].replace(/["~]/g, '').trim(), to: m[3].replace(/["~]/g, '').trim(), label: mmdClean(m[4] || '') }); return; }
+    var mem = /^([A-Za-z0-9_~]+)\s*:\s*(.+)$/.exec(l);
+    if (mem) node(mem[1]).members.push(mmdClean(mem[2]));
+  });
+  list.forEach(function (nd) {
+    if (nd.members && nd.members.length) nd.label = nd.label + '\n————\n' + nd.members.join('\n');
+    nd.h = Math.min(300, 104 + (nd.members ? nd.members.length : 0) * 20);
+    nd.w = 230;
+  });
+  return { nodes: list, edges: edges, dir: 'TD' };
+}
+// --- Entidad-relación: entidades como cilindros y la cardinalidad en la flecha. ---
+function mmdGraphEr(src) {
+  var nodes = {}, list = [], edges = [], open = null;
+  function node(id) {
+    if (!nodes[id]) { nodes[id] = { key: id, label: id, shape: 'cylinder', attrs: [] }; list.push(nodes[id]); }
+    return nodes[id];
+  }
+  mmdLines(src).forEach(function (raw) {
+    var l = raw.trim();
+    if (/^erDiagram/i.test(l) || /^direction\b/i.test(l)) return;
+    if (l === '}') { open = null; return; }
+    if (open) { if (l) open.attrs.push(mmdClean(l)); return; }
+    var m = /^([A-Za-z0-9_\-]+)\s+([|}{o<>ox.\-]{3,})\s+([A-Za-z0-9_\-]+)\s*:\s*(.*)$/.exec(l);
+    if (m) { node(m[1]); node(m[3]); edges.push({ from: m[1], to: m[3], label: mmdClean(m[4]).replace(/^_+$/, '') }); return; }
+    var ent = /^([A-Za-z0-9_\-]+)\s*\{/.exec(l);
+    if (ent) { open = node(ent[1]); return; }
+    var bare = /^([A-Za-z0-9_\-]+)$/.exec(l);
+    if (bare) node(bare[1]);
+  });
+  list.forEach(function (nd) {
+    if (nd.attrs && nd.attrs.length) nd.label = nd.label + '\n' + nd.attrs.slice(0, 8).join('\n');
+    nd.h = Math.min(280, 118 + (nd.attrs ? nd.attrs.length : 0) * 18);
+    nd.w = 220;
+  });
+  return { nodes: list, edges: edges, dir: 'LR' };
+}
+// --- Mapa mental: el árbol sale de la sangría de cada línea. ---
+function mmdGraphMindmap(src) {
+  var nodes = [], edges = [], stack = [], i = 0;
+  mmdLines(src).forEach(function (raw) {
+    if (/^\s*mindmap\b/i.test(raw)) return;
+    var lvl = mmdIndent(raw), t = raw.trim();
+    if (/^(::icon|class|classDef)\b/.test(t)) return;
+    // `id((Tema))`, `id[Texto]`… solo si el paréntesis cierra al final de la línea;
+    // si no, es texto normal.
+    var shape = 'round', label = mmdClean(t);
+    var m = /^([A-Za-z0-9_]*)(\(\(|\{\{|\[|\()/.exec(t);
+    if (m) {
+      var open = m[2], from = m[1].length + open.length;
+      var close = mmdCloseAfter(t, open, from);
+      if (close && close.at + close.tok.length === t.length) {
+        label = mmdClean(t.slice(from, close.at));
+        shape = mmdShapeFromOpen(open, close.tok);
+      }
+    }
+    if (!label) return;
+    var key = 'K' + (i++);
+    while (stack.length && stack[stack.length - 1].lvl >= lvl) stack.pop();
+    var parent = stack.length ? stack[stack.length - 1] : null;
+    nodes.push({ key: key, label: label, shape: stack.length ? shape : 'ellipse', color: stack.length ? '' : 'n', w: 190, h: 96 });
+    if (parent) edges.push({ from: parent.key, to: key, label: '' });
+    stack.push({ key: key, lvl: lvl });
+  });
+  return { nodes: nodes, edges: edges, dir: 'LR' };
+}
+// --- Journey / Gantt / Timeline: secciones + pasos encadenados. ---
+function mmdGraphSteps(src, kind) {
+  var nodes = [], edges = [], i = 0, prevSection = null, prev = null;
+  function push(label, shape, color, w, h) {
+    var key = 'S' + (i++);
+    nodes.push({ key: key, label: label, shape: shape, color: color || '', w: w || 200, h: h || 100 });
+    return key;
+  }
+  mmdLines(src).forEach(function (raw) {
+    var l = raw.trim();
+    if (/^(journey|gantt|timeline)\b/i.test(l)) return;
+    if (/^(title|dateFormat|axisFormat|tickInterval|excludes|todayMarker|weekday|includes)\b/i.test(l)) return;
+    var sec = /^section\s+(.*)$/i.exec(l);
+    if (sec) {
+      var k = push(mmdClean(sec[1]), 'hexagon', 'n', 210, 88);
+      if (prevSection) edges.push({ from: prevSection, to: k, label: '', line: 'dotted' });
+      prevSection = k; prev = k;
+      return;
+    }
+    var label = '', shape = 'rect', color = '';
+    if (kind === 'journey') {
+      var t = l.split(':');
+      if (t.length < 2) return;
+      var who = t.slice(2).join(':').trim(), score = (t[1] || '').trim();
+      label = mmdClean(t[0]) + (score ? '\n★ ' + score : '') + (who ? '\n' + who : '');
+      color = score && +score >= 4 ? 'a' : (score && +score <= 2 ? 'q' : '');
+    } else if (kind === 'gantt') {
+      var g = l.split(':');
+      if (g.length < 2) return;
+      var meta = g.slice(1).join(':').split(',').map(function (s) { return s.trim(); })
+        .filter(function (s) { return s && !/^(done|active|crit|milestone)$/i.test(s); });
+      if (meta.length > 1 && /^[a-z][a-z0-9_]*$/i.test(meta[0]) && !/^\d/.test(meta[0])) meta.shift();
+      label = mmdClean(g[0]) + (meta.length ? '\n' + meta.join(' · ') : '');
+      shape = /milestone/i.test(l) ? 'diamond' : 'rect';
+    } else {
+      var parts = l.split(':');
+      if (parts.length < 2) { label = mmdClean(l); shape = 'pill'; color = 'n'; }
+      else {
+        var period = mmdClean(parts[0]);
+        var pk = push(period, 'pill', 'n', 180, 78);
+        if (prev) edges.push({ from: prev, to: pk, label: '' });
+        prev = pk;
+        parts.slice(1).forEach(function (ev) {
+          var e = mmdClean(ev);
+          if (!e) return;
+          var ek = push(e, 'round', '', 200, 92);
+          edges.push({ from: pk, to: ek, label: '' });
+        });
+        return;
+      }
+    }
+    if (!label) return;
+    var key = push(label, shape, color, 210, 112);
+    if (prev) edges.push({ from: prev, to: key, label: '' });
+    prev = key;
+  });
+  return { nodes: nodes, edges: edges, dir: 'LR' };
+}
+// --- Tarta: el título en el centro y cada porción colgando con su porcentaje. ---
+function mmdGraphPie(src) {
+  var nodes = [], edges = [], i = 0, total = 0, rows = [], title = 'Distribución';
+  mmdLines(src).forEach(function (raw) {
+    var l = raw.trim();
+    var t = /^pie\b\s*(?:showData\s*)?(?:title\s+(.*))?$/i.exec(l);
+    if (t) { if (t[1]) title = mmdClean(t[1]); return; }
+    if (/^title\s+/i.test(l)) { title = mmdClean(l.replace(/^title\s+/i, '')); return; }
+    var m = /^"?([^":]+)"?\s*:\s*([\d.]+)\s*$/.exec(l);
+    if (m) { var v = parseFloat(m[2]) || 0; total += v; rows.push({ label: mmdClean(m[1]), v: v }); }
+  });
+  nodes.push({ key: 'PIE', label: title, shape: 'ellipse', color: 'n', w: 210, h: 120 });
+  rows.forEach(function (r) {
+    var key = 'W' + (i++), pct = total ? Math.round(r.v * 100 / total) : 0;
+    nodes.push({ key: key, label: r.label + '\n' + r.v + (total ? ' (' + pct + '%)' : ''), shape: 'round', w: 190, h: 96 });
+    edges.push({ from: 'PIE', to: key, label: pct ? pct + '%' : '' });
+  });
+  return { nodes: nodes, edges: edges, dir: 'TD' };
+}
+// --- Genérico: si no conocemos el tipo, buscamos "A --> B" y, si no hay flechas,
+// encadenamos las líneas tal cual. Siempre sale algo con lo que trabajar. ---
+function mmdGraphGeneric(src) {
+  var nodes = {}, list = [], edges = [], i = 0;
+  function node(id, label) {
+    var k = String(id).trim();
+    if (!nodes[k]) { nodes[k] = { key: k, label: mmdClean(label || k), shape: 'rect', w: 200, h: 100 }; list.push(nodes[k]); }
+    return nodes[k];
+  }
+  var arrow = /^(.+?)\s*(<?[-=.]{1,3}(?:->|>|\||o|x)?)\s*(?:\|([^|]*)\|)?\s*([^:]+?)\s*(?::\s*(.*))?$/;
+  mmdLines(src).forEach(function (raw, idx) {
+    var l = raw.trim();
+    if (idx === 0 || /^(title|direction|accTitle|accDescr)\b/i.test(l)) return;
+    var m = arrow.exec(l);
+    if (m && /[-=.]/.test(m[2]) && /(>|\||o|x|-|=|\.)$/.test(m[2]) && m[1] && m[4] && m[1].indexOf(' ') < 0) {
+      node(m[1]); node(m[4]);
+      edges.push({ from: m[1].trim(), to: m[4].trim(), label: mmdClean(m[3] || m[5] || '') });
+      return;
+    }
+    var kv = /^([^:]{1,60}):\s*(.*)$/.exec(l);
+    var key = 'G' + (i++);
+    list.push({ key: key, label: kv ? mmdClean(kv[1]) + (kv[2] ? '\n' + mmdClean(kv[2]) : '') : mmdClean(l), shape: 'rect', w: 210, h: 100 });
+    nodes[key] = list[list.length - 1];
+  });
+  // Sin flechas: se encadenan las cajas en el orden en que aparecen.
+  if (!edges.length) {
+    for (var k = 1; k < list.length; k++) edges.push({ from: list[k - 1].key, to: list[k].key, label: '' });
+  }
+  return { nodes: list, edges: edges, dir: 'TD' };
+}
+function mmdGraphFlow(src) {
+  var edges = mmdParseEdges(src), defs = mmdCollectNodeDefs(src), ids = [], nodes = [];
   function add(id) { if (id && ids.indexOf(id) < 0 && !/^(subgraph|end|direction)$/i.test(id)) ids.push(id); }
   Object.keys(defs).forEach(add);
   edges.forEach(function (e) { add(e.from); add(e.to); });
-  if (!ids.length) { toast('No se encontraron nodos en el diagrama.', 'warn'); return; }
-  var dir = mmdDirection(src), pos = mmdLayout(ids, edges, dir);
+  ids.forEach(function (id) {
+    var d = defs[id] || {};
+    nodes.push({ key: id, label: d.label || id, shape: d.shape || 'rect', w: 176, h: 104 });
+  });
+  return {
+    nodes: nodes,
+    edges: edges.map(function (e) { return { from: e.from, to: e.to, label: (e.label || '').trim(), line: mmdParseOp(e.op).line }; }),
+    dir: mmdDirection(src),
+  };
+}
+// Punto de entrada: código Mermaid → { nodes, edges } con posiciones ya calculadas.
+function mmdGraph(src) {
+  var kind = mmdKind(src), g;
+  if (kind === 'flow') g = mmdGraphFlow(src);
+  else if (kind === 'sequence') g = mmdGraphSequence(src);
+  else if (kind === 'state') g = mmdGraphState(src);
+  else if (kind === 'class') g = mmdGraphClass(src);
+  else if (kind === 'er') g = mmdGraphEr(src);
+  else if (kind === 'mindmap') g = mmdGraphMindmap(src);
+  else if (kind === 'journey' || kind === 'gantt' || kind === 'timeline') g = mmdGraphSteps(src, kind);
+  else if (kind === 'pie') g = mmdGraphPie(src);
+  else g = mmdGraphGeneric(src);
+  g.kind = kind;
+  g.nodes = (g.nodes || []).filter(function (n) { return n && n.key; });
+  var known = {};
+  g.nodes.forEach(function (n) { known[n.key] = n; });
+  g.edges = (g.edges || []).filter(function (e) { return e && known[e.from] && known[e.to] && e.from !== e.to; });
+  if (!g.fixed) {
+    var sizes = {}, ids = g.nodes.map(function (n) { sizes[n.key] = { w: n.w || 176, h: n.h || 104 }; return n.key; });
+    var pos = mmdLayout(ids, g.edges, g.dir || 'TD', sizes);
+    g.nodes.forEach(function (n) { var p = pos[n.key] || { x: 0, y: 0 }; n.x = p.x; n.y = p.y; });
+  }
+  return g;
+}
+// Explota CUALQUIER diagrama a formas del lienzo (las flechas siguen a las cajas).
+function mermaidToCanvas(b) {
+  var src = (b.content && b.content.text) || '';
+  var g = mmdGraph(src);
+  if (!g.nodes.length) { toast('No se encontró contenido que convertir en formas.', 'warn'); return; }
   var minX = Infinity, minY = Infinity;
-  ids.forEach(function (id) { minX = Math.min(minX, pos[id].x); minY = Math.min(minY, pos[id].y); });
+  g.nodes.forEach(function (n) { minX = Math.min(minX, n.x); minY = Math.min(minY, n.y); });
   var ox = Math.round(b.x), oy = Math.round(b.y + (b.height || 300) + 70), t = now(), map = {};
   pushUndo('Explotar diagrama a lienzo');
-  ids.forEach(function (id) {
-    var d = defs[id] || {}, nb = {
+  g.nodes.forEach(function (n) {
+    var nb = {
       id: uid(), noteId: b.noteId, type: 'shape',
-      x: ox + Math.round(pos[id].x - minX), y: oy + Math.round(pos[id].y - minY),
-      width: 176, height: 104,
-      content: { text: d.label || id, shape: d.shape || 'rect' },
+      x: ox + Math.round(n.x - minX), y: oy + Math.round(n.y - minY),
+      width: Math.round(n.w || 176), height: Math.round(n.h || 104),
+      content: { text: n.label || n.key, shape: n.shape || 'rect' },
       createdAt: t, updatedAt: t,
     };
-    data.blocks.push(nb); map[id] = nb.id;
+    if (n.color) nb.color = n.color;
+    data.blocks.push(nb); map[n.key] = nb.id;
   });
-  edges.forEach(function (e) {
+  g.edges.forEach(function (e) {
     if (!map[e.from] || !map[e.to]) return;
-    var op = mmdParseOp(e.op);
-    data.links.push({ id: uid(), noteId: b.noteId, a: map[e.from], b: map[e.to], label: (e.label || '').trim(), type: 'flow', style: op.line === 'dotted' ? 'straight' : 'curve', createdAt: t });
+    data.links.push({ id: uid(), noteId: b.noteId, a: map[e.from], b: map[e.to], label: (e.label || '').trim(), type: 'flow', style: e.line === 'dotted' ? 'straight' : 'curve', createdAt: t });
   });
   touchNote(b.noteId);
-  logChange('Diagrama explotado a formas', ids.length + ' nodos, ' + edges.length + ' conexiones');
+  logChange('Diagrama explotado a formas', MMD_KIND_LABEL[g.kind] + ': ' + g.nodes.length + ' nodos, ' + g.edges.length + ' conexiones');
   save();
   renderCanvas();
   clearSelection();
-  ids.forEach(function (id) { selectedIds[map[id]] = true; });
+  g.nodes.forEach(function (n) { selectedIds[map[n.key]] = true; });
   refreshSelectionUI();
-  focusBlock(map[ids[0]]);
-  toast(ids.length + ' formas creadas: arrástralas y las flechas las siguen. Puedes volver a Mermaid desde la barra de selección.', 'ok');
+  focusBlock(map[g.nodes[0].key]);
+  toast('Diagrama de ' + MMD_KIND_LABEL[g.kind] + ' → ' + g.nodes.length + ' formas: arrástralas y las flechas las siguen. Puedes volver a Mermaid desde la barra de selección.', 'ok');
 }
 function mmdBracketFor(shape) {
   switch (shape) {
@@ -1265,8 +1735,14 @@ function mmdBracketFor(shape) {
     case 'pill': return ['([', '])'];
     case 'ellipse': return ['((', '))'];
     case 'diamond': return ['{', '}'];
+    case 'hexagon': return ['{{', '}}'];
+    case 'cylinder': return ['[(', ')]'];
+    case 'subprocess': return ['[[', ']]'];
     case 'parallelogram': return ['[/', '/]'];
-    default: return ['[', ']'];
+    case 'trapezoid': return ['[/', '\\]'];
+    case 'trapezoid-alt': return ['[\\', '/]'];
+    case 'flag': return ['>', ']'];
+    default: return ['[', ']'];   // documento, nube, nota, actor, triángulo… → caja
   }
 }
 function mmdSanitizeLabel(t) { return (t || '').replace(/\s+/g, ' ').trim().slice(0, 60).replace(/"/g, "'"); }

@@ -77,7 +77,7 @@ function renderTopbar() {
   var sidebarBtn = h('button', { class: 'icon-btn tb-sidebar-btn', title: 'Mostrar/ocultar panel', onclick: toggleSidebar }, icon('panel'));
   var left = h('div', { class: 'tb-left' }, sidebarBtn, crumb, title);
   var hint = h('div', { class: 'hint' }, icon('cursor'), 'Doble clic crea ' + dblTypeHint() + ' \u00b7 pulsa ? para ver los atajos');
-  var searchBtn = h('button', { class: 'icon-btn', title: 'Buscar en todo (' + MOD + '+K)', onclick: openSearch }, icon('search'));
+  var searchBtn = h('button', { class: 'icon-btn', title: 'Buscar en todo con filtros (' + MOD + '+K)', onclick: openSearch }, icon('search'));
   var fitBtn = h('button', { class: 'icon-btn', title: 'Ver todo el lienzo (recupera el zoom y los controles)', onclick: function () { if (typeof fitView === 'function') fitView(); } }, icon('fit'));
   var tplBtn = h('button', { class: 'icon-btn', title: 'Plantillas de canvas (BMC, DAFO, arquitectura…)', onclick: openTemplates }, icon('layout'));
   var shapeBtn = h('button', { class: 'icon-btn', title: 'Formas para diagramar (rectángulo, elipse, rombo…)', onclick: function (e) { e.stopPropagation(); openShapePalette(shapeBtn); } }, icon('shapes'));
@@ -633,7 +633,7 @@ function card(b) {
   var isMono = b.type === 'code' || b.type === 'json' || b.type === 'curl' || b.type === 'python';
   var hasMedia = isText || isImage || isFreeImage;
   var el = h('div', {
-    class: 'card' + (meta.cls ? ' ' + meta.cls : '') + (isText ? ' rank-' + noteRank(b) : '') + (b.color ? ' card-c-' + b.color : '') + (selectedIds[b.id] ? ' selected' : '') + (b.reminder && !b.reminder.done ? ' reminder-on' : '') + (b.important ? ' important' : '') + (isImage && b.content && b.content.desc ? ' has-desc' : ''),
+    class: 'card' + (meta.cls ? ' ' + meta.cls : '') + (isText ? ' rank-' + noteRank(b) : '') + (b.color ? ' card-c-' + b.color : '') + (selectedIds[b.id] ? ' selected' : '') + (b.reminder && !b.reminder.done ? ' reminder-on' : '') + (b.important ? ' important' : '') + (isImage && b.content && b.content.desc ? ' has-desc' : '') + (isMermaid && b.content && b.content.split ? ' mmd-split' : ''),
     'data-id': b.id,
     style: { left: b.x + 'px', top: b.y + 'px', width: b.width + 'px', height: b.height + 'px', zIndex: String(++topZ) },
   });
@@ -686,8 +686,9 @@ function card(b) {
   }
   if (isMermaid) {
     head.appendChild(h('button', { class: 'card-mmd-type', title: 'Tipo de diagrama, formas rápidas y generar con IA', onclick: function (e) { e.stopPropagation(); openDiagramMenu(b, el, e.currentTarget); } }, icon('flow')));
-    head.appendChild(h('button', { class: 'card-mmd-explode', title: 'Explotar a formas del lienzo (editar con flechas que siguen a las cajas)', onclick: function (e) { e.stopPropagation(); mermaidToCanvas(b); } }, icon('shapes')));
-    head.appendChild(h('button', { class: 'card-mmd-move', title: 'Modo interactivo: mover / escalar objetos, editar texto y zoom', onclick: function (e) { e.stopPropagation(); toggleMmdMove(b, el); } }, icon('move')));
+    head.appendChild(h('button', { class: 'card-mmd-explode', title: 'Explotar a formas del lienzo: cualquier tipo de diagrama (flujo, secuencia, estados, clases, ER…) se convierte en cajas con flechas que las siguen', onclick: function (e) { e.stopPropagation(); mermaidToCanvas(b); } }, icon('shapes')));
+    head.appendChild(h('button', { class: 'card-mmd-move', title: 'Modo interactivo: mover / escalar objetos, editar texto y zoom (doble clic en zona vacía = reencuadrar)', onclick: function (e) { e.stopPropagation(); toggleMmdMove(b, el); } }, icon('move')));
+    head.appendChild(h('button', { class: 'card-mmd-split', title: 'Vista dividida: código y diagrama en paralelo', onclick: function (e) { e.stopPropagation(); toggleMmdSplit(b, el); } }, icon('panel')));
     head.appendChild(h('button', { class: 'card-mmd-edit', title: 'Editar / ver diagrama', onclick: function (e) { e.stopPropagation(); toggleMmdEdit(b, el); } }, icon('edit')));
     head.appendChild(h('button', { class: 'card-mmd-dl', title: 'Descargar diagrama (PNG)', onclick: function (e) { e.stopPropagation(); downloadMermaid(b, el); } }, icon('download')));
     head.appendChild(h('button', { class: 'card-pop', title: 'Abrir en ventana', onclick: function (e) { e.stopPropagation(); popOut(b.id); } }, icon('popout')));
@@ -1126,14 +1127,63 @@ function drawBody(b) {
   return [wrap];
 }
 // ---------- Formas / stencils (diagramación) ----------
+// Catálogo por familias: las básicas se dibujan con CSS (border-radius / clip-path) y las
+// complejas con un <svg> interno (SHAPE_SVG) para que el contorno salga limpio a cualquier
+// tamaño. Las claves se usan también al explotar diagramas Mermaid al lienzo (js/06).
 var SHAPES = [
-  { key: 'rect', label: 'Rectángulo' },
-  { key: 'round', label: 'Redondeado' },
-  { key: 'ellipse', label: 'Elipse' },
-  { key: 'diamond', label: 'Rombo (decisión)' },
-  { key: 'pill', label: 'Píldora (inicio/fin)' },
-  { key: 'parallelogram', label: 'Proceso' },
+  { key: 'rect', label: 'Rectángulo', group: 'Básicas' },
+  { key: 'round', label: 'Redondeado', group: 'Básicas' },
+  { key: 'ellipse', label: 'Elipse', group: 'Básicas' },
+  { key: 'pill', label: 'Píldora (inicio/fin)', group: 'Básicas' },
+  { key: 'diamond', label: 'Rombo (decisión)', group: 'Flujo' },
+  { key: 'parallelogram', label: 'Datos (entrada/salida)', group: 'Flujo' },
+  { key: 'hexagon', label: 'Hexágono (preparación)', group: 'Flujo' },
+  { key: 'subprocess', label: 'Subproceso', group: 'Flujo' },
+  { key: 'trapezoid', label: 'Operación manual', group: 'Flujo' },
+  { key: 'trapezoid-alt', label: 'Entrada manual', group: 'Flujo' },
+  { key: 'delay', label: 'Espera / retardo', group: 'Flujo' },
+  { key: 'flag', label: 'Etiqueta (flecha)', group: 'Flujo' },
+  { key: 'cylinder', label: 'Base de datos', group: 'Sistemas' },
+  { key: 'cloud', label: 'Nube / servicio externo', group: 'Sistemas' },
+  { key: 'doc', label: 'Documento', group: 'Sistemas' },
+  { key: 'note', label: 'Nota', group: 'Sistemas' },
+  { key: 'actor', label: 'Actor / persona', group: 'Sistemas' },
+  { key: 'triangle', label: 'Triángulo (jerarquía)', group: 'Sistemas' },
 ];
+var SHAPE_LABEL = {};
+SHAPES.forEach(function (s) { SHAPE_LABEL[s.key] = s.label; });
+// Formas dibujadas con SVG: d[0] es el contorno relleno y el resto son líneas de detalle.
+var SHAPE_SVG = {
+  cylinder: { vb: '0 0 100 100', d: ['M3 16 A47 13 0 0 1 97 16 L97 84 A47 13 0 0 1 3 84 Z', 'M3 16 A47 13 0 0 0 97 16'] },
+  doc: { vb: '0 0 100 100', d: ['M3 3 L97 3 L97 82 C80 96 63 70 46 82 C31 92 16 92 3 82 Z'] },
+  cloud: { vb: '0 0 100 66', d: ['M20 62 A17 17 0 0 1 20 28 A21 21 0 0 1 55 15 A18 18 0 0 1 82 33 A16 16 0 0 1 82 62 Z'] },
+  note: { vb: '0 0 100 100', d: ['M3 3 L72 3 L97 28 L97 97 L3 97 Z', 'M72 3 L72 28 L97 28'] },
+  actor: { vb: '0 0 40 46', ratio: 'xMidYMid meet', d: ['M12.5 10.5 A7.5 7.5 0 1 0 27.5 10.5 A7.5 7.5 0 1 0 12.5 10.5', 'M20 19 L20 32 M8 24 L32 24 M20 32 L11 44 M20 32 L29 44'] },
+};
+function shapeGlyph(key) {
+  var spec = SHAPE_SVG[key];
+  if (!spec) return null;
+  var ns = 'http://www.w3.org/2000/svg';
+  var svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'shape-svg');
+  svg.setAttribute('viewBox', spec.vb);
+  svg.setAttribute('preserveAspectRatio', spec.ratio || 'none');
+  svg.setAttribute('aria-hidden', 'true');
+  spec.d.forEach(function (d, i) {
+    var p = document.createElementNS(ns, 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('class', i === 0 ? 'sh-fill' : 'sh-line');
+    svg.appendChild(p);
+  });
+  return svg;
+}
+// Miniatura para los selectores de forma (mismo dibujo que la tarjeta).
+function shapeMini(key) {
+  var span = h('span', { class: 'shape-mini shape-' + key + (SHAPE_SVG[key] ? ' has-svg' : '') });
+  var g = shapeGlyph(key);
+  if (g) span.appendChild(g);
+  return span;
+}
 // ---------- Lienzo sobre lienzo: bloque "portal" que abre una nota (lienzo) anidada ----------
 function canvasBody(b) {
   b.content = b.content || {};
@@ -1181,7 +1231,10 @@ function newSubCanvas() {
 }
 function shapeBody(b) {
   b.content = b.content || {};
-  var box = h('div', { class: 'shape-box shape-' + (b.content.shape || 'rect') });
+  var key = b.content.shape || 'rect';
+  var box = h('div', { class: 'shape-box shape-' + key + (SHAPE_SVG[key] ? ' has-svg' : '') });
+  var glyph = shapeGlyph(key);
+  if (glyph) box.appendChild(glyph);
   var ta = h('textarea', { class: 'shape-ta', placeholder: 'Texto…' });
   ta.value = b.content.text || '';
   ta.addEventListener('input', function () { b.content.text = ta.value; touchNote(b.noteId); debouncedSave(); });
@@ -1195,19 +1248,36 @@ function setShapeType(b, key) {
   b.content.shape = key;
   var el = cardEl(b.id);
   var box = el && el.querySelector('.shape-box');
-  if (box) box.className = 'shape-box shape-' + key;
-  touchNote(b.noteId); logChange('Tipo de forma', key); save();
+  if (box) {
+    box.className = 'shape-box shape-' + key + (SHAPE_SVG[key] ? ' has-svg' : '');
+    var old = box.querySelector('.shape-svg');
+    if (old) old.remove();
+    var glyph = shapeGlyph(key);
+    if (glyph) box.insertBefore(glyph, box.firstChild);
+  }
+  touchNote(b.noteId); logChange('Tipo de forma', SHAPE_LABEL[key] || key); save();
+}
+// Recorre SHAPES por familias («Básicas», «Flujo», «Sistemas») invocando render(seccion, forma).
+function eachShapeGroup(onGroup, onShape) {
+  var last = null;
+  SHAPES.forEach(function (s) {
+    var g = s.group || '';
+    if (g !== last) { last = g; if (g) onGroup(g); }
+    onShape(s);
+  });
 }
 function openShapePicker(b, anchor) {
   closeTopbarMenu();
   var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
-  var pop = h('div', { class: 'card-menu-pop shape-pop', onmousedown: function (e) { e.stopPropagation(); } });
-  SHAPES.forEach(function (s) {
+  var pop = h('div', { class: 'card-menu-pop shape-pop shape-pop-list', onmousedown: function (e) { e.stopPropagation(); } });
+  eachShapeGroup(function (g) {
+    pop.appendChild(h('div', { class: 'cm-label' }, icon('shapes'), g));
+  }, function (s) {
     pop.appendChild(h('button', { class: 'shape-opt' + ((b.content && b.content.shape) === s.key ? ' on' : ''), title: s.label, onclick: function () { setShapeType(b, s.key); closeTopbarMenu(); } },
-      h('span', { class: 'shape-mini shape-' + s.key }), h('span', { class: 'shape-opt-lbl' }, s.label)));
+      shapeMini(s.key), h('span', { class: 'shape-opt-lbl' }, s.label)));
   });
   bd.appendChild(pop); document.body.appendChild(bd);
-  positionPop(pop, anchor, 220);
+  positionPop(pop, anchor, 240);
 }
 // Paleta de formas del topbar: inserta una forma nueva en el lienzo.
 function openShapePalette(anchor) {
@@ -1216,31 +1286,34 @@ function openShapePalette(anchor) {
   var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
   var pop = h('div', { class: 'card-menu-pop shape-pop', onmousedown: function (e) { e.stopPropagation(); } });
   pop.appendChild(h('div', { class: 'cm-label' }, icon('shapes'), 'Insertar forma'));
-  var grid = h('div', { class: 'shape-grid' });
-  SHAPES.forEach(function (s) {
+  var grid = null;
+  eachShapeGroup(function (g) {
+    pop.appendChild(h('div', { class: 'shape-sec' }, g));
+    grid = h('div', { class: 'shape-grid' });
+    pop.appendChild(grid);
+  }, function (s) {
+    if (!grid) { grid = h('div', { class: 'shape-grid' }); pop.appendChild(grid); }
     grid.appendChild(h('button', { class: 'shape-tile', title: s.label, onclick: function () { closeTopbarMenu(); insertShape(s.key); } },
-      h('span', { class: 'shape-mini shape-' + s.key }), h('span', { class: 'shape-tile-lbl' }, s.label)));
+      shapeMini(s.key), h('span', { class: 'shape-tile-lbl' }, s.label)));
   });
-  pop.appendChild(grid);
   bd.appendChild(pop); document.body.appendChild(bd);
-  positionPop(pop, anchor, 250);
+  positionPop(pop, anchor, 280);
 }
 function insertShape(key) {
   var b = quickCreate('shape');
   if (!b) return;
-  b.content.shape = key || 'rect';
-  save();
-  var el = cardEl(b.id);
-  var box = el && el.querySelector('.shape-box');
-  if (box) box.className = 'shape-box shape-' + b.content.shape;
+  setShapeType(b, key || 'rect');
 }
 // ---------- Conexión rápida: crear un bloque conectado desde el costado de una forma ----------
 var QC_SHAPES = [
-  { key: 'rect', color: '', label: '▭ Paso' },
-  { key: 'diamond', color: '', label: '◇ Decisión' },
-  { key: 'round', color: '', label: '▢ Subproceso' },
-  { key: 'pill', color: '', label: '⬭ Inicio / Fin' },
-  { key: 'pill', color: 'q', label: '⬤ Fin del proceso (rojo)' },
+  { key: 'rect', color: '', label: 'Paso' },
+  { key: 'diamond', color: '', label: 'Decisión' },
+  { key: 'subprocess', color: '', label: 'Subproceso' },
+  { key: 'hexagon', color: '', label: 'Preparación' },
+  { key: 'cylinder', color: '', label: 'Base de datos' },
+  { key: 'doc', color: '', label: 'Documento' },
+  { key: 'pill', color: '', label: 'Inicio / Fin' },
+  { key: 'pill', color: 'q', label: 'Fin del proceso (rojo)' },
 ];
 function openQuickConnect(b, side, anchor) {
   closeTopbarMenu();
@@ -1248,8 +1321,10 @@ function openQuickConnect(b, side, anchor) {
   var pop = h('div', { class: 'card-menu-pop shape-pop', onmousedown: function (e) { e.stopPropagation(); } });
   pop.appendChild(h('div', { class: 'cm-label' }, icon('shapes'), 'Conectar nuevo bloque'));
   QC_SHAPES.forEach(function (s) {
+    var mini = shapeMini(s.key);
+    if (s.color) mini.classList.add('qc-red');
     pop.appendChild(h('button', { class: 'shape-opt', onclick: function () { quickConnect(b, side, s.key, s.color); closeTopbarMenu(); } },
-      h('span', { class: 'shape-mini shape-' + s.key + (s.color ? ' qc-red' : '') }), h('span', { class: 'shape-opt-lbl' }, s.label)));
+      mini, h('span', { class: 'shape-opt-lbl' }, s.label)));
   });
   bd.appendChild(pop); document.body.appendChild(bd);
   positionPop(pop, anchor, 220);

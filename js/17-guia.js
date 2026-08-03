@@ -9,11 +9,11 @@ var GUIA_SECS = [
     { img: '02-menu-radial.png', t: 'Menú radial: 14 tipos de bloque', b: 'Mantén ' + ALTKEY + ' (o ' + MOD + '+clic) sobre el lienzo para abrir el menú radial: Nota, Texto, Idea, Tabla, Código, Python, JSON, cURL, Imagen, Imagen IA, Forma, Markdown, Mermaid y Dibujo. El doble clic en el vacío crea una nota (configurable en «⋯»).' },
   ] },
   { t: 'Diagramación (estilo Lucid/Visio)', items: [
-    { img: '03-formas.png', t: 'Formas / stencils', b: 'Paleta con rectángulos, redondeados, elipses, rombos de decisión, píldoras de inicio/fin y paralelogramos de proceso. El tipo de cada forma se cambia desde su tarjeta.' },
+    { img: '03-formas.png', t: 'Formas / stencils (18)', b: 'Paleta agrupada en tres familias: Básicas (rectángulo, redondeado, elipse, píldora), Flujo (rombo de decisión, datos, hexágono, subproceso, operación y entrada manual, espera, etiqueta) y Sistemas (base de datos, nube, documento, nota, actor y triángulo). El tipo de cada forma se cambia desde su tarjeta.' },
     { img: '30-conexion-rapida.png', t: 'Conexión rápida', b: 'Al pasar el ratón por una forma aparecen 4 manijas «+»: un clic crea un bloque ya conectado en esa dirección (Paso, Decisión, Subproceso, Inicio/Fin o Fin rojo). Un flujograma en segundos. Duplica con Ctrl/⌘+D.' },
     { img: '04-conectores.png', t: 'Conectores con tipo, etiqueta y ruteo', b: 'Flechas direccionales borde a borde, con etiqueta («sí», «requiere»…), tipo semántico con color (relación, depende, bloquea, flujo) y ruteo curvo, recto u ortogonal. Clic en la conexión para editarla.' },
     { img: '05-guias-snap.png', t: 'Guías inteligentes + snap', b: 'Al arrastrar, tuNota muestra líneas guía y engancha el bloque a bordes, centros y rejilla para alinear sin esfuerzo.' },
-    { img: '23-mermaid-a-lienzo.png', t: 'Puente Mermaid ↔ lienzo', b: 'Convierte un diagrama Mermaid en formas y conectores nativos editables, y de vuelta: el botón «A diagrama» regenera el código Mermaid desde tus formas.' },
+    { img: '23-mermaid-a-lienzo.png', t: 'Puente Mermaid ↔ lienzo', b: 'Convierte CUALQUIER diagrama Mermaid en formas y conectores nativos editables: flujo, secuencia (participantes en columnas y un paso por mensaje), estados, clases, entidad-relación, mapa mental, journey, gantt, línea de tiempo o tarta; los tipos que no reconoce pasan por un lector genérico. Y de vuelta: el botón «A diagrama» regenera el código Mermaid desde tus formas.' },
   ] },
   { t: 'Organizar y actuar', items: [
     { img: '06-menu-tarjeta.png', t: 'Menú de tarjeta', b: 'Cada bloque tiene menú (⋯): importante, duplicar, traer al frente / enviar al fondo, color/categoría, acciones de IA (mejorar, resumir, insights, expandir, accionables, buscar en la web) y recordatorios.' },
@@ -22,13 +22,13 @@ var GUIA_SECS = [
   ] },
   { t: 'Contenido y multimedia', items: [
     { img: '08-imagen-ia.png', t: 'Imagen IA (buscar o generar)', b: 'Bloque para buscar imágenes en la web o generarlas por prompt y colocarlas en el lienzo.' },
-    { img: '09-mermaid.png', t: 'Diagramas Mermaid en vivo', b: 'Flujo, secuencia y más, renderizados al momento; con generación por IA, edición del código y exportación a PNG.' },
+    { img: '09-mermaid.png', t: 'Diagramas Mermaid en vivo', b: 'Flujo, secuencia y más, renderizados al momento; con generación por IA, edición del código y exportación a PNG. El botón ▯ abre la vista dividida: código a la izquierda y diagrama a la derecha, repintándose mientras escribes (también en la ventana emergente, botón «Paralelo»).' },
   ] },
   { t: 'Plantillas y vistas', items: [
     { img: '10-plantillas.png', t: 'Plantillas de canvas', b: 'Business Model Canvas, Lean Canvas, DAFO, Lluvia de ideas, Arquitectura de software y De la idea al despliegue. La IA puede rellenar las cajas describiendo tu proyecto.' },
     { img: '11-mapa-conocimiento.png', t: 'Mapa de conocimiento', b: 'Grafo de todo tu contenido (libros, secciones, notas, documentos) con zoom y resaltado de vecinos. Clic en un nodo para ir a su lienzo.' },
     { img: '24-navegacion.png', t: 'No perderse en el lienzo', b: 'Botón «Volver al contenido», minimapa con la zona visible, Centrar (' + MOD + '+0) y Ajustar todo (' + MOD + '+1).' },
-    { img: '13-busqueda-global.png', t: 'Búsqueda global', b: MOD + '+K recorre todas las notas y bloques y te lleva al resultado.' },
+    { img: '13-busqueda-global.png', t: 'Búsqueda global con filtros', b: MOD + '+K busca en notas, tarjetas, libros, subgrupos, conexiones y tareas. Acota por tipo, libro, fecha, color, tono, kanban o estado.' },
   ] },
   { t: 'Inteligencia artificial', items: [
     { img: '14-asistente-ia.png', t: 'Asistente de IA', b: 'Chat con acciones rápidas (resumir, ideas, insights, accionables, título). Cada respuesta se puede insertar como bloque.' },

@@ -30,6 +30,8 @@ function initState() {
   if (!Array.isArray(data.userTemplates)) data.userTemplates = []; // plantillas guardadas por el usuario
   if (!Array.isArray(data.inks)) data.inks = [];
   if (typeof ui.kanbanBook !== 'string') ui.kanbanBook = '';
+  if (typeof ui.kanbanBlockedOnly !== 'boolean') ui.kanbanBlockedOnly = false;
+  if (typeof ui.kanbanDefaultSec !== 'string') ui.kanbanDefaultSec = '';
   if (typeof ui.tablet !== 'boolean') ui.tablet = false;
   if (!ui.pen || typeof ui.pen !== 'object') ui.pen = { tool: 'pen', color: '#33302b', size: 3 };
   if (typeof ui.sidebarCollapsed !== 'boolean') ui.sidebarCollapsed = false;
@@ -46,6 +48,10 @@ function initState() {
   // Sincronización con Apple (CalDAV) y Google Drive.
   if (!ui.apple || typeof ui.apple !== 'object') ui.apple = { id: '', password: '', autoSync: false };
   if (!ui.drive || typeof ui.drive !== 'object') ui.drive = { clientId: '', autoSync: false, fileId: '' };
+  // Buscador global: filtros elegidos y últimas búsquedas (se conservan entre sesiones).
+  // searchFilters() (js/14) completa las claves que falten con sus valores por defecto.
+  if (!ui.search || typeof ui.search !== 'object') ui.search = {};
+  if (!Array.isArray(ui.searchRecent)) ui.searchRecent = [];
   // Control de funcionalidades (usuario maestro): overrides locales sobre los valores por defecto.
   if (!ui.features || typeof ui.features !== 'object') ui.features = {};
   if (typeof ui.master !== 'boolean') ui.master = false;

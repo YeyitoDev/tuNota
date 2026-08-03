@@ -40,9 +40,11 @@ function buildSidebarGroups() {
     var row = h('div', { class: 'row group-row', title: 'Centrar en ' + g.name });
     row.appendChild(h('span', { class: 'group-dot ' + GROUP_COLORS[g.color % GROUP_COLORS.length] }));
     var nameSpan = h('span', { class: 'item-name' }, g.name);
+    nameSpan.title = 'Doble clic para renombrar';
     row.appendChild(nameSpan);
     var editBtn = h('button', { class: 'act', title: 'Renombrar grupo' }, icon('edit'));
     row.appendChild(editBtn);
+    nameSpan.addEventListener('dblclick', function (e) { e.stopPropagation(); editBtn.click(); });
     row.appendChild(h('button', { class: 'act danger', title: 'Disolver grupo', onclick: function (e) { e.stopPropagation(); deleteGroup(g); } }, icon('trash')));
     row.addEventListener('click', function () { centerOnGroup(g); });
     editBtn.addEventListener('click', function (e) {
@@ -1638,7 +1640,7 @@ function buildNoteAnalysis(b) {
   if (just) delete b.content._justAnalyzed;
   var wrap = h('div', { class: 'note-analysis' + (just ? ' anim-in' : '') });
   wrap.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-  wrap.addEventListener('wheel', function (e) { e.stopPropagation(); });
+  wrap.addEventListener('wheel', function (e) { if (!(e.ctrlKey || e.metaKey)) e.stopPropagation(); }); // Ctrl/Cmd+rueda = zoom del lienzo
   var body = h('div', { class: 'note-analysis-body' });
   body.innerHTML = renderMarkdown(b.content.analysis || '');
   wrap.appendChild(noteAnalysisHead(b));
