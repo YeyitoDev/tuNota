@@ -303,26 +303,63 @@ function toast(msg, kind) {
 // Enter continúa la lista; Tab la anida un nivel (1. → 1.1 → 1.1.1) y Shift+Tab la sube.
 // Funciona con listas ordenadas (numeración jerárquica con puntos), viñetas (que cambian por
 // nivel) y casillas de tarea. La región contigua se renumera entera en cada cambio.
+// Los estilos de numeración ("1.", "1)", "a)", "I.") se respetan desde ui.fmt.num y se
+// reconocen al parsear, de modo que Enter/Tab auto-continúan cualquiera de ellos.
 var LIST_INDENT = '  '; // 2 espacios = 1 nivel
 function outlineBullets() { return [(ui && ui.fmt && ui.fmt.bullet) || '-', '◦', '▪', '‣']; }
+// Conversión de estilos no decimales a número y viceversa (compartido con js/08-text-exec).
+function lettersToNum(s) { var n = 0; for (var i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 96); return n; }
+function romanToNum(s) {
+  var vals = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+  var n = 0;
+  for (var i = 0; i < s.length; i++) { var v = vals[s[i]] || 0, nx = i + 1 < s.length ? (vals[s[i + 1]] || 0) : 0; n += nx > v ? -v : v; }
+  return n;
+}
+function numToRoman(n) {
+  var ro = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  var r = ''; ro.forEach(function (p) { while (n >= p[0]) { r += p[1]; n -= p[0]; } }); return r || 'I';
+}
+// Marcador numérico según estilo ("1." "1)" "a)" "I."). Si no se indica estilo, usa ui.fmt.num.
+function numMarkerStyled(n, style) {
+  style = style || (ui && ui.fmt && ui.fmt.num) || '1.';
+  if (style === '1)') return n + ') ';
+  if (style === 'a)') { var s = ''; var k = n; while (k > 0) { k--; s = String.fromCharCode(97 + (k % 26)) + s; k = Math.floor(k / 26); } return s + ') '; }
+  if (style === 'I.') return numToRoman(n) + '. ';
+  return n + '. ';
+}
 function outlineParse(line) {
   var indent = (/^(\s*)/.exec(line) || ['', ''])[1];
   var level = Math.floor(indent.replace(/\t/g, '  ').length / 2);
   var rest = line.slice(indent.length), m;
-  // Numeración: "1. " o "1. " o "1." solo (sin texto después aún)
+  // Numeración decimal con puntos: "1." "1.1." "3.2.1." — nivel sale de los puntos
   if ((m = /^(\d+(?:\.\d+)*)[.)](?:\s+(.*))?$/.exec(rest))) {
-    // Numeración decimal (3.1, 3.1.2…): el nivel sale de los puntos, aunque la línea
-    // no tenga sangría — así "3.1." escrito a mano se indenta solo al renderizar.
     var segs = m[1].split('.');
     var lv = Math.max(level, segs.length - 1);
-    return { list: true, kind: 'ordered', level: lv, num: parseInt(segs[segs.length - 1], 10) || 1, text: m[2] || '' };
+    var dec = m[0].indexOf(')') >= 0 && segs.length === 1 ? '1)' : '1.';
+    return { list: true, kind: 'ordered', style: dec, level: lv, num: parseInt(segs[segs.length - 1], 10) || 1, text: m[2] || '' };
+  }
+  // Letras: "a)" "b)" … "aa)" (hasta 3 letras minúsculas)
+  if ((m = /^([a-z]{1,3})\)(?:\s+(.*))?$/.exec(rest))) {
+    return { list: true, kind: 'ordered', style: 'a)', level: level, num: lettersToNum(m[1]), text: m[2] || '' };
+  }
+  // Romanos: "I." "II." "IV." … (1-7 chars de IVXLCDM).
+  // "I." suelto solo se reconoce si el usuario eligió estilo romano (evita falsos positivos).
+  var romanRe = (ui && ui.fmt && ui.fmt.num === 'I.') ? /^([IVXLCDM]{1,7})\.(?:\s+(.*))?$/ : /^([IVXLCDM]{2,7})\.(?:\s+(.*))?$/;
+  if ((m = romanRe.exec(rest))) {
+    return { list: true, kind: 'ordered', style: 'I.', level: level, num: romanToNum(m[1]), text: m[2] || '' };
   }
   if ((m = /^[-*+•·◦▪‣–—▸]\s+\[([ xX])\]\s+(.*)$/.exec(rest))) return { list: true, kind: 'task', level: level, checked: m[1] !== ' ', text: m[2] };
   if ((m = /^[-*+•·◦▪‣–—▸](?:\s+(.*))?$/.exec(rest))) return { list: true, kind: 'bullet', level: level, text: m[1] || '' };
   return { list: false, level: level, text: rest };
 }
 function outlineMarker(it, counters, dotted) {
-  if (it.kind === 'ordered') return (dotted ? counters.slice(0, it.level + 1).join('.') : String(counters[it.level])) + '. ';
+  if (it.kind === 'ordered') {
+    var style = it.style || (ui && ui.fmt && ui.fmt.num) || '1.';
+    // La jerarquía con puntos solo tiene sentido para numérico decimal ("1.1.1");
+    // para "1)"/"a)"/"I." se usa el contador del nivel actual sin jerarquía.
+    if (dotted && style === '1.') return counters.slice(0, it.level + 1).join('.') + '. ';
+    return numMarkerStyled(counters[it.level], style);
+  }
   if (it.kind === 'task') return '- [' + (it.checked ? 'x' : ' ') + '] ';
   var bl = outlineBullets(); return bl[it.level % bl.length] + ' ';
 }
@@ -375,7 +412,7 @@ function outlineApply(ta, onChange, action, dotted) {
     } else {
       var after = it.text.slice(offsetInText);
       it.text = it.text.slice(0, offsetInText);
-      var ni = { list: true, kind: it.kind, level: it.level, text: after };
+      var ni = { list: true, kind: it.kind, level: it.level, style: it.style, text: after };
       if (it.kind === 'task') ni.checked = false;
       items.splice(ci + 1, 0, ni);
       focus = ci + 1; focusOffset = 0;

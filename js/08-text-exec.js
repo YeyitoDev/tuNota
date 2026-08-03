@@ -62,18 +62,9 @@ function stripListMarker(line) {
     .replace(/^(\s*)[-*+•·–—▸]\s+(\[( |x|X)\]\s+)?/, '$1');
 }
 // Estilo de numeración personalizable (ui.fmt.num): "1." "1)" "a)" "I."
-function numMarker(n) {
-  var style = (ui && ui.fmt && ui.fmt.num) || '1.';
-  if (style === '1)') return n + ') ';
-  if (style === 'a)') { var s = ''; var k = n; while (k > 0) { k--; s = String.fromCharCode(97 + (k % 26)) + s; k = Math.floor(k / 26); } return s + ') '; }
-  if (style === 'I.') {
-    var ro = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
-    var r = '', v = n;
-    ro.forEach(function (p) { while (v >= p[0]) { r += p[1]; v -= p[0]; } });
-    return r + '. ';
-  }
-  return n + '. ';
-}
+// Reutiliza numMarkerStyled (definido en js/03-dom.js) para no duplicar la lógica de
+// conversión a letras/romanos y mantener la coherencia con la auto-continuación de listas.
+function numMarker(n) { return numMarkerStyled(n, (ui && ui.fmt && ui.fmt.num) || '1.'); }
 function bulletMarker() { return ((ui && ui.fmt && ui.fmt.bullet) || '-') + ' '; }
 // Aplica un marcador por línea no vacía; la numeración se reinicia en cada párrafo.
 // Con ui.fmt.gap, deja una línea en blanco entre ítems (espaciado aireado).
