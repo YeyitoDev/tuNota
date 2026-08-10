@@ -88,8 +88,11 @@ function boot() {
           lastSig = sidebarSig();
           startReminderLoop();
           gcBlobs();
+          // En teléfono arranca la versión móvil (tareas, Kanban e ideas rápidas).
+          if (typeof applyMobileMode === 'function') applyMobileMode();
           // Puerta de acceso primero; si no hace falta, el tour guiado en la 1ª visita.
-          if (!maybeShowTokenGate()) maybeAutoTour();
+          // El tour recorre el lienzo: no tiene sentido en la versión móvil.
+          if (!maybeShowTokenGate() && !document.body.classList.contains('mobile-on')) maybeAutoTour();
         });
       });
     });

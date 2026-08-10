@@ -7057,3 +7057,291 @@ body.fc-picking .card { cursor: crosshair !important; }
 .emoji-inp { width: 90px; font-size: 14px; }
 .nb-row .emoji { border: none; background: none; cursor: pointer; padding: 1px 3px; border-radius: 6px; font-size: inherit; }
 .nb-row .emoji:hover { background: var(--secondary); }
+
+/* ---------- Versión móvil (js/21-movil.js) ----------
+   Piel pensada para el pulgar: apuntar una tarea, mover el Kanban y soltar ideas.
+   El lienzo y el resto de funciones siguen en el escritorio. Toda la paleta sale
+   de las variables del tema, así que respeta los temas claros y oscuros. */
+body.mobile-on #app { display: none; }
+body.mobile-on { overscroll-behavior-y: none; }
+
+.m-app {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 15px;
+  overflow: hidden;
+}
+
+/* Cabecera */
+.m-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 10px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+.m-brand-ico {
+  width: 34px; height: 34px; flex: none;
+  border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(138, 154, 123, 0.2);
+  color: var(--sage);
+}
+.m-brand-ico .icon { width: 19px; height: 19px; }
+.m-brand { flex: 1; min-width: 0; line-height: 1.15; }
+.m-brand strong { font-size: 16px; }
+.m-brand-sub { display: block; font-size: 11.5px; color: var(--muted); }
+.m-head-btn {
+  width: 40px; height: 40px; flex: none;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--fg);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.m-head-btn:active { background: var(--border); }
+.m-head-btn .icon { width: 19px; height: 19px; }
+
+/* Franja contextual: fecha y progreso, o las columnas del Kanban */
+.m-sub { padding: 10px 14px 8px; background: var(--card); border-bottom: 1px solid var(--border); }
+.m-sub:empty { display: none; }
+.m-sub-row { display: flex; align-items: baseline; gap: 8px; }
+.m-sub-title { flex: 1; font-weight: 800; font-size: 13.5px; }
+.m-sub-count { font-size: 12.5px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.m-bar { height: 6px; border-radius: 999px; background: var(--secondary); overflow: hidden; margin-top: 8px; }
+.m-bar.thin { height: 4px; margin: 8px 0 0; }
+.m-bar-fill { height: 100%; background: var(--sage); border-radius: 999px; transition: width 0.25s ease; }
+
+/* Selector de columna del Kanban */
+.m-seg { display: flex; gap: 6px; }
+.m-seg-btn {
+  flex: 1; min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--muted);
+  border-radius: 12px;
+  padding: 8px 6px;
+  font-family: inherit; font-size: 12.5px; font-weight: 800;
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.m-seg-btn em { font-style: normal; font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.m-seg-btn.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* Cuerpo con la lista */
+.m-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 12px 6px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* Tarjeta genérica de la lista */
+.m-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px 10px 10px 12px;
+}
+.m-item-row { display: flex; align-items: flex-start; gap: 10px; }
+.m-item-main { flex: 1; min-width: 0; }
+.m-item-text { font-size: 15.5px; line-height: 1.35; word-break: break-word; white-space: pre-wrap; }
+.m-task.done .m-item-text { text-decoration: line-through; color: var(--muted); }
+.m-item-btn {
+  width: 38px; height: 38px; flex: none; margin: -4px -4px 0 0;
+  border: none; background: none; color: var(--muted2);
+  border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.m-item-btn:active { background: var(--secondary); color: var(--fg); }
+.m-item-btn.small { width: 30px; height: 30px; margin: 0; }
+.m-item-btn .icon { width: 18px; height: 18px; }
+
+/* Casilla grande para el pulgar */
+.m-check {
+  width: 34px; height: 34px; flex: none;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  border-radius: 11px;
+  color: transparent;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.m-check .icon { width: 18px; height: 18px; }
+.m-check.on { background: var(--sage); border-color: var(--sage); color: #fff; }
+.m-check.small { width: 26px; height: 26px; border-radius: 9px; }
+.m-check.small .icon { width: 14px; height: 14px; }
+
+/* Etiquetas de contexto */
+.m-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.m-tag {
+  font-size: 11px; font-weight: 800;
+  border-radius: 999px; padding: 2px 8px;
+  background: var(--secondary); color: var(--muted);
+  max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.m-tag.ok { background: rgba(138, 154, 123, 0.22); color: var(--sage); }
+.m-tag.warn { background: rgba(217, 163, 90, 0.24); color: #a06a1e; }
+.m-tag.rem { background: var(--primary); color: #fff; }
+
+/* Botones de mover / acciones rápidas */
+.m-move { display: flex; gap: 8px; margin-top: 10px; }
+.m-move-btn {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--fg);
+  border-radius: 11px;
+  padding: 9px 8px;
+  font-family: inherit; font-size: 12.5px; font-weight: 800;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.m-move-btn:active { background: var(--border); }
+.m-move-btn .icon { width: 15px; height: 15px; }
+
+.m-kan.blocked { border-color: var(--danger); }
+.m-kan.important { border-color: var(--ocre); }
+
+/* Subtareas del plan del día */
+.m-subs { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.m-sub-item { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.m-sub-item span { flex: 1; min-width: 0; word-break: break-word; }
+.m-sub-item.done span { text-decoration: line-through; color: var(--muted); }
+.m-sub-inp, .m-cap-inp, .m-dt, .m-edit-ta {
+  font-family: inherit;
+  font-size: 16px; /* 16px o mayor: evita que iOS haga zoom al enfocar */
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 9px 12px;
+  width: 100%;
+}
+.m-sub-inp { font-size: 14px; padding: 8px 10px; }
+.m-sub-inp:focus, .m-cap-inp:focus, .m-edit-ta:focus { outline: none; border-color: var(--primary); }
+
+/* Estado vacío */
+.m-empty { text-align: center; color: var(--muted); padding: 34px 22px; }
+.m-empty-ico {
+  display: inline-flex; width: 56px; height: 56px; margin-bottom: 12px;
+  align-items: center; justify-content: center;
+  border-radius: 18px; background: var(--secondary); color: var(--muted2);
+}
+.m-empty-ico .icon { width: 26px; height: 26px; }
+.m-empty strong { display: block; font-size: 16px; color: var(--fg); margin-bottom: 6px; }
+.m-empty p { margin: 0; font-size: 13.5px; line-height: 1.5; }
+
+/* Barra de captura: siempre a mano, encima del teclado */
+.m-cap {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+}
+.m-cap-btn {
+  width: 46px; height: 44px; flex: none;
+  border: none; background: var(--primary); color: #fff;
+  border-radius: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow);
+}
+.m-cap-btn:active { filter: brightness(0.92); }
+.m-cap-btn .icon { width: 22px; height: 22px; }
+
+/* Pestañas inferiores */
+.m-tabs {
+  display: flex;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.m-tab {
+  flex: 1;
+  border: none; background: none; color: var(--muted);
+  padding: 8px 4px 10px;
+  font-family: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.m-tab-ico { position: relative; display: inline-flex; }
+.m-tab-ico .icon { width: 22px; height: 22px; }
+.m-tab-lbl { font-size: 11px; font-weight: 800; }
+.m-tab.on { color: var(--primary); }
+.m-tab-badge {
+  position: absolute; top: -5px; right: -10px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 999px; background: var(--primary); color: #fff;
+  font-size: 10px; font-weight: 900; line-height: 17px; text-align: center;
+}
+
+/* Hojas emergentes desde abajo */
+.m-sheet-bd {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(30, 25, 20, 0.42);
+  display: flex; align-items: flex-end;
+  opacity: 0; transition: opacity 0.16s ease;
+}
+.m-sheet-bd.show { opacity: 1; }
+.m-sheet {
+  width: 100%;
+  max-height: 86vh; overflow-y: auto;
+  background: var(--card);
+  border-radius: 20px 20px 0 0;
+  padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 14px);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(14px); transition: transform 0.18s ease;
+}
+.m-sheet-bd.show .m-sheet { transform: none; }
+.m-sheet-grip { width: 42px; height: 4px; border-radius: 999px; background: var(--border); margin: 4px auto 10px; }
+.m-sheet-title { font-size: 13px; font-weight: 800; color: var(--muted); padding: 0 6px 10px; }
+.m-sheet-lbl { font-size: 12px; font-weight: 800; color: var(--muted); padding: 10px 6px 6px; }
+.m-sheet-sep { height: 1px; background: var(--border); margin: 8px 4px; }
+.m-sheet-item {
+  width: 100%;
+  display: flex; align-items: center; gap: 12px;
+  border: none; background: none; color: var(--fg);
+  font-family: inherit; font-size: 15.5px; text-align: left;
+  padding: 13px 8px; border-radius: 12px; cursor: pointer;
+}
+.m-sheet-item span { flex: 1; min-width: 0; }
+.m-sheet-item .m-sheet-hint { font-style: normal; font-size: 11.5px; font-weight: 800; color: var(--muted); }
+.m-sheet-item:active { background: var(--secondary); }
+.m-sheet-item .icon { width: 19px; height: 19px; color: var(--muted); flex: none; }
+.m-sheet-item.on .icon, .m-sheet-item.on { color: var(--primary); }
+.m-sheet-item.danger, .m-sheet-item.danger .icon { color: var(--danger); }
+.m-sheet-actions { display: flex; gap: 8px; align-items: center; padding: 8px 4px 4px; }
+.m-btn {
+  flex: none;
+  border: none; background: var(--primary); color: #fff;
+  border-radius: 12px; padding: 11px 18px;
+  font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+}
+.m-btn.ghost { background: var(--secondary); color: var(--fg); flex: 1; }
+.m-edit-ta { min-height: 120px; resize: vertical; line-height: 1.4; }
+.m-chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 2px 4px 4px; }
+.m-chip {
+  border: 1px solid var(--border); background: var(--secondary); color: var(--fg);
+  border-radius: 999px; padding: 9px 14px;
+  font-family: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer;
+}
+.m-chip:active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* Vuelta al móvil cuando se está en el escritorio desde un teléfono */
+.m-pill {
+  position: fixed; left: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  z-index: 950;
+  display: flex; align-items: center; gap: 7px;
+  border: 1px solid var(--border); background: var(--card); color: var(--fg);
+  border-radius: 999px; padding: 9px 15px;
+  font-family: inherit; font-size: 13px; font-weight: 800;
+  box-shadow: var(--shadow-lg); cursor: pointer;
+}
+.m-pill .icon { width: 16px; height: 16px; color: var(--primary); }

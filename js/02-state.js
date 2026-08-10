@@ -55,6 +55,11 @@ function initState() {
   // Control de funcionalidades (usuario maestro): overrides locales sobre los valores por defecto.
   if (!ui.features || typeof ui.features !== 'object') ui.features = {};
   if (typeof ui.master !== 'boolean') ui.master = false;
+  // Versión móvil (js/21-movil.js): 'auto' según el aparato, 'on' forzada, 'off' escritorio completo.
+  if (typeof ui.mobile !== 'string') ui.mobile = 'auto';
+  if (typeof ui.mobileTab !== 'string') ui.mobileTab = 'tareas';
+  if (typeof ui.mobileKanCol !== 'string') ui.mobileKanCol = 'todo';
+  if (typeof ui.mobileIdeaNote !== 'string') ui.mobileIdeaNote = '';
 }
 
 // ---------- Control de funcionalidades (feature flags + usuario maestro) ----------

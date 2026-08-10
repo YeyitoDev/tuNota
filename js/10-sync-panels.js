@@ -648,6 +648,7 @@ function renderAll() {
   if (typeof renderNoteTabs === 'function') renderNoteTabs();
   renderCanvas();
   applySidebar();
+  if (typeof mobileRefresh === 'function') mobileRefresh(); // versión móvil: mismos datos, otra piel
 }
 // Relaciones entre lienzos (hojas): portales de sub-lienzo (bloque 'canvas'), hijos (parentId)
 // e hipervínculos de texto a otra nota. Para dibujarlas sobre el mapa de conocimiento.

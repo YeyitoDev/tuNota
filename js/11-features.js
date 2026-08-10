@@ -210,6 +210,7 @@ function checkReminders() {
     save();
     playBeep();
     if (document.getElementById('plannerOverlay') && typeof openPlanner === 'function') openPlanner(); // refresca el panel si está abierto
+    if (typeof mobileRefresh === 'function') mobileRefresh();
   }
   var due = (data.blocks || []).filter(function (b) {
     return b.reminder && !b.reminder.done && typeof b.reminder.at === 'number' && b.reminder.at <= t;
@@ -226,6 +227,7 @@ function checkReminders() {
   playBeep();
   showAlarm(fired);
   renderCanvas();
+  if (typeof mobileRefresh === 'function') mobileRefresh();
 }
 function snooze(id, mins) {
   var b = getBlockById(id);
