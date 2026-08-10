@@ -921,6 +921,16 @@ var SHORTCUTS = [
     [MOD + ' + Enter', 'Ejecutar Python / cURL'],
     ['Enter', 'Enviar mensaje en el chat de IA'],
   ]],
+  ['Tablas', [
+    ['Tab · Enter', 'Ir a la celda siguiente / de abajo (crea fila al final)'],
+    ['Shift + Enter', 'Salto de línea dentro de la celda'],
+    ['Arrastrar por las celdas', 'Seleccionar un rango · Shift + clic lo amplía'],
+    [MOD + ' + C / V / X', 'Copiar, pegar y cortar celdas (Excel y Sheets)'],
+    [MOD + ' + A', 'Seleccionar toda la tabla'],
+    ['Supr', 'Vaciar las celdas seleccionadas'],
+    ['Clic derecho', 'Insertar, eliminar o esconder filas y columnas'],
+    ['Arrastrar el borde', 'Ancho de columna y alto de fila · doble clic = automático'],
+  ]],
 ];
 function openShortcuts() {
   closeShortcuts();

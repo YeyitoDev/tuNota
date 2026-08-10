@@ -629,54 +629,1029 @@ function highlightJSON(str) {
 }
 
 // ---------- Tablas ----------
+// Mini hoja de c\u00e1lculo dentro de la tarjeta:
+//  \u00b7 las columnas se ajustan solas al texto y el ancho/alto se puede fijar arrastrando los bordes,
+//  \u00b7 cada cabecera ordena (alfab\u00e9tico, num\u00e9rico o por fecha) y filtra por texto o por valores,
+//  \u00b7 se copian y pegan rangos de celdas en TSV (compatible con Excel / Google Sheets),
+//  \u00b7 se esconden filas, columnas o el cuerpo entero, y se vuelven a mostrar.
+// Modelo (b.content.table): { rows, colW, rowH, hidCols, hidRows, filters, sort, collapsed }.
+// `rows[0]` es SIEMPRE la cabecera. Orden y filtros son de VISTA: nunca reordenan `rows`, as\u00ed
+// que "quitar el orden" devuelve la tabla a como se escribi\u00f3 y el resto de la app (exportar,
+// buscar, IA) sigue leyendo `rows` tal cual.
+var TBL_MINW = 56, TBL_MAXW = 260, TBL_GUT = 24, TBL_MINH = 22;
+
 function newRow(n) { var r = []; for (var i = 0; i < n; i++) r.push(''); return r; }
-function tableBody(b) {
+
+// Normaliza el modelo in situ (tablas antiguas solo ten\u00edan `rows`); NO reemplaza los arrays
+// para que los manejadores ya enganchados sigan escribiendo en la misma estructura.
+function tblState(b) {
   b.content = b.content || {};
-  if (!b.content.table || !b.content.table.rows || !b.content.table.rows.length) b.content.table = { rows: [['', ''], ['', '']] };
-  var wrap = h('div', { class: 'card-table-wrap' });
+  var t = b.content.table;
+  if (!t || !Array.isArray(t.rows) || !t.rows.length) { t = { rows: [['', ''], ['', '']] }; b.content.table = t; }
+  var nc = 0;
+  t.rows.forEach(function (r) { if (Array.isArray(r)) nc = Math.max(nc, r.length); });
+  if (nc < 1) nc = 1;
+  t.rows.forEach(function (r, i) {
+    if (!Array.isArray(r)) { r = [r == null ? '' : String(r)]; t.rows[i] = r; }
+    for (var j = 0; j < nc; j++) r[j] = r[j] == null ? '' : String(r[j]);
+    r.length = nc;
+  });
+  if (!Array.isArray(t.colW)) t.colW = [];
+  if (!Array.isArray(t.rowH)) t.rowH = [];
+  if (!Array.isArray(t.hidCols)) t.hidCols = [];
+  if (!Array.isArray(t.hidRows)) t.hidRows = [];
+  if (!t.filters || typeof t.filters !== 'object') t.filters = {};
+  t.hidCols = t.hidCols.filter(function (c) { return c >= 0 && c < nc; });
+  t.hidRows = t.hidRows.filter(function (r) { return r >= 1 && r < t.rows.length; });
+  if (t.sort && !(typeof t.sort.col === 'number' && t.sort.col >= 0 && t.sort.col < nc)) t.sort = null;
+  return t;
+}
+function tblSave(b, label, detail) {
+  touchNote(b.noteId);
+  if (label) logChange(label, detail || '');
+  save();
+}
+
+// --- Comparaci\u00f3n de valores: texto, n\u00famero (1.234,56 / $1,234.56 / 12 %) y fecha (d/m/a, a-m-d) ---
+function tblNorm(s) {
+  s = String(s == null ? '' : s).toLowerCase();
+  return s.normalize ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : s;
+}
+function tblNum(v) {
+  var x = String(v == null ? '' : v).trim().replace(/[\s\u00a0]/g, '');
+  x = x.replace(/^[^\d\-+.,]+/, '').replace(/[^\d.,]+$/, '');
+  if (!/^[-+]?[\d.,]*\d[\d.,]*$/.test(x)) return NaN;
+  var lastC = x.lastIndexOf(','), lastD = x.lastIndexOf('.');
+  if (lastC > lastD) x = x.replace(/\./g, '').replace(',', '.');
+  else x = x.replace(/,/g, '');
+  var n = parseFloat(x);
+  return isNaN(n) ? NaN : n;
+}
+function tblDate(v) {
+  var s = String(v == null ? '' : v).trim();
+  var m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) { var y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[2] - 1, +m[1]).getTime(); }
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+  return NaN;
+}
+function tblColKind(t, col, rows) {
+  var vals = 0, nums = 0, dates = 0;
+  rows.forEach(function (r) {
+    var v = String(t.rows[r][col] || '').trim();
+    if (!v) return;
+    vals++;
+    if (!isNaN(tblNum(v))) nums++;
+    if (!isNaN(tblDate(v))) dates++;
+  });
+  if (!vals) return 'text';
+  if (dates === vals) return 'date';
+  if (nums === vals) return 'num';
+  return 'text';
+}
+function tblCompare(kind, a, b) {
+  if (kind === 'num') return tblNum(a) - tblNum(b);
+  if (kind === 'date') return tblDate(a) - tblDate(b);
+  return String(a).localeCompare(String(b), 'es', { sensitivity: 'base', numeric: true });
+}
+
+// --- Vista: qu\u00e9 filas y columnas se ven, y en qu\u00e9 orden ---
+function tblDataRows(t) { var out = []; for (var r = 1; r < t.rows.length; r++) out.push(r); return out; }
+function tblRowPasses(t, r, skipCol) {
+  var keys = Object.keys(t.filters);
+  for (var i = 0; i < keys.length; i++) {
+    var c = +keys[i], f = t.filters[keys[i]];
+    if (!f || c === skipCol) continue;
+    var v = t.rows[r] ? (t.rows[r][c] || '') : '';
+    if (f.q && tblNorm(v).indexOf(tblNorm(f.q)) < 0) return false;
+    if (f.excl && f.excl.length && f.excl.indexOf(v) >= 0) return false;
+  }
+  return true;
+}
+function tblViewRows(t) {
+  var rows = [];
+  for (var r = 1; r < t.rows.length; r++) {
+    if (t.hidRows.indexOf(r) >= 0) continue;
+    if (!tblRowPasses(t, r)) continue;
+    rows.push(r);
+  }
+  if (t.sort) {
+    var col = t.sort.col, dir = t.sort.dir === 'desc' ? -1 : 1;
+    var kind = tblColKind(t, col, rows);
+    var full = [], empty = [];
+    rows.forEach(function (r) { (String(t.rows[r][col] || '').trim() ? full : empty).push(r); });
+    full.sort(function (a, b) {
+      var d = tblCompare(kind, t.rows[a][col], t.rows[b][col]);
+      return d ? d * dir : a - b;              // desempate por posici\u00f3n original (orden estable)
+    });
+    rows = full.concat(empty);                 // las celdas vac\u00edas siempre al final
+  }
+  return rows;
+}
+function tblViewCols(t) {
+  var cols = [], n = t.rows[0].length;
+  for (var c = 0; c < n; c++) if (t.hidCols.indexOf(c) < 0) cols.push(c);
+  if (!cols.length) {                          // red de seguridad: nunca una tabla sin columnas
+    t.hidCols = [];
+    for (var i = 0; i < n; i++) cols.push(i);
+  }
+  return cols;
+}
+function tblHiddenRange(list, from, to) {
+  return list.filter(function (i) { return i > from && (to == null || i < to); });
+}
+function tblRowAt(st, vr) { return vr <= 0 ? 0 : (st.view.rows[vr - 1] != null ? st.view.rows[vr - 1] : 0); }
+function tblColAt(st, vc) { return st.view.cols[vc]; }
+function tblActive(t) {
+  return !!(t.sort || Object.keys(t.filters).length || t.hidCols.length || t.hidRows.length || t.collapsed);
+}
+
+// --- Medida del texto para el ancho autom\u00e1tico de columna ---
+var _tblCtx = null;
+function tblTextW(s, bold) {
+  if (!_tblCtx) { var cv = document.createElement('canvas'); _tblCtx = cv.getContext && cv.getContext('2d'); }
+  if (!_tblCtx) return String(s || '').length * 7;
+  _tblCtx.font = (bold ? '700 ' : '') + '12.5px Nunito, system-ui, sans-serif';
+  var w = 0;
+  String(s == null ? '' : s).split('\n').forEach(function (line) { w = Math.max(w, _tblCtx.measureText(line).width); });
+  return w;
+}
+// Ancho de cada columna visible: autom\u00e1tico seg\u00fan el texto (acotado), o el fijado a mano.
+// Si sobra sitio en la tarjeta se reparte entre las autom\u00e1ticas; si falta, se encogen (nunca
+// por debajo de TBL_MINW: a partir de ah\u00ed la tabla se desplaza en horizontal).
+function tblWidths(t, view, avail) {
+  var nat = view.cols.map(function (c) {
+    var w = tblTextW(t.rows[0][c], true) + 42;
+    view.rows.forEach(function (r) { w = Math.max(w, tblTextW(t.rows[r][c], false) + 18); });
+    return Math.max(TBL_MINW, Math.min(TBL_MAXW, Math.ceil(w)));
+  });
+  var widths = view.cols.map(function (c, i) { return t.colW[c] ? Math.max(30, Math.round(t.colW[c])) : nat[i]; });
+  var autos = [];
+  view.cols.forEach(function (c, i) { if (!t.colW[c]) autos.push(i); });
+  var box = Math.max(0, (avail || 0) - TBL_GUT - 2);
+  if (!box || !autos.length) return widths;
+  var sum = widths.reduce(function (a, w) { return a + w; }, 0), i;
+  if (sum < box) {
+    var base = 0;
+    autos.forEach(function (i2) { base += widths[i2]; });
+    if (base > 0) { var extra = box - sum; autos.forEach(function (i2) { widths[i2] += Math.floor(extra * widths[i2] / base); }); }
+  } else if (sum > box) {
+    var slack = 0;
+    autos.forEach(function (i2) { slack += widths[i2] - TBL_MINW; });
+    if (slack > 0) {
+      var k = Math.min(1, (sum - box) / slack);
+      autos.forEach(function (i2) { widths[i2] = Math.round(widths[i2] - (widths[i2] - TBL_MINW) * k); });
+    }
+  }
+  return widths;
+}
+function tblAutoGrow(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = Math.max(18, ta.scrollHeight) + 'px';
+}
+// Aplica anchos de columna y altos de fila sobre el DOM ya montado (sin reconstruirlo).
+function tblLayout(wrap) {
+  var st = wrap._tbl;
+  if (!st || !st.cg || !wrap.isConnected) return;
+  var t = st.t, view = st.view;
+  var scroll = wrap.querySelector('.tbl-scroll');
+  var avail = (scroll && scroll.clientWidth) || ((st.b.width || 280) - 22);
+  var widths = tblWidths(t, view, avail);
+  var cols = st.cg.children;
+  if (cols[0]) cols[0].style.width = TBL_GUT + 'px';
+  var total = TBL_GUT;
+  widths.forEach(function (w, i) { if (cols[i + 1]) cols[i + 1].style.width = w + 'px'; total += w; });
+  var table = wrap.querySelector('.mini-table');
+  if (table) table.style.width = total + 'px';
+  Array.prototype.forEach.call(wrap.querySelectorAll('tr[data-r]'), function (tr) {
+    var r = +tr.getAttribute('data-r');
+    var fixed = t.rowH[r] ? Math.max(TBL_MINH, Math.round(t.rowH[r])) : 0;
+    tr.classList.toggle('fixh', !!fixed);
+    tr.style.height = fixed ? fixed + 'px' : '';
+    Array.prototype.forEach.call(tr.querySelectorAll('textarea.cell'), function (ta) {
+      if (fixed) ta.style.height = '';
+      else tblAutoGrow(ta);
+    });
+  });
+  return total;
+}
+function tblRelayout(wrap, ms) {
+  clearTimeout(wrap._tblT);
+  wrap._tblT = setTimeout(function () { tblLayout(wrap); }, ms || 140);
+}
+
+// ---------- Render ----------
+function tableBody(b) {
+  var wrap = h('div', { class: 'card-table-wrap', tabindex: '-1' });
   renderTable(wrap, b);
   return wrap;
 }
 function renderTable(wrap, b) {
+  var t = tblState(b);
+  var st = wrap._tbl || (wrap._tbl = { sel: null });
+  st.b = b; st.t = t;
+  st.view = { cols: tblViewCols(t), rows: tblViewRows(t) };
   wrap.innerHTML = '';
-  var rows = b.content.table.rows;
+  wrap.classList.toggle('collapsed', !!t.collapsed);
+
   var table = h('table', { class: 'mini-table' });
-  rows.forEach(function (row, r) {
-    var tr = h('tr', r === 0 ? { class: 'thead' } : {});
-    row.forEach(function (cell, c) {
-      var inp = h('input', { class: 'cell', value: cell });
-      inp.addEventListener('input', function () { b.content.table.rows[r][c] = inp.value; touchNote(b.noteId); debouncedSave(); });
-      inp.addEventListener('change', save);
-      inp.addEventListener('mousedown', function (e) { e.stopPropagation(); });
-      tr.appendChild(h('td', {}, inp));
+  var cg = h('colgroup');
+  cg.appendChild(h('col', { class: 'cg-gut' }));
+  st.view.cols.forEach(function () { cg.appendChild(h('col')); });
+  table.appendChild(cg);
+  st.cg = cg;
+
+  var thr = h('tr', { class: 'thead', 'data-r': '0' });
+  thr.appendChild(tblCornerCell(b, wrap, t));
+  st.view.cols.forEach(function (c, vc) { thr.appendChild(tblHeadCell(b, wrap, t, c, vc)); });
+  table.appendChild(thr);
+  if (!t.collapsed) {
+    st.view.rows.forEach(function (r, i) {
+      var tr = h('tr', { 'data-r': String(r) });
+      tr.appendChild(tblGutterCell(b, wrap, t, r, i));
+      st.view.cols.forEach(function (c, vc) { tr.appendChild(tblCellTd(b, wrap, t, r, c, i + 1, vc)); });
+      table.appendChild(tr);
     });
-    table.appendChild(tr);
+  }
+  var scroll = h('div', { class: 'tbl-scroll' }, table);
+  wrap.appendChild(scroll);
+  var status = tblStatusBar(b, wrap, t);
+  if (status) wrap.appendChild(status);
+  wrap.appendChild(tblToolbar(b, wrap, t));
+
+  if (st.sel) {                                  // la selecci\u00f3n puede quedar fuera tras filtrar
+    var nvr = st.view.rows.length, nvc = st.view.cols.length;
+    if (st.sel.r2 > nvr || st.sel.c2 >= nvc) st.sel = null;
+  }
+  tblPaint(wrap);
+  tblBind(wrap, b);
+  tblLayout(wrap);
+  // Al construir la tarjeta el nodo aún no está en el documento: se recoloca en cuanto lo está
+  // (rAF) y con un temporizador de respaldo por si el navegador retrasa el frame.
+  requestAnimationFrame(function () { tblLayout(wrap); });
+  setTimeout(function () { tblLayout(wrap); }, 0);
+  return wrap;
+}
+function tblCornerCell(b, wrap, t) {
+  var td = h('td', { class: 'tbl-gut tbl-corner', title: 'Seleccionar toda la tabla' });
+  var hid = t.hidCols.length + t.hidRows.length;
+  td.appendChild(h('span', { class: 'corner-mark' }));
+  td.addEventListener('mousedown', function (e) { e.stopPropagation(); e.preventDefault(); tblSelectAll(wrap); });
+  if (hid) td.title += ' \u00b7 ' + hid + ' oculta(s)';
+  return td;
+}
+function tblHeadCell(b, wrap, t, c, vc) {
+  var st = wrap._tbl;
+  var cls = 'tbl-h';
+  if (t.sort && t.sort.col === c) cls += ' sorted';
+  if (t.filters[c]) cls += ' filtered';
+  var td = h('td', { class: cls, 'data-r': '0', 'data-c': String(c), 'data-vr': '0', 'data-vc': String(vc) });
+  td.appendChild(tblCellInput(b, wrap, t, 0, c, 0, vc));
+  var arrow = t.sort && t.sort.col === c ? (t.sort.dir === 'desc' ? '\u2193' : '\u2191') : null;
+  var btn = h('button', {
+    class: 'th-menu' + (arrow ? ' on' : ''),
+    title: 'Ordenar y filtrar esta columna',
+    onclick: function (e) { e.stopPropagation(); openTableColMenu(b, wrap, c, btn); },
+  }, arrow ? h('span', { class: 'th-arrow' }, arrow) : icon('filter'));
+  btn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  td.appendChild(btn);
+  // Marcas para revelar columnas escondidas a un lado y otro de esta cabecera.
+  var prev = vc > 0 ? st.view.cols[vc - 1] : -1;
+  var before = tblHiddenRange(t.hidCols, prev, c);
+  if (before.length) td.appendChild(tblRevealMark(b, wrap, 'col', before, 'left'));
+  if (vc === st.view.cols.length - 1) {
+    var after = tblHiddenRange(t.hidCols, c, null);
+    if (after.length) td.appendChild(tblRevealMark(b, wrap, 'col', after, 'right'));
+  }
+  var grip = h('span', { class: 'col-grip', title: 'Arrastra para el ancho \u00b7 doble clic = autom\u00e1tico' });
+  grip.addEventListener('pointerdown', function (e) { tblStartColResize(e, b, wrap, c, td); });
+  grip.addEventListener('dblclick', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    t.colW[c] = null; tblSave(b, 'Ancho de columna autom\u00e1tico'); tblLayout(wrap);
   });
-  var mk = function (label, op, title) {
+  td.appendChild(grip);
+  return td;
+}
+function tblGutterCell(b, wrap, t, r, i) {
+  var st = wrap._tbl;
+  var td = h('td', { class: 'tbl-gut', title: 'Fila ' + r + ' \u00b7 clic para seleccionarla' });
+  td.appendChild(h('span', { class: 'gut-n' }, String(r)));
+  var prev = i > 0 ? st.view.rows[i - 1] : 0;
+  var before = tblHiddenRange(t.hidRows, prev, r);
+  if (before.length) td.appendChild(tblRevealMark(b, wrap, 'row', before, 'top'));
+  if (i === st.view.rows.length - 1) {
+    var after = tblHiddenRange(t.hidRows, r, null);
+    if (after.length) td.appendChild(tblRevealMark(b, wrap, 'row', after, 'bottom'));
+  }
+  var grip = h('span', { class: 'row-grip', title: 'Arrastra para el alto \u00b7 doble clic = autom\u00e1tico' });
+  grip.addEventListener('pointerdown', function (e) { tblStartRowResize(e, b, wrap, r, td.parentNode); });
+  grip.addEventListener('dblclick', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    t.rowH[r] = null; tblSave(b, 'Alto de fila autom\u00e1tico'); tblLayout(wrap);
+  });
+  td.appendChild(grip);
+  td.addEventListener('mousedown', function (e) {
+    if (e.target === grip) return;
+    e.stopPropagation(); e.preventDefault();
+    if (e.shiftKey && wrap._tbl.sel) tblExtendSel(wrap, i + 1, st.view.cols.length - 1);
+    else tblSetSel(wrap, i + 1, 0, i + 1, st.view.cols.length - 1);
+    tblFocusWrap(wrap);
+  });
+  return td;
+}
+function tblRevealMark(b, wrap, kind, list, side) {
+  var el = h('button', {
+    class: 'tbl-reveal ' + kind + ' ' + side,
+    title: 'Mostrar ' + list.length + (kind === 'col' ? ' columna(s) oculta(s)' : ' fila(s) oculta(s)'),
+    onclick: function (e) {
+      e.stopPropagation();
+      var t = wrap._tbl.t;
+      var key = kind === 'col' ? 'hidCols' : 'hidRows';
+      t[key] = t[key].filter(function (i) { return list.indexOf(i) < 0; });
+      tblSave(b, 'Mostrar ' + (kind === 'col' ? 'columnas' : 'filas'), String(list.length));
+      renderTable(wrap, b);
+    },
+  }, kind === 'col' ? '\u203a\u2039' : '\u2304');
+  el.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  return el;
+}
+function tblCellTd(b, wrap, t, r, c, vr, vc) {
+  var td = h('td', { class: 'tbl-c', 'data-r': String(r), 'data-c': String(c), 'data-vr': String(vr), 'data-vc': String(vc) });
+  td.appendChild(tblCellInput(b, wrap, t, r, c, vr, vc));
+  return td;
+}
+function tblCellInput(b, wrap, t, r, c, vr, vc) {
+  var ta = h('textarea', { class: 'cell' + (r === 0 ? ' hcell' : ''), rows: '1', spellcheck: 'false' });
+  ta.value = t.rows[r][c] || '';
+  ta.addEventListener('input', function () {
+    t.rows[r][c] = ta.value;
+    if (!t.rowH[r]) tblAutoGrow(ta);
+    touchNote(b.noteId); debouncedSave();
+    tblRelayout(wrap);                       // el ancho de la columna sigue al texto
+  });
+  ta.addEventListener('mousedown', function (e) {
+    e.stopPropagation();
+    if (e.shiftKey) { e.preventDefault(); tblSetSel(wrap, vr, vc, null, null, true); tblFocusWrap(wrap); return; }
+    tblSetSel(wrap, vr, vc, vr, vc);
+    tblStartRangeDrag(wrap, vr, vc);
+  });
+  ta.addEventListener('focus', function () { if (!wrap._tbl.dragging) tblSetSel(wrap, vr, vc, vr, vc); });
+  ta.addEventListener('keydown', function (e) { tblCellKey(e, b, wrap, ta, vr, vc); });
+  ta.addEventListener('contextmenu', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    if (!tblInSel(wrap, vr, vc)) tblSetSel(wrap, vr, vc, vr, vc);
+    openTableCellMenu(b, wrap, e.clientX, e.clientY);
+  });
+  return ta;
+}
+function tblStatusBar(b, wrap, t) {
+  if (!tblActive(t)) return null;
+  var st = wrap._tbl, bits = [];
+  var totalRows = t.rows.length - 1;
+  if (st.view.rows.length !== totalRows) bits.push(st.view.rows.length + ' de ' + totalRows + ' filas');
+  if (t.sort) bits.push('orden: ' + ((t.rows[0][t.sort.col] || '').trim() || ('col. ' + (t.sort.col + 1))) + ' ' + (t.sort.dir === 'desc' ? '\u2193' : '\u2191'));
+  if (t.hidCols.length) bits.push(t.hidCols.length + ' col. ocultas');
+  if (t.hidRows.length) bits.push(t.hidRows.length + ' filas ocultas');
+  if (t.collapsed) bits.push('contenido escondido');
+  var bar = h('div', { class: 'tbl-status' }, h('span', { class: 'tbl-status-txt' }, bits.join(' \u00b7 ')));
+  var btn = h('button', { class: 'tbl-btn tbl-clear', title: 'Quitar orden, filtros y volver a mostrar todo', onclick: function (e) { e.stopPropagation(); tblResetView(b, wrap); } }, 'Restablecer');
+  btn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  bar.appendChild(btn);
+  return bar;
+}
+function tblToolbar(b, wrap, t) {
+  var mkOp = function (label, op, title) {
     var btn = h('button', { class: 'tbl-btn', title: title, onclick: function (e) { e.stopPropagation(); resizeTable(b, wrap, op); } }, label);
     btn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
     return btn;
   };
-  var tools = h('div', { class: 'tbl-tools' },
-    mk('+ fila', 'addRow', 'Agregar fila'),
-    mk('\u2212 fila', 'delRow', 'Quitar fila'),
-    mk('+ col', 'addCol', 'Agregar columna'),
-    mk('\u2212 col', 'delCol', 'Quitar columna')
+  var mkIco = function (ic, title, fn, on) {
+    var btn = h('button', { class: 'tbl-btn tbl-ico' + (on ? ' on' : ''), title: title, onclick: function (e) { e.stopPropagation(); fn(e); } }, icon(ic));
+    btn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    return btn;
+  };
+  return h('div', { class: 'tbl-tools' },
+    mkOp('+ fila', 'addRow', 'Agregar una fila (debajo de la seleccionada)'),
+    mkOp('\u2212 fila', 'delRow', 'Quitar la fila seleccionada (o la \u00faltima)'),
+    mkOp('+ col', 'addCol', 'Agregar una columna (a la derecha de la seleccionada)'),
+    mkOp('\u2212 col', 'delCol', 'Quitar la columna seleccionada (o la \u00faltima)'),
+    h('span', { class: 'tbl-sp' }),
+    mkIco('copy', 'Copiar la selecci\u00f3n o toda la tabla (se pega en Excel / Sheets)', function () { tblCopyClipboard(b, wrap); }),
+    mkIco('paste', 'Pegar celdas desde el portapapeles (Excel, Sheets, CSV\u2026)', function () { tblPasteClipboard(b, wrap); }),
+    mkIco('fit', 'Ajustar las columnas al texto y la tarjeta al contenido', function () { tblFit(b, wrap); }),
+    mkIco(t.collapsed ? 'eyeOff' : 'eye', t.collapsed ? 'Mostrar el contenido' : 'Esconder el contenido (deja solo la cabecera)', function () {
+      t.collapsed = !t.collapsed;
+      tblSave(b, t.collapsed ? 'Contenido de tabla escondido' : 'Contenido de tabla visible');
+      renderTable(wrap, b);
+    }, t.collapsed)
   );
-  wrap.appendChild(table);
-  wrap.appendChild(tools);
+}
+
+// ---------- Selecci\u00f3n de celdas ----------
+function tblSetSel(wrap, ar, ac, r2, c2, extend) {
+  var st = wrap._tbl;
+  if (ar == null) { st.sel = null; tblPaint(wrap); return; }
+  var s = st.sel;
+  if (extend && s) { s.r1 = Math.min(s.ar, ar); s.r2 = Math.max(s.ar, ar); s.c1 = Math.min(s.ac, ac); s.c2 = Math.max(s.ac, ac); }
+  else st.sel = { ar: ar, ac: ac, r1: Math.min(ar, r2), r2: Math.max(ar, r2), c1: Math.min(ac, c2), c2: Math.max(ac, c2) };
+  tblPaint(wrap);
+}
+function tblExtendSel(wrap, vr, vc) {
+  var s = wrap._tbl.sel;
+  if (!s) return tblSetSel(wrap, vr, vc, vr, vc);
+  s.r1 = Math.min(s.ar, vr); s.r2 = Math.max(s.ar, vr);
+  s.c1 = Math.min(s.ac, vc); s.c2 = Math.max(s.ac, vc);
+  tblPaint(wrap);
+}
+function tblSelectAll(wrap) {
+  var st = wrap._tbl;
+  tblSetSel(wrap, 0, 0, st.view.rows.length, Math.max(0, st.view.cols.length - 1));
+  tblFocusWrap(wrap);
+}
+function tblInSel(wrap, vr, vc) {
+  var s = wrap._tbl.sel;
+  return !!s && vr >= s.r1 && vr <= s.r2 && vc >= s.c1 && vc <= s.c2;
+}
+function tblSelCells(wrap) {
+  var st = wrap._tbl, s = st.sel, out = [];
+  if (!s) return out;
+  for (var vr = s.r1; vr <= s.r2; vr++) {
+    for (var vc = s.c1; vc <= s.c2; vc++) out.push({ r: tblRowAt(st, vr), c: tblColAt(st, vc) });
+  }
+  return out;
+}
+function tblPaint(wrap) {
+  var st = wrap._tbl, s = st.sel;
+  Array.prototype.forEach.call(wrap.querySelectorAll('td[data-vr]'), function (td) {
+    var vr = +td.getAttribute('data-vr'), vc = +td.getAttribute('data-vc');
+    var on = !!s && vr >= s.r1 && vr <= s.r2 && vc >= s.c1 && vc <= s.c2;
+    td.classList.toggle('sel', on);
+    td.classList.toggle('anchor', !!s && vr === s.ar && vc === s.ac);
+  });
+  wrap.classList.toggle('has-range', !!s && (s.r1 !== s.r2 || s.c1 !== s.c2));
+}
+function tblFocusWrap(wrap) {
+  var a = document.activeElement;
+  if (a && a.classList && a.classList.contains('cell') && wrap.contains(a)) a.blur();
+  try { wrap.focus({ preventScroll: true }); } catch (e) { wrap.focus(); }
+}
+function tblTdAt(wrap, x, y) {
+  var el = document.elementFromPoint(x, y);
+  var td = el && el.closest ? el.closest('td[data-vr]') : null;
+  return td && wrap.contains(td) ? td : null;
+}
+function tblStartRangeDrag(wrap, vr, vc) {
+  var st = wrap._tbl;
+  st.dragging = false;
+  function move(ev) {
+    var td = tblTdAt(wrap, ev.clientX, ev.clientY);
+    if (!td) return;
+    var r = +td.getAttribute('data-vr'), c = +td.getAttribute('data-vc');
+    if (r === vr && c === vc && !st.dragging) return;
+    if (!st.dragging) { st.dragging = true; document.body.classList.add('tbl-selecting'); tblFocusWrap(wrap); }
+    tblExtendSel(wrap, r, c);
+  }
+  function up() {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    document.body.classList.remove('tbl-selecting');
+    setTimeout(function () { st.dragging = false; }, 0);
+  }
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+function tblMove(wrap, b, vr, vc, grow) {
+  var st = wrap._tbl;
+  var maxR = st.view.rows.length, maxC = st.view.cols.length - 1;
+  if (vc > maxC) { vc = 0; vr++; }
+  if (vc < 0) { vc = maxC; vr--; }
+  if (vr > maxR) {
+    if (!grow || st.t.collapsed) return;
+    tblInsertRow(st.t, st.t.rows.length);      // Tab/Enter al final: crea fila nueva
+    tblSave(b, 'Fila agregada');
+    renderTable(wrap, b);
+    st = wrap._tbl;
+    vr = st.view.rows.length;
+  }
+  if (vr < 0) vr = 0;
+  var td = wrap.querySelector('td[data-vr="' + vr + '"][data-vc="' + vc + '"]');
+  var ta = td && td.querySelector('textarea.cell');
+  if (!ta) return;
+  tblSetSel(wrap, vr, vc, vr, vc);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+function tblCellKey(e, b, wrap, ta, vr, vc) {
+  var k = e.key;
+  if (k === 'Escape') { e.stopPropagation(); tblFocusWrap(wrap); return; }
+  if (k === 'Tab') { e.preventDefault(); e.stopPropagation(); tblMove(wrap, b, vr, vc + (e.shiftKey ? -1 : 1), true); return; }
+  if (k === 'Enter' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault(); e.stopPropagation(); tblMove(wrap, b, vr + 1, vc, true); return;
+  }
+  if ((e.ctrlKey || e.metaKey) && /^[cvxadCVXAD]$/.test(k)) { e.stopPropagation(); return; } // no molestar a los atajos del lienzo
+  if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
+    var s0 = ta.selectionStart, s1 = ta.selectionEnd, v = ta.value;
+    var moved = false;
+    if (k === 'ArrowLeft' && s0 === 0 && s1 === 0) { tblMove(wrap, b, vr, vc - 1); moved = true; }
+    else if (k === 'ArrowRight' && s0 === v.length && s1 === v.length) { tblMove(wrap, b, vr, vc + 1); moved = true; }
+    else if (k === 'ArrowUp' && v.slice(0, s0).indexOf('\n') < 0) { tblMove(wrap, b, vr - 1, vc); moved = true; }
+    else if (k === 'ArrowDown' && v.slice(s1).indexOf('\n') < 0) { tblMove(wrap, b, vr + 1, vc); moved = true; }
+    if (moved) e.preventDefault();
+    e.stopPropagation();
+  }
+}
+
+// ---------- Portapapeles (TSV: Excel / Google Sheets) ----------
+function tblEsc(v) {
+  v = String(v == null ? '' : v);
+  return /[\t\n"]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+function tblSelTSV(wrap) {
+  var st = wrap._tbl, s = st.sel, t = st.t, out = [];
+  var r1 = s ? s.r1 : 0, r2 = s ? s.r2 : st.view.rows.length;
+  var c1 = s ? s.c1 : 0, c2 = s ? s.c2 : st.view.cols.length - 1;
+  for (var vr = r1; vr <= r2; vr++) {
+    var line = [];
+    for (var vc = c1; vc <= c2; vc++) line.push(tblEsc(t.rows[tblRowAt(st, vr)][tblColAt(st, vc)]));
+    out.push(line.join('\t'));
+  }
+  return out.join('\n');
+}
+function tblSelHTML(wrap) {
+  var st = wrap._tbl, s = st.sel, t = st.t;
+  var r1 = s ? s.r1 : 0, r2 = s ? s.r2 : st.view.rows.length;
+  var c1 = s ? s.c1 : 0, c2 = s ? s.c2 : st.view.cols.length - 1;
+  var esc = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>'); };
+  var html = '<table>';
+  for (var vr = r1; vr <= r2; vr++) {
+    html += '<tr>';
+    for (var vc = c1; vc <= c2; vc++) {
+      var tag = vr === 0 ? 'th' : 'td';
+      html += '<' + tag + '>' + esc(t.rows[tblRowAt(st, vr)][tblColAt(st, vc)]) + '</' + tag + '>';
+    }
+    html += '</tr>';
+  }
+  return html + '</table>';
+}
+// Acepta TSV (Excel/Sheets) y CSV con ; o , cuando el separador es coherente en todas las l\u00edneas.
+function tblParseGrid(text) {
+  text = String(text == null ? '' : text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  var sep = '\t';
+  if (text.indexOf('\t') < 0) {
+    var lines = text.split('\n').filter(function (l) { return l !== ''; });
+    var pick = function (ch) {
+      if (lines.length < 2) return false;
+      var n = -1;
+      for (var i = 0; i < lines.length; i++) {
+        var k = lines[i].split(ch).length - 1;
+        if (k < 1) return false;
+        if (n < 0) n = k; else if (n !== k) return false;
+      }
+      return true;
+    };
+    if (pick(';')) sep = ';';
+    else if (pick(',')) sep = ',';
+  }
+  var rows = [], row = [], cur = '', q = false, i = 0;
+  while (i < text.length) {
+    var ch = text[i];
+    if (q) {
+      if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i += 2; continue; } q = false; i++; continue; }
+      cur += ch; i++; continue;
+    }
+    if (ch === '"' && cur === '') { q = true; i++; continue; }
+    if (ch === sep) { row.push(cur); cur = ''; i++; continue; }
+    if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; i++; continue; }
+    cur += ch; i++;
+  }
+  row.push(cur); rows.push(row);
+  while (rows.length > 1 && rows[rows.length - 1].every(function (v) { return v === ''; })) rows.pop();
+  return rows;
+}
+function tblApplyGrid(b, wrap, grid) {
+  if (!grid.length) return;
+  var st = wrap._tbl, t = st.t;
+  var s = st.sel || { r1: st.view.rows.length ? 1 : 0, c1: 0 };
+  pushUndo('Pegar en tabla');
+  var vr0 = s.r1, vc0 = s.c1;
+  grid.forEach(function (line, i) {
+    var vr = vr0 + i, r;
+    if (vr === 0) r = 0;
+    else if (vr - 1 < st.view.rows.length) r = st.view.rows[vr - 1];
+    else { r = t.rows.length; tblInsertRow(t, r); st.view.rows.push(r); }
+    line.forEach(function (val, j) {
+      var vc = vc0 + j, c;
+      if (vc < st.view.cols.length) c = st.view.cols[vc];
+      else { c = t.rows[0].length; tblInsertCol(t, c); st.view.cols.push(c); }
+      t.rows[r][c] = val;
+    });
+  });
+  tblSave(b, 'Celdas pegadas', grid.length + '\u00d7' + grid[0].length);
+  renderTable(wrap, b);
+  st = wrap._tbl;
+  tblSetSel(wrap, vr0, vc0, Math.min(vr0 + grid.length - 1, st.view.rows.length), Math.min(vc0 + grid[0].length - 1, st.view.cols.length - 1));
+  toast(grid.length + ' \u00d7 ' + grid[0].length + ' celdas pegadas', 'ok');
+}
+function tblClearSel(b, wrap) {
+  var cells = tblSelCells(wrap);
+  if (!cells.length) return;
+  var t = wrap._tbl.t;
+  pushUndo('Vaciar celdas');
+  cells.forEach(function (p) { t.rows[p.r][p.c] = ''; });
+  tblSave(b, 'Celdas vaciadas', cells.length + '');
+  renderTable(wrap, b);
+}
+function tblCopyClipboard(b, wrap) {
+  var txt = tblSelTSV(wrap);
+  var done = function () { toast('Copiado \u00b7 se pega en Excel, Sheets o en otra tabla', 'ok'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done, function () { tblCopyFallback(txt, done); });
+  } else tblCopyFallback(txt, done);
+}
+function tblCopyFallback(txt, done) {
+  var prev = document.activeElement;
+  var ta = h('textarea', { style: { position: 'fixed', opacity: '0', left: '-9999px' } });
+  ta.value = txt;
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) { toast('No se pudo copiar', 'warn'); }
+  ta.remove();
+  if (prev && prev.focus) try { prev.focus({ preventScroll: true }); } catch (e2) { prev.focus(); }
+}
+function tblPasteClipboard(b, wrap) {
+  if (!navigator.clipboard || !navigator.clipboard.readText) { toast('Coloca el cursor en una celda y pulsa ' + MOD + '+V', 'warn'); return; }
+  navigator.clipboard.readText().then(function (txt) {
+    if (!txt) { toast('El portapapeles est\u00e1 vac\u00edo', 'warn'); return; }
+    tblApplyGrid(b, wrap, tblParseGrid(txt));
+  }, function () { toast('El navegador no deja leer el portapapeles: pulsa ' + MOD + '+V sobre una celda', 'warn'); });
+}
+
+// ---------- Eventos a nivel de tabla (una sola vez por tarjeta) ----------
+function tblBind(wrap, b) {
+  if (wrap._tblBound) { wrap._tbl.b = b; return; }
+  wrap._tblBound = true;
+  wrap.addEventListener('copy', function (e) {
+    var st = wrap._tbl, s = st.sel;
+    if (!s) return;
+    var multi = s.r1 !== s.r2 || s.c1 !== s.c2;
+    var a = document.activeElement;
+    var editing = a && a.classList && a.classList.contains('cell') && wrap.contains(a) && a.selectionStart !== a.selectionEnd;
+    if (!multi && editing) return;                      // copia normal dentro de la celda
+    e.preventDefault(); e.stopPropagation();
+    if (e.clipboardData) {
+      e.clipboardData.setData('text/plain', tblSelTSV(wrap));
+      e.clipboardData.setData('text/html', tblSelHTML(wrap));
+    }
+  });
+  wrap.addEventListener('cut', function (e) {
+    var st = wrap._tbl, s = st.sel;
+    if (!s) return;
+    var a = document.activeElement;
+    var editing = a && a.classList && a.classList.contains('cell') && wrap.contains(a) && a.selectionStart !== a.selectionEnd;
+    if (s.r1 === s.r2 && s.c1 === s.c2 && editing) return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.clipboardData) e.clipboardData.setData('text/plain', tblSelTSV(wrap));
+    tblClearSel(wrap._tbl.b, wrap);
+  });
+  wrap.addEventListener('paste', function (e) {
+    e.stopPropagation();                                 // el pegado global no debe crear tarjetas
+    var txt = e.clipboardData && e.clipboardData.getData('text/plain');
+    if (!txt) return;
+    var a = document.activeElement;
+    var inCell = a && a.classList && a.classList.contains('cell') && wrap.contains(a);
+    var grid = tblParseGrid(txt);
+    var isGrid = grid.length > 1 || (grid[0] && grid[0].length > 1);
+    if (!isGrid && inCell) return;                       // texto simple dentro de una celda: pegado normal
+    e.preventDefault();
+    tblApplyGrid(wrap._tbl.b, wrap, grid);
+  });
+  wrap.addEventListener('keydown', function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains('cell')) return; // lo gestiona tblCellKey
+    var st = wrap._tbl, b2 = st.b, k = e.key;
+    var mod = e.ctrlKey || e.metaKey;
+    if (mod && (k === 'a' || k === 'A')) { e.preventDefault(); e.stopPropagation(); tblSelectAll(wrap); return; }
+    // Con el rango activo no hay ningún campo editable enfocado y el navegador NO dispara
+    // copy/cut/paste: los atendemos a mano. (Dentro de una celda sí llegan los eventos.)
+    if (mod && (k === 'c' || k === 'C')) { e.preventDefault(); e.stopPropagation(); tblCopyClipboard(b2, wrap); return; }
+    if (mod && (k === 'x' || k === 'X')) { e.preventDefault(); e.stopPropagation(); tblCopyClipboard(b2, wrap); tblClearSel(b2, wrap); return; }
+    if (mod && (k === 'v' || k === 'V')) { e.preventDefault(); e.stopPropagation(); tblPasteClipboard(b2, wrap); return; }
+    // Ctrl+D no debe duplicar bloques del lienzo; Ctrl+Z sí sigue su camino (deshace la tabla).
+    if (mod && (k === 'd' || k === 'D')) { e.stopPropagation(); return; }
+    if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); e.stopPropagation(); tblClearSel(b2, wrap); return; }
+    if (k === 'Escape') { e.stopPropagation(); tblSetSel(wrap, null); wrap.blur(); return; }
+    if (k === 'Tab' || /^Arrow/.test(k) || k === 'Enter') {
+      var s = st.sel;
+      if (!s) return;
+      e.preventDefault(); e.stopPropagation();
+      var dr = k === 'ArrowUp' ? -1 : (k === 'ArrowDown' || k === 'Enter' ? 1 : 0);
+      var dc = k === 'ArrowLeft' ? -1 : (k === 'ArrowRight' ? 1 : (k === 'Tab' ? (e.shiftKey ? -1 : 1) : 0));
+      if (e.shiftKey && /^Arrow/.test(k)) { tblExtendSel(wrap, Math.max(0, s.r2 + dr), Math.max(0, s.c2 + dc)); return; }
+      tblMove(wrap, b2, s.ar + dr, s.ac + dc, k === 'Tab' || k === 'Enter');
+      return;
+    }
+    if (!mod && !e.altKey && k && k.length === 1) {      // escribir con el rango activo edita la celda ancla
+      var st2 = wrap._tbl, sa = st2.sel;
+      if (!sa) return;
+      var td = wrap.querySelector('td[data-vr="' + sa.ar + '"][data-vc="' + sa.ac + '"]');
+      var ta = td && td.querySelector('textarea.cell');
+      if (!ta) return;
+      e.preventDefault(); e.stopPropagation();
+      ta.focus(); ta.value = k;
+      ta.setSelectionRange(1, 1);
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  wrap.addEventListener('mousedown', function (e) {
+    if (e.target === wrap || (e.target.classList && e.target.classList.contains('tbl-scroll'))) tblSetSel(wrap, null);
+  });
+  if (window.ResizeObserver) {
+    var lastW = 0;
+    var ro = new ResizeObserver(function () {
+      if (!wrap.isConnected) return;
+      var w = wrap.clientWidth;
+      if (w === lastW) return;
+      lastW = w;
+      tblRelayout(wrap, 60);                             // la tarjeta cambi\u00f3 de ancho: recolocar columnas
+    });
+    ro.observe(wrap);
+  }
+}
+
+// ---------- Redimensionar columnas y filas ----------
+function tblStartColResize(e, b, wrap, c, td) {
+  e.preventDefault(); e.stopPropagation();
+  var t = wrap._tbl.t;
+  var startW = td.offsetWidth, startX = e.clientX, moved = false;
+  function move(ev) {
+    var zoom = (typeof getView === 'function' && getView().zoom) || 1;
+    t.colW[c] = Math.max(30, Math.round(startW + (ev.clientX - startX) / zoom));
+    moved = true;
+    tblLayout(wrap);
+  }
+  function up() {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    document.body.classList.remove('tbl-resizing');
+    if (moved) tblSave(b, 'Ancho de columna', t.colW[c] + ' px');
+  }
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+  document.body.classList.add('tbl-resizing');
+}
+function tblStartRowResize(e, b, wrap, r, tr) {
+  e.preventDefault(); e.stopPropagation();
+  var t = wrap._tbl.t;
+  var startH = tr ? tr.offsetHeight : TBL_MINH, startY = e.clientY, moved = false;
+  function move(ev) {
+    var zoom = (typeof getView === 'function' && getView().zoom) || 1;
+    t.rowH[r] = Math.max(TBL_MINH, Math.round(startH + (ev.clientY - startY) / zoom));
+    moved = true;
+    tblLayout(wrap);
+  }
+  function up() {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    document.body.classList.remove('tbl-resizing');
+    if (moved) tblSave(b, 'Alto de fila', t.rowH[r] + ' px');
+  }
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+  document.body.classList.add('tbl-resizing');
+}
+// Columnas al ancho del texto (sin estirar) y la tarjeta al tama\u00f1o de la tabla.
+function tblFit(b, wrap) {
+  var st = wrap._tbl, t = st.t;
+  t.colW = []; t.rowH = [];
+  var widths = tblWidths(t, st.view, 0);
+  var total = widths.reduce(function (a, w) { return a + w; }, 0) + TBL_GUT + 4;
+  var el = cardEl(b.id);
+  if (el) {
+    el.style.width = Math.max(200, Math.min(760, total + 20)) + 'px';
+    b.width = el.offsetWidth;
+  }
+  tblLayout(wrap);
+  requestAnimationFrame(function () {
+    var scroll = wrap.querySelector('.tbl-scroll');
+    if (el && scroll) {
+      var over = scroll.scrollHeight - scroll.clientHeight;
+      if (over > 0) { el.style.height = Math.min(640, el.offsetHeight + over + 2) + 'px'; b.height = el.offsetHeight; }
+    }
+    tblLayout(wrap);
+    tblSave(b, 'Tabla ajustada al contenido');
+    if (typeof drawLinks === 'function') drawLinks();
+  });
+}
+function tblResetView(b, wrap) {
+  var t = wrap._tbl.t;
+  t.sort = null; t.filters = {}; t.hidCols = []; t.hidRows = []; t.collapsed = false;
+  tblSave(b, 'Vista de tabla restablecida');
+  renderTable(wrap, b);
+}
+
+// ---------- Insertar / eliminar / esconder ----------
+function tblInsertCol(t, at) {
+  t.rows.forEach(function (r) { r.splice(at, 0, ''); });
+  t.colW.splice(at, 0, null);
+  t.hidCols = t.hidCols.map(function (c) { return c >= at ? c + 1 : c; });
+  var nf = {};
+  Object.keys(t.filters).forEach(function (k) { var c = +k; nf[c >= at ? c + 1 : c] = t.filters[k]; });
+  t.filters = nf;
+  if (t.sort && t.sort.col >= at) t.sort.col++;
+}
+function tblDeleteCol(t, at) {
+  if (t.rows[0].length <= 1) return false;
+  t.rows.forEach(function (r) { r.splice(at, 1); });
+  t.colW.splice(at, 1);
+  t.hidCols = t.hidCols.filter(function (c) { return c !== at; }).map(function (c) { return c > at ? c - 1 : c; });
+  var nf = {};
+  Object.keys(t.filters).forEach(function (k) { var c = +k; if (c === at) return; nf[c > at ? c - 1 : c] = t.filters[k]; });
+  t.filters = nf;
+  if (t.sort) { if (t.sort.col === at) t.sort = null; else if (t.sort.col > at) t.sort.col--; }
+  return true;
+}
+function tblInsertRow(t, at) {
+  if (at < 1) at = 1;
+  t.rows.splice(at, 0, newRow(t.rows[0].length));
+  t.rowH.splice(at, 0, null);
+  t.hidRows = t.hidRows.map(function (r) { return r >= at ? r + 1 : r; });
+}
+function tblDeleteRow(t, at) {
+  if (at < 1 || t.rows.length <= 2) return false;
+  t.rows.splice(at, 1);
+  t.rowH.splice(at, 1);
+  t.hidRows = t.hidRows.filter(function (r) { return r !== at; }).map(function (r) { return r > at ? r - 1 : r; });
+  return true;
+}
+function tblHide(b, wrap, kind, idx) {
+  var t = wrap._tbl.t;
+  if (kind === 'col') {
+    if (t.rows[0].length - t.hidCols.length <= 1) { toast('Debe quedar al menos una columna visible', 'warn'); return; }
+    if (t.hidCols.indexOf(idx) < 0) t.hidCols.push(idx);
+  } else {
+    if (idx < 1) return;
+    if (t.hidRows.indexOf(idx) < 0) t.hidRows.push(idx);
+  }
+  tblSave(b, kind === 'col' ? 'Columna escondida' : 'Fila escondida');
+  renderTable(wrap, b);
 }
 function resizeTable(b, wrap, op) {
-  var rows = b.content.table.rows;
-  var nCols = rows[0] ? rows[0].length : 0;
-  if (op === 'addRow') rows.push(newRow(nCols));
-  else if (op === 'delRow') { if (rows.length > 1) rows.pop(); }
-  else if (op === 'addCol') rows.forEach(function (r) { r.push(''); });
-  else if (op === 'delCol') { if (nCols > 1) rows.forEach(function (r) { r.pop(); }); }
-  touchNote(b.noteId);
-  logChange('Tabla modificada', rows.length + '\u00d7' + (rows[0] ? rows[0].length : 0));
-  save();
+  var t = tblState(b), st = wrap._tbl, sel = st && st.sel;
+  var nCols = t.rows[0].length;
+  if (op === 'addRow') {
+    var at = t.rows.length;
+    if (sel) { var sr = tblRowAt(st, Math.max(1, sel.r2)); if (sr >= 1) at = sr + 1; }
+    tblInsertRow(t, at);
+  } else if (op === 'delRow') {
+    var dr = sel ? tblRowAt(st, Math.max(1, sel.r1)) : t.rows.length - 1;
+    if (dr < 1) dr = t.rows.length - 1;
+    if (t.rows.length <= 2) { toast('La tabla necesita al menos una fila de datos', 'warn'); return; }
+    pushUndo('Quitar fila');
+    tblDeleteRow(t, dr);
+  } else if (op === 'addCol') {
+    var ac = nCols;
+    if (sel) { var sc = tblColAt(st, sel.c2); if (sc != null) ac = sc + 1; }
+    tblInsertCol(t, ac);
+  } else if (op === 'delCol') {
+    var dc = sel ? tblColAt(st, sel.c1) : nCols - 1;
+    if (dc == null) dc = nCols - 1;
+    if (nCols <= 1) { toast('La tabla necesita al menos una columna', 'warn'); return; }
+    pushUndo('Quitar columna');
+    tblDeleteCol(t, dc);
+  }
+  tblSave(b, 'Tabla modificada', t.rows.length + '\u00d7' + t.rows[0].length);
   renderTable(wrap, b);
+}
+
+// ---------- Men\u00fa de la cabecera: ordenar y filtrar ----------
+function tblSort(b, wrap, c, dir) {
+  var t = wrap._tbl.t;
+  if (!dir) t.sort = null;
+  else t.sort = { col: c, dir: dir };
+  tblSave(b, dir ? 'Tabla ordenada' : 'Orden quitado', (t.rows[0][c] || '').trim());
+  renderTable(wrap, b);
+}
+function openTableColMenu(b, wrap, c, anchor) {
+  closeTopbarMenu();
+  var t = wrap._tbl.t;
+  var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
+  var pop = h('div', { class: 'card-menu-pop tbl-filter-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  var name = (t.rows[0][c] || '').trim() || ('Columna ' + (c + 1));
+  var kind = tblColKind(t, c, tblDataRows(t));
+  pop.appendChild(h('div', { class: 'cm-label' }, icon('filter'), name));
+  var sorted = t.sort && t.sort.col === c;
+  var lblAsc = kind === 'num' ? '1 \u2192 9 (menor a mayor)' : (kind === 'date' ? 'Antiguas \u2192 recientes' : 'A \u2192 Z');
+  var lblDesc = kind === 'num' ? '9 \u2192 1 (mayor a menor)' : (kind === 'date' ? 'Recientes \u2192 antiguas' : 'Z \u2192 A');
+  pop.appendChild(h('button', { class: 'cm-item' + (sorted && t.sort.dir === 'asc' ? ' active' : ''), onclick: function () { closeTopbarMenu(); tblSort(b, wrap, c, 'asc'); } }, icon('sort'), h('span', {}, lblAsc)));
+  pop.appendChild(h('button', { class: 'cm-item' + (sorted && t.sort.dir === 'desc' ? ' active' : ''), onclick: function () { closeTopbarMenu(); tblSort(b, wrap, c, 'desc'); } }, icon('sort'), h('span', {}, lblDesc)));
+  if (sorted) pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblSort(b, wrap, c, null); } }, icon('x'), h('span', {}, 'Quitar el orden')));
+  pop.appendChild(h('div', { class: 'cm-sep' }));
+
+  var f = t.filters[c] || { q: '', excl: [] };
+  var apply = function (rerender) {
+    if (!f.q && (!f.excl || !f.excl.length)) delete t.filters[c];
+    else t.filters[c] = { q: f.q, excl: (f.excl || []).slice() };
+    touchNote(b.noteId); debouncedSave();
+    if (rerender !== false) { clearTimeout(pop._t); pop._t = setTimeout(function () { renderTable(wrap, b); }, 120); }
+  };
+  var q = h('input', { class: 'tbl-fq', placeholder: 'Filtrar por texto\u2026', value: f.q || '' });
+  q.addEventListener('input', function () { f.q = q.value; apply(); paintVals(); });
+  q.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  pop.appendChild(h('div', { class: 'cm-quick' }, q));
+
+  // Valores disponibles teniendo en cuenta los filtros de las DEM\u00c1S columnas (como en Excel).
+  var seen = {}, vals = [];
+  tblDataRows(t).forEach(function (r) {
+    if (!tblRowPasses(t, r, c)) return;
+    var v = t.rows[r][c] || '';
+    if (seen[v]) return;
+    seen[v] = 1; vals.push(v);
+  });
+  vals.sort(function (a, b2) { return tblCompare(kind, a, b2); });
+  var list = h('div', { class: 'tbl-vals' });
+  var rowsEls = [];
+  var allBtn = h('button', { class: 'cm-item tbl-val all', onclick: function () {
+    var anyOff = vals.some(function (v) { return f.excl.indexOf(v) >= 0; });
+    f.excl = anyOff ? [] : vals.slice();
+    apply(); paintVals();
+  } }, h('span', { class: 'tbl-tick' }), h('span', {}, '(Todos)'));
+  list.appendChild(allBtn);
+  vals.forEach(function (v) {
+    var it = h('button', { class: 'cm-item tbl-val', title: v || '(vac\u00edo)', onclick: function () {
+      var i = f.excl.indexOf(v);
+      if (i >= 0) f.excl.splice(i, 1); else f.excl.push(v);
+      apply(); paintVals();
+    } }, h('span', { class: 'tbl-tick' }), h('span', { class: 'tbl-val-txt' }, v || '(vac\u00edas)'));
+    rowsEls.push({ v: v, el: it });
+    list.appendChild(it);
+  });
+  function paintVals() {
+    f.excl = f.excl || [];
+    var qn = tblNorm(f.q || '');
+    rowsEls.forEach(function (o) {
+      o.el.classList.toggle('on', f.excl.indexOf(o.v) < 0);
+      o.el.classList.toggle('dim', !!qn && tblNorm(o.v).indexOf(qn) < 0);
+    });
+    allBtn.classList.toggle('on', !f.excl.length);
+  }
+  paintVals();
+  pop.appendChild(list);
+  if (t.filters[c]) pop.appendChild(h('button', { class: 'cm-item', onclick: function () { delete t.filters[c]; closeTopbarMenu(); tblSave(b, 'Filtro quitado', name); renderTable(wrap, b); } }, icon('x'), h('span', {}, 'Quitar el filtro')));
+
+  pop.appendChild(h('div', { class: 'cm-sep' }));
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblHide(b, wrap, 'col', c); } }, icon('eyeOff'), h('span', {}, 'Esconder esta columna')));
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); t.colW[c] = null; tblSave(b, 'Ancho autom\u00e1tico'); tblLayout(wrap); } }, icon('fit'), h('span', {}, 'Ancho autom\u00e1tico (al texto)')));
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblInsertCol(t, c); tblSave(b, 'Columna insertada'); renderTable(wrap, b); } }, icon('plus'), h('span', {}, 'Insertar columna a la izquierda')));
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblInsertCol(t, c + 1); tblSave(b, 'Columna insertada'); renderTable(wrap, b); } }, icon('plus'), h('span', {}, 'Insertar columna a la derecha')));
+  pop.appendChild(h('button', { class: 'cm-item danger', onclick: function () {
+    closeTopbarMenu();
+    pushUndo('Eliminar columna');
+    if (!tblDeleteCol(t, c)) { toast('La tabla necesita al menos una columna', 'warn'); return; }
+    tblSave(b, 'Columna eliminada', name); renderTable(wrap, b);
+  } }, icon('trash'), h('span', {}, 'Eliminar esta columna')));
+  if (tblActive(t)) pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblResetView(b, wrap); } }, icon('eye'), h('span', {}, 'Restablecer orden, filtros y ocultos')));
+
+  bd.appendChild(pop);
+  document.body.appendChild(bd);
+  positionPop(pop, anchor, 248);
+  setTimeout(function () { q.focus(); }, 20);
+}
+
+// ---------- Men\u00fa contextual de celda (clic derecho) ----------
+function openTableCellMenu(b, wrap, x, y) {
+  closeTopbarMenu();
+  var st = wrap._tbl, t = st.t, s = st.sel;
+  if (!s) return;
+  var r = tblRowAt(st, s.r1), c = tblColAt(st, s.c1);
+  var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
+  var pop = h('div', { class: 'card-menu-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  var n = (s.r2 - s.r1 + 1) * (s.c2 - s.c1 + 1);
+  pop.appendChild(h('div', { class: 'cm-label' }, icon('table'), n > 1 ? n + ' celdas' : 'Celda'));
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblCopyClipboard(b, wrap); } }, icon('copy'), h('span', {}, 'Copiar')));
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblPasteClipboard(b, wrap); } }, icon('paste'), h('span', {}, 'Pegar')));
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblClearSel(b, wrap); } }, icon('eraser'), h('span', {}, 'Vaciar el contenido')));
+  pop.appendChild(h('div', { class: 'cm-sep' }));
+  if (r >= 1) {
+    pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblInsertRow(t, r); tblSave(b, 'Fila insertada'); renderTable(wrap, b); } }, icon('plus'), h('span', {}, 'Insertar fila encima')));
+    pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblInsertRow(t, r + 1); tblSave(b, 'Fila insertada'); renderTable(wrap, b); } }, icon('plus'), h('span', {}, 'Insertar fila debajo')));
+    pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblHide(b, wrap, 'row', r); } }, icon('eyeOff'), h('span', {}, 'Esconder esta fila')));
+    pop.appendChild(h('button', { class: 'cm-item danger', onclick: function () {
+      closeTopbarMenu();
+      pushUndo('Eliminar fila');
+      if (!tblDeleteRow(t, r)) { toast('La tabla necesita al menos una fila de datos', 'warn'); return; }
+      tblSave(b, 'Fila eliminada'); renderTable(wrap, b);
+    } }, icon('trash'), h('span', {}, 'Eliminar esta fila')));
+    pop.appendChild(h('div', { class: 'cm-sep' }));
+  }
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblInsertCol(t, c); tblSave(b, 'Columna insertada'); renderTable(wrap, b); } }, icon('plus'), h('span', {}, 'Insertar columna a la izquierda')));
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblInsertCol(t, c + 1); tblSave(b, 'Columna insertada'); renderTable(wrap, b); } }, icon('plus'), h('span', {}, 'Insertar columna a la derecha')));
+  pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblHide(b, wrap, 'col', c); } }, icon('eyeOff'), h('span', {}, 'Esconder esta columna')));
+  if (tblActive(t)) {
+    pop.appendChild(h('div', { class: 'cm-sep' }));
+    pop.appendChild(h('button', { class: 'cm-item', onclick: function () { closeTopbarMenu(); tblResetView(b, wrap); } }, icon('eye'), h('span', {}, 'Mostrar todo / quitar filtros')));
+  }
+  bd.appendChild(pop);
+  document.body.appendChild(bd);
+  positionPop(pop, { getBoundingClientRect: function () { return { left: x, right: x, top: y, bottom: y, width: 0, height: 0 }; } }, 240);
 }
 
 // ---------- Lista enumerada → flujograma (formas y conectores nativos) ----------

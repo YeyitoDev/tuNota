@@ -397,7 +397,7 @@ var BLOCK_SIZES = {
   json: { w: 340, h: 210 },
   curl: { w: 380, h: 320 },
   python: { w: 400, h: 340 },
-  table: { w: 340, h: 170 },
+  table: { w: 380, h: 200 },
   image: { w: 280, h: 240 },
   freeimage: { w: 240, h: 180 },
   aiimage: { w: 320, h: 300 },
