@@ -34,6 +34,11 @@ function initState() {
   if (typeof ui.kanbanDefaultSec !== 'string') ui.kanbanDefaultSec = '';
   if (ui.tasksView !== 'lista' && ui.tasksView !== 'tablero') ui.tasksView = 'lista'; // panel de Tareas
   if (ui.tasksSrc !== 'all' && ui.tasksSrc !== 'task' && ui.tasksSrc !== 'block') ui.tasksSrc = 'all';
+  if (['all', 'today', 'week', 'late', 'range'].indexOf(ui.tasksDate) < 0) ui.tasksDate = 'all';
+  if (typeof ui.tasksFrom !== 'string') ui.tasksFrom = '';
+  if (typeof ui.tasksTo !== 'string') ui.tasksTo = '';
+  if (['all', 'alta', 'media', 'baja'].indexOf(ui.tasksPrio) < 0) ui.tasksPrio = 'all';
+  if (ui.tasksSort !== 'manual' && ui.tasksSort !== 'prio') ui.tasksSort = 'manual';
   if (!Array.isArray(data.plan)) data.plan = []; // tareas del día (el tablero las comparte)
   if (typeof ui.tablet !== 'boolean') ui.tablet = false;
   if (!ui.pen || typeof ui.pen !== 'object') ui.pen = { tool: 'pen', color: '#33302b', size: 3 };

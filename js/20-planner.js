@@ -40,6 +40,48 @@ function planSubsDone(t) {
   return subs.filter(function (s) { return s.done; }).length;
 }
 
+// ---------- Prioridad ----------
+// Es distinta del "tipo" (Relevante/Idea/Importante/Crucial), que describe la naturaleza de la
+// nota: la prioridad dice por dónde empezar. Vale igual para una tarea del día que para una
+// tarjeta del lienzo, y "sin prioridad" es un estado legítimo (no todo tiene que ordenarse).
+var PRIOS = [['alta', 'Alta'], ['media', 'Media'], ['baja', 'Baja']];
+function planPriorityOf(x) {
+  var p = x && x.priority;
+  for (var i = 0; i < PRIOS.length; i++) { if (PRIOS[i][0] === p) return p; }
+  return '';
+}
+function planPriorityLabel(p) {
+  for (var i = 0; i < PRIOS.length; i++) { if (PRIOS[i][0] === p) return PRIOS[i][1]; }
+  return 'Sin prioridad';
+}
+// Orden de recorrido del chip: sin prioridad → alta → media → baja → sin prioridad.
+function planCyclePriority(x) {
+  var order = ['', 'alta', 'media', 'baja'];
+  var next = order[(order.indexOf(planPriorityOf(x)) + 1) % order.length];
+  if (next) x.priority = next; else delete x.priority;
+  if (x.noteId && !x.day) touchNote(x.noteId); // las tarjetas del lienzo tocan su nota
+  logChange('Prioridad: ' + planPriorityLabel(next), x.title || (x.content && x.content.text) || '');
+  save();
+  return next;
+}
+function planPriorityRank(x) {
+  var p = planPriorityOf(x);
+  return p === 'alta' ? 0 : p === 'media' ? 1 : p === 'baja' ? 2 : 3; // sin prioridad, al final
+}
+
+// ---------- Fechas ----------
+function planDayOfMs(ms) {
+  var d = new Date(ms || now());
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+// Lunes de la semana en curso (la semana laboral empieza el lunes, no el domingo).
+function planWeekStartStr() {
+  var d = new Date();
+  var dow = (d.getDay() + 6) % 7; // 0 = lunes
+  d.setDate(d.getDate() - dow);
+  return planDayOfMs(d.getTime());
+}
+
 // ---------- Operaciones sobre una tarea ----------
 // Crear. Nace en "Por hacer" y al final de esa columna.
 function planAddTask(title, opts) {

@@ -296,9 +296,12 @@ function mTaskRow(t) {
   var stBtn = h('button', { class: 'm-tag m-status k-' + st, title: 'Estado: ' + kanbanLabel(st) + ' — tocar para cambiarlo' }, kanbanLabel(st));
   stBtn.addEventListener('click', function (e) { e.stopPropagation(); planSetStatus(t, KAN[(stIdx + 1) % KAN.length][0]); renderMobile(); });
   meta.appendChild(stBtn);
+  var pr = planPriorityOf(t);
+  var prBtn = h('button', { class: 'm-tag m-prio' + (pr ? ' prio-' + pr : ' prio-none'), title: planPriorityLabel(pr) + ' — tocar para cambiarla' }, pr ? planPriorityLabel(pr) : 'Prioridad');
+  prBtn.addEventListener('click', function (e) { e.stopPropagation(); planCyclePriority(t); renderMobile(); });
+  meta.appendChild(prBtn);
   if (carried) meta.appendChild(h('span', { class: 'm-tag warn', title: 'Pendiente desde ' + t.day }, 'de ' + t.day.slice(5)));
   if (t.remindAt && t.remindAt > now()) meta.appendChild(h('span', { class: 'm-tag rem' }, '⏰ ' + fmtShort(t.remindAt)));
-  if (t.subs.length) meta.appendChild(h('span', { class: 'm-tag' + (subsDone === t.subs.length ? ' ok' : '') }, subsDone + '/' + t.subs.length + ' pasos'));
   var linked = t.noteId && getNote(t.noteId);
   if (linked) meta.appendChild(h('span', { class: 'm-tag' }, '📄 ' + snippet(linked.title || 'Hoja')));
   if (meta.children.length) main.appendChild(meta);
@@ -308,6 +311,16 @@ function mTaskRow(t) {
   more.addEventListener('click', function (e) { e.stopPropagation(); mTaskSheet(t); });
 
   row.appendChild(h('div', { class: 'm-item-row' }, chk, main, more));
+
+  // Botón de pasos bien visible, como en el escritorio: es lo que invita a desglosar.
+  var abierta = !!tareasOpen[t.id];
+  var pasosBtn = h('button', {
+    class: 'm-steps-btn' + (abierta ? ' open' : '') + (t.subs.length ? ' has' : ' empty') + (t.subs.length && subsDone === t.subs.length ? ' all' : ''),
+  }, icon(t.subs.length ? 'todo' : 'plus'),
+     h('span', {}, t.subs.length ? (subsDone + ' de ' + t.subs.length + ' pasos') : 'Desglosar en pasos'),
+     icon(abierta ? 'chevronDown' : 'chevron'));
+  pasosBtn.addEventListener('click', function (e) { e.stopPropagation(); tareasOpen[t.id] = !abierta; renderMobile(); });
+  row.appendChild(pasosBtn);
 
   if (t.subs.length) {
     row.appendChild(h('div', { class: 'm-bar thin' },

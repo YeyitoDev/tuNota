@@ -19,7 +19,8 @@ function bootApp() {
   app.getSection = () => null;
   app.getBlockById = (id) => (app.data.blocks || []).find((b) => b.id === id) || null;
   app.reminderText = (b) => (b.content && b.content.text) || '';
-  app.ui = { currentNoteId: null, kanbanBook: '', kanbanBlockedOnly: false, tasksView: 'lista', tasksSrc: 'all' };
+  app.ui = { currentNoteId: null, kanbanBook: '', kanbanBlockedOnly: false, tasksView: 'lista', tasksSrc: 'all',
+    tasksDate: 'all', tasksFrom: '', tasksTo: '', tasksPrio: 'all', tasksSort: 'manual' };
   app.data = { notebooks: [], sections: [], notes: [], blocks: [], links: [], groups: [], log: [], plan: [] };
   return app;
 }
@@ -214,6 +215,33 @@ describe('tablero — tareas del día y tarjetas del lienzo en las mismas column
     expect(app.boardAll('doing').map((i) => i.id)).toEqual(['b1', t.id]);
   });
 
+  it('el filtro de prioridad deja pasar solo el nivel elegido', () => {
+    const a = app.planAddTask('urgente');
+    const b = app.planAddTask('normal');
+    app.planAddTask('sin marcar');
+    a.priority = 'alta';
+    b.priority = 'baja';
+    app.ui.tasksPrio = 'alta';
+    expect(app.boardItems('todo').map((i) => i.ref.title)).toEqual(['urgente']);
+    app.ui.tasksPrio = 'baja';
+    expect(app.boardItems('todo').map((i) => i.ref.title)).toEqual(['normal']);
+    app.ui.tasksPrio = 'all';
+    expect(app.boardItems('todo')).toHaveLength(3);
+  });
+
+  it('ordenar por prioridad sube lo alto y deja lo no marcado al final', () => {
+    const sin = app.planAddTask('sin prioridad');
+    const baja = app.planAddTask('baja');
+    const alta = app.planAddTask('alta');
+    baja.priority = 'baja';
+    alta.priority = 'alta';
+    sin.order = 1; baja.order = 2; alta.order = 3; // el orden manual es el inverso
+    app.ui.tasksSort = 'manual';
+    expect(app.boardItems('todo').map((i) => i.ref.title)).toEqual(['sin prioridad', 'baja', 'alta']);
+    app.ui.tasksSort = 'prio';
+    expect(app.boardItems('todo').map((i) => i.ref.title)).toEqual(['alta', 'baja', 'sin prioridad']);
+  });
+
   it('planVisibleTasks arrastra lo pendiente de días anteriores y suelta lo ya hecho', () => {
     const viejaPendiente = app.planAddTask('pendiente de ayer');
     viejaPendiente.day = '2020-01-01';
@@ -223,5 +251,132 @@ describe('tablero — tareas del día y tarjetas del lienzo en las mismas column
     const ids = app.planVisibleTasks().map((t) => t.id);
     expect(ids).toContain(viejaPendiente.id);
     expect(ids).not.toContain(viejaHecha.id);
+  });
+});
+
+describe('prioridad — el ciclo del chip', () => {
+  let app;
+  beforeEach(() => { app = bootApp(); });
+
+  it('recorre sin prioridad → alta → media → baja → sin prioridad', () => {
+    const t = app.planAddTask('x');
+    expect(app.planPriorityOf(t)).toBe('');
+    expect(app.planCyclePriority(t)).toBe('alta');
+    expect(app.planCyclePriority(t)).toBe('media');
+    expect(app.planCyclePriority(t)).toBe('baja');
+    expect(app.planCyclePriority(t)).toBe('');
+    expect('priority' in t).toBe(false); // se borra, no queda un valor vacío colgando
+  });
+
+  it('vale igual para una tarjeta del lienzo', () => {
+    const b = { id: 'b1', noteId: 'n1', kanban: 'todo', content: { text: 'idea' } };
+    app.data.blocks = [b];
+    app.planCyclePriority(b);
+    expect(app.planPriorityOf(b)).toBe('alta');
+  });
+
+  it('ignora un valor inventado y lo trata como sin prioridad', () => {
+    expect(app.planPriorityOf({ priority: 'urgentisimo' })).toBe('');
+    expect(app.planPriorityRank({ priority: 'urgentisimo' })).toBe(3);
+  });
+});
+
+describe('filtros de fecha', () => {
+  let app;
+  const dias = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  };
+  beforeEach(() => { app = bootApp(); });
+
+  it('«Hoy» deja solo lo del día en curso', () => {
+    const hoy = app.planAddTask('de hoy');
+    const vieja = app.planAddTask('de hace una semana');
+    vieja.day = dias(-7);
+    app.ui.tasksDate = 'today';
+    expect(app.boardItems('todo').map((i) => i.ref.title)).toEqual([hoy.title]);
+  });
+
+  it('«Atrasadas» muestra lo pendiente de días pasados y nunca lo completado', () => {
+    const atrasada = app.planAddTask('pendiente de ayer');
+    atrasada.day = dias(-1);
+    const hechaAyer = app.planAddTask('hecha ayer');
+    app.planSetStatus(hechaAyer, 'done');
+    hechaAyer.day = dias(-1);
+    app.planAddTask('de hoy');
+    app.ui.tasksDate = 'late';
+    const vistos = ['todo', 'doing', 'done'].flatMap((s) => app.boardItems(s).map((i) => i.ref.title));
+    expect(vistos).toEqual(['pendiente de ayer']);
+  });
+
+  it('«Semana» incluye lo del lunes en curso y descarta lo del mes pasado', () => {
+    const estaSemana = app.planAddTask('esta semana');
+    estaSemana.day = app.planWeekStartStr();
+    const mesPasado = app.planAddTask('del mes pasado');
+    mesPasado.day = dias(-40);
+    app.ui.tasksDate = 'week';
+    expect(app.boardItems('todo').map((i) => i.ref.title)).toEqual(['esta semana']);
+  });
+
+  it('el rango personalizado acota por ambos extremos, y cada extremo es opcional', () => {
+    const a = app.planAddTask('hace 10 días'); a.day = dias(-10);
+    const b = app.planAddTask('hace 5 días'); b.day = dias(-5);
+    const c = app.planAddTask('hoy');
+    app.ui.tasksDate = 'range';
+    app.ui.tasksFrom = dias(-7); app.ui.tasksTo = dias(-1);
+    expect(app.boardItems('todo').map((i) => i.ref.title)).toEqual(['hace 5 días']);
+    app.ui.tasksTo = ''; // solo "desde"
+    expect(app.boardItems('todo').map((i) => i.ref.title)).toEqual(['hace 5 días', 'hoy']);
+    app.ui.tasksFrom = ''; // sin extremos: no filtra nada
+    expect(app.boardItems('todo')).toHaveLength(3);
+  });
+
+  it('una tarjeta del lienzo se fecha por cuándo entró al tablero', () => {
+    const hace3 = new Date(); hace3.setDate(hace3.getDate() - 3);
+    app.data.blocks = [
+      { id: 'b1', noteId: 'n1', kanban: 'todo', kanbanAt: hace3.getTime(), kanbanOrder: 1, content: { text: 'vieja' } },
+      { id: 'b2', noteId: 'n1', kanban: 'todo', kanbanAt: Date.now(), kanbanOrder: 2, content: { text: 'de hoy' } },
+    ];
+    app.ui.tasksDate = 'today';
+    expect(app.boardItems('todo').map((i) => i.id)).toEqual(['b2']);
+  });
+
+  it('planWeekStartStr devuelve un lunes', () => {
+    const [y, m, d] = app.planWeekStartStr().split('-').map(Number);
+    expect(new Date(y, m - 1, d).getDay()).toBe(1);
+  });
+});
+
+describe('orden de la vista Lista', () => {
+  let app;
+  const items = (a) => a.map((t) => ({ src: 'task', id: t.id, ref: t, order: app.planOrderOf(t) }));
+  beforeEach(() => { app = bootApp(); });
+
+  it('en orden manual, lo que está en marcha va primero y lo hecho al final', () => {
+    const a = app.planAddTask('pendiente');
+    const b = app.planAddTask('en marcha'); app.planSetStatus(b, 'doing');
+    const c = app.planAddTask('hecha'); app.planSetStatus(c, 'done');
+    app.ui.tasksSort = 'manual';
+    const orden = items([a, b, c]).sort(app.tareasListCmp).map((i) => i.ref.title);
+    expect(orden).toEqual(['en marcha', 'pendiente', 'hecha']);
+  });
+
+  it('con orden por prioridad, la prioridad manda por encima del estado', () => {
+    const a = app.planAddTask('alta pero pendiente'); a.priority = 'alta';
+    const b = app.planAddTask('sin prioridad en marcha'); app.planSetStatus(b, 'doing');
+    const c = app.planAddTask('baja'); c.priority = 'baja';
+    app.ui.tasksSort = 'prio';
+    const orden = items([a, b, c]).sort(app.tareasListCmp).map((i) => i.ref.title);
+    expect(orden).toEqual(['alta pero pendiente', 'baja', 'sin prioridad en marcha']);
+  });
+
+  it('a igual prioridad, decide el estado y luego el orden manual', () => {
+    const a = app.planAddTask('alta pendiente'); a.priority = 'alta'; a.order = 99;
+    const b = app.planAddTask('alta en marcha'); b.priority = 'alta'; app.planSetStatus(b, 'doing');
+    const c = app.planAddTask('alta pendiente antigua'); c.priority = 'alta'; c.order = 1;
+    app.ui.tasksSort = 'prio';
+    const orden = items([a, b, c]).sort(app.tareasListCmp).map((i) => i.ref.title);
+    expect(orden).toEqual(['alta en marcha', 'alta pendiente antigua', 'alta pendiente']);
   });
 });
