@@ -39,6 +39,8 @@ function initState() {
   if (typeof ui.tasksTo !== 'string') ui.tasksTo = '';
   if (['all', 'alta', 'media', 'baja'].indexOf(ui.tasksPrio) < 0) ui.tasksPrio = 'all';
   if (ui.tasksSort !== 'manual' && ui.tasksSort !== 'prio') ui.tasksSort = 'manual';
+  if (ui.tasksDock !== 'dock' && ui.tasksDock !== 'modal') ui.tasksDock = 'dock'; // acoplado por defecto
+  if (typeof ui.tasksWidth !== 'number') ui.tasksWidth = 0; // 0 = ancho por defecto de la vista
   if (!Array.isArray(data.plan)) data.plan = []; // tareas del día (el tablero las comparte)
   if (typeof ui.tablet !== 'boolean') ui.tablet = false;
   if (!ui.pen || typeof ui.pen !== 'object') ui.pen = { tool: 'pen', color: '#33302b', size: 3 };
@@ -393,7 +395,10 @@ function arrEq(a, b) {
   return true;
 }
 
+// Cualquier edición de contenido pasa por aquí: es el punto donde el panel de Tareas acoplado
+// se entera de que algo cambió en el lienzo.
 function touchNote(id) {
+  if (typeof tareasTouched === 'function') tareasTouched();
   var n = getNote(id);
   if (n) n.updatedAt = now();
 }

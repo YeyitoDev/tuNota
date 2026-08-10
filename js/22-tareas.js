@@ -23,7 +23,19 @@ function tareasPrioFilter() {
   return planPriorityOf({ priority: ui.tasksPrio }) || 'all';
 }
 function tareasSort() { return ui.tasksSort === 'prio' ? 'prio' : 'manual'; }
-function closeTareas() { var o = document.getElementById('tareasOverlay'); if (o) o.remove(); }
+// Acoplado (a un lado, sin tapar el lienzo) o en ventana centrada. Acoplado es el modo por
+// defecto: así puedes reordenar prioridades mientras sigues moviendo tarjetas en el lienzo.
+function tareasDock() { return ui.tasksDock === 'modal' ? 'modal' : 'dock'; }
+function tareasWidth() {
+  var w = parseInt(ui.tasksWidth, 10);
+  if (!w || w < 320) w = tareasView() === 'tablero' ? 900 : 460;
+  return Math.min(w, Math.round(window.innerWidth * 0.9));
+}
+function closeTareas() {
+  var o = document.getElementById('tareasOverlay');
+  if (o) o.remove();
+  document.body.classList.remove('has-tareas-dock');
+}
 function tareasIsOpen() { return !!document.getElementById('tareasOverlay'); }
 
 // ---------- Adaptador: una sola lista de tarjetas venga de donde venga ----------
@@ -123,13 +135,49 @@ function boardPlace(src, id, status, beforeId) {
   renderTareas();
 }
 
+// Asa del borde izquierdo: arrastra para dar más o menos sitio al panel sin cerrarlo.
+// Doble clic devuelve el ancho por defecto de la vista.
+function tareasResizer(dockEl) {
+  var grip = h('div', { class: 'tareas-resize', title: 'Arrastra para cambiar el ancho · doble clic para restablecerlo' });
+  grip.addEventListener('mousedown', function (e) {
+    e.preventDefault();
+    document.body.classList.add('tareas-resizing');
+    var move = function (ev) {
+      var w = Math.max(320, Math.min(window.innerWidth - 80, window.innerWidth - ev.clientX));
+      dockEl.style.width = w + 'px';
+    };
+    var up = function () {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+      document.body.classList.remove('tareas-resizing');
+      ui.tasksWidth = parseInt(dockEl.style.width, 10) || 0;
+      save();
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+  grip.addEventListener('dblclick', function () {
+    ui.tasksWidth = 0; save();
+    dockEl.style.width = tareasWidth() + 'px';
+  });
+  return grip;
+}
+
 // ---------- Panel ----------
 function openTareas(view) {
   closeTareas();
   planTasks(); // sesiones existentes: normalizeData puede no haber corrido
   if (view === 'lista' || view === 'tablero') ui.tasksView = view;
-  var overlay = h('div', { class: 'overlay tareas-overlay', id: 'tareasOverlay', onmousedown: function (e) { if (e.target === overlay) closeTareas(); } });
-  var panel = h('div', { class: 'tareas-panel v-' + tareasView() });
+  var dock = tareasDock() === 'dock';
+  // Acoplado: sin fondo oscuro y sin capturar los clics, para que el lienzo siga vivo detrás.
+  var overlay = dock
+    ? h('div', { class: 'tareas-dock', id: 'tareasOverlay' })
+    : h('div', { class: 'overlay tareas-overlay', id: 'tareasOverlay', onmousedown: function (e) { if (e.target === overlay) closeTareas(); } });
+  var panel = h('div', { class: 'tareas-panel v-' + tareasView() + (dock ? ' is-dock' : '') });
+  if (dock) {
+    overlay.style.width = tareasWidth() + 'px';
+    overlay.appendChild(tareasResizer(overlay));
+  }
 
   // Conmutador de vista: los mismos datos, dos preguntas distintas.
   var views = h('div', { class: 'tareas-views' });
@@ -161,12 +209,21 @@ function openTareas(view) {
   dateLbl = dateLbl.charAt(0).toUpperCase() + dateLbl.slice(1);
   // Los filtros por libro y por bloqueo son del tablero: en la lista del día solo estorban.
   var esTablero = tareasView() === 'tablero';
+  var dockBtn = h('button', {
+    class: 'icon-btn' + (dock ? ' on' : ''),
+    title: dock ? 'Está acoplado al lado: puedes seguir usando el lienzo. Clic para verlo como ventana centrada.'
+                : 'Acoplar al lado para trabajar en el lienzo a la vez',
+    onclick: function () { ui.tasksDock = dock ? 'modal' : 'dock'; save(); openTareas(); },
+  }, icon(dock ? 'panel' : 'layout'));
+  // Acoplado el sitio es escaso: la fecha baja a la fila del resumen y no aprieta la cabecera.
   panel.appendChild(h('div', { class: 'tareas-head' },
-    h('div', { class: 'tareas-title' }, icon('todo'), 'Tareas', h('span', { class: 'planner-date' }, dateLbl)),
+    h('div', { class: 'tareas-title' }, icon('todo'), 'Tareas',
+      dock ? null : h('span', { class: 'planner-date' }, dateLbl)),
     views,
     h('div', { class: 'tareas-head-right' },
       esTablero ? blockedBtn : null,
       esTablero ? h('span', { class: 'kanban-filter-wrap' }, icon('book'), sel) : null,
+      dockBtn,
       h('button', { class: 'icon-btn', title: 'Cerrar (Esc)', onclick: closeTareas }, icon('x')))));
 
   // Origen de las tarjetas: las del día, las del lienzo o ambas.
@@ -176,18 +233,21 @@ function openTareas(view) {
       ui.tasksSrc = o[0]; save(); renderTareas();
     } }, o[1]));
   });
-  panel.appendChild(h('div', { class: 'tareas-summary-row' }, h('div', { class: 'planner-summary', id: 'tareasSummary' }), srcRow));
+  panel.appendChild(h('div', { class: 'tareas-summary-row' },
+    dock ? h('span', { class: 'planner-date dock-date' }, dateLbl) : null,
+    h('div', { class: 'planner-summary', id: 'tareasSummary' }), srcRow));
   panel.appendChild(h('div', { class: 'tareas-filters', id: 'tareasFilters' }));
   panel.appendChild(h('div', { class: 'tareas-body', id: 'tareasBody' }));
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
+  document.body.classList.toggle('has-tareas-dock', dock);
   renderTareas();
   var first = panel.querySelector('.planner-inp, .kanban-add-inp');
   if (first) first.focus();
 }
 
-// Refresco desde fuera (sync entre ventanas, recordatorios). No repinta si estás escribiendo
-// dentro del panel, para no tragarse lo que llevas tecleado.
+// Refresco desde fuera (sync entre ventanas, recordatorios, ediciones en el lienzo).
+// No repinta si estás escribiendo dentro del panel, para no tragarse lo que llevas tecleado.
 function refreshTareas(force) {
   if (!tareasIsOpen()) return;
   if (!force) {
@@ -195,6 +255,23 @@ function refreshTareas(force) {
     if (a && a.closest && a.closest('#tareasOverlay') && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
   }
   renderTareas();
+}
+// Acoplado, el lienzo sigue editándose mientras el panel está abierto: si tocas una nota que
+// tiene tarjeta en el tablero, el panel se pone al día solo (con un respiro para no repintar
+// en cada tecla). Lo llama touchNote().
+var tareasTouchT = null;
+function tareasTouched() {
+  if (!tareasIsOpen() || tareasDock() !== 'dock') return;
+  clearTimeout(tareasTouchT);
+  tareasTouchT = setTimeout(function () { refreshTareas(); }, 450);
+}
+// Escape solo cierra si estabas dentro del panel: acoplado, es un panel más de la app y no
+// debe desaparecer porque canceles algo en el lienzo.
+function escCloseTareas() {
+  if (!tareasIsOpen()) return;
+  if (tareasDock() === 'modal') { closeTareas(); return; }
+  var a = document.activeElement;
+  if (a && a.closest && a.closest('#tareasOverlay')) closeTareas();
 }
 
 // Barra de filtros: por fecha, por prioridad y cómo ordenar. Se pinta en cada repintado para
@@ -315,14 +392,48 @@ function renderTareasLista(body) {
   body.appendChild(list);
 }
 
-// Chip de prioridad: un clic recorre sin prioridad → alta → media → baja.
+// Desplegable de opciones anclado a un chip. Se elige el valor de una lista en vez de ir
+// pulsando hasta dar con él: con tres o cuatro valores, ciclar obliga a contar clics.
+// opts: [[valor, etiqueta, claseDelPunto]]
+function openValuePicker(anchor, titulo, opts, actual, onPick) {
+  closeTopbarMenu();
+  var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
+  var pop = h('div', { class: 'card-menu-pop value-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  pop.appendChild(h('div', { class: 'cm-label' }, titulo));
+  opts.forEach(function (o) {
+    var activa = o[0] === actual;
+    pop.appendChild(h('button', { class: 'cm-item value-item' + (activa ? ' active' : ''), onclick: function (e) {
+      e.stopPropagation();
+      closeTopbarMenu();
+      onPick(o[0]);
+    } },
+      h('span', { class: 'value-dot ' + (o[2] || '') }),
+      h('span', {}, o[1]),
+      activa ? h('span', { class: 'value-check' }, '✓') : null));
+  });
+  bd.appendChild(pop);
+  document.body.appendChild(bd);
+  positionPop(pop, anchor, 190);
+}
+
+// Chip de prioridad: abre la lista de niveles con su flecha.
 function prioChip(x, rerender) {
   var p = planPriorityOf(x);
-  return h('button', {
-    class: 'planner-prio' + (p ? ' prio-' + p : ' prio-none'),
-    title: planPriorityLabel(p) + ' — clic para cambiarla',
-    onclick: function (e) { e.stopPropagation(); planCyclePriority(x); rerender(); },
-  }, p ? planPriorityLabel(p) : 'Prioridad');
+  var chip = h('button', {
+    class: 'planner-prio has-arrow' + (p ? ' prio-' + p : ' prio-none'),
+    title: 'Prioridad: ' + planPriorityLabel(p) + ' — clic para elegir otra',
+  }, h('span', {}, p ? planPriorityLabel(p) : 'Prioridad'), icon('chevronDown', 'pick-arrow'));
+  chip.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var opts = [['', 'Sin prioridad', 'p-none']].concat(PRIOS.map(function (o) { return [o[0], o[1], 'p-' + o[0]]; }));
+    openValuePicker(chip, 'Prioridad', opts, p, function (v) {
+      if (v) x.priority = v; else delete x.priority;
+      logChange('Prioridad: ' + planPriorityLabel(v), x.title || (x.content && x.content.text) || '');
+      save();
+      rerender();
+    });
+  });
+  return chip;
 }
 
 // Botón de pasos: es la puerta a desglosar la tarea, así que se ve. Sin pasos invita a crearlos;
@@ -340,14 +451,18 @@ function stepsBtn(owner, open, rerender) {
      icon(open ? 'chevronDown' : 'chevron'));
 }
 
-// Chip de estado: un clic lo pasa a la siguiente columna; también sirve para ver dónde está.
+// Chip de estado: abre la lista de columnas con su flecha.
 function statusChip(status, onPick) {
-  var idx = KAN.map(function (k) { return k[0]; }).indexOf(status);
-  return h('button', {
-    class: 'planner-status k-' + status,
-    title: 'Estado: ' + kanbanLabel(status) + ' — clic para pasarla a «' + kanbanLabel(KAN[(idx + 1) % KAN.length][0]) + '»',
-    onclick: function (e) { e.stopPropagation(); onPick(KAN[(idx + 1) % KAN.length][0]); },
-  }, kanbanLabel(status));
+  var chip = h('button', {
+    class: 'planner-status has-arrow k-' + status,
+    title: 'Estado: ' + kanbanLabel(status) + ' — clic para moverla de columna',
+  }, h('span', {}, kanbanLabel(status)), icon('chevronDown', 'pick-arrow'));
+  chip.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var opts = KAN.map(function (k) { return [k[0], k[1], 'k-' + k[0]]; });
+    openValuePicker(chip, 'Estado', opts, status, onPick);
+  });
+  return chip;
 }
 
 function taskRow(t) {

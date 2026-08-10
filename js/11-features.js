@@ -933,7 +933,7 @@ document.addEventListener('keydown', function (e) {
     closeRadial();
     closeReminderPicker();
     closeCardMenu();
-    closeKanban();
+    if (typeof escCloseTareas === 'function') escCloseTareas(); // acoplado, no se cierra desde el lienzo
     var ao = document.getElementById('alarmOverlay'); if (ao) ao.remove();
     if (Object.keys(selectedIds).length) clearSelection();
   } else if (e.key === 'Alt' && !e.repeat) {

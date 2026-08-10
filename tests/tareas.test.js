@@ -380,3 +380,38 @@ describe('orden de la vista Lista', () => {
     expect(orden).toEqual(['alta en marcha', 'alta pendiente antigua', 'alta pendiente']);
   });
 });
+
+describe('modo del panel: acoplado o ventana', () => {
+  let app;
+  beforeEach(() => {
+    app = bootApp();
+    app.window = { innerWidth: 1400 };
+  });
+
+  it('acoplado es el modo por defecto y cualquier valor raro cae en él', () => {
+    app.ui.tasksDock = undefined;
+    expect(app.tareasDock()).toBe('dock');
+    app.ui.tasksDock = 'flotante';
+    expect(app.tareasDock()).toBe('dock');
+    app.ui.tasksDock = 'modal';
+    expect(app.tareasDock()).toBe('modal');
+  });
+
+  it('sin ancho guardado, cada vista tiene el suyo', () => {
+    app.ui.tasksWidth = 0;
+    app.ui.tasksView = 'lista';
+    expect(app.tareasWidth()).toBe(460);
+    app.ui.tasksView = 'tablero';
+    expect(app.tareasWidth()).toBe(900);
+  });
+
+  it('respeta el ancho guardado y nunca se come la pantalla entera', () => {
+    app.ui.tasksWidth = 640;
+    expect(app.tareasWidth()).toBe(640);
+    app.ui.tasksWidth = 5000; // más ancho que la ventana
+    expect(app.tareasWidth()).toBe(1260); // 90% de 1400
+    app.ui.tasksWidth = 50; // absurdamente estrecho: cae al valor por defecto
+    app.ui.tasksView = 'lista';
+    expect(app.tareasWidth()).toBe(460);
+  });
+});
