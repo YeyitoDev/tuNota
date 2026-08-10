@@ -95,8 +95,9 @@ function renderTopbar() {
   var tplBtn = h('button', { class: 'icon-btn', title: 'Plantillas de canvas (BMC, DAFO, arquitectura…)', onclick: openTemplates }, icon('layout'));
   var shapeBtn = h('button', { class: 'icon-btn', title: 'Formas para diagramar (rectángulo, elipse, rombo…)', onclick: function (e) { e.stopPropagation(); openShapePalette(shapeBtn); } }, icon('shapes'));
   var graphBtn = h('button', { class: 'icon-btn', title: 'Mapa de conocimiento (grafo)', onclick: openGraph }, icon('graph'));
-  var kanBtn = h('button', { class: 'icon-btn', title: 'Kanban de ideas', onclick: openKanban }, icon('board'));
-  var planBtn = h('button', { class: 'icon-btn', title: 'Plan del día: qué hacer hoy y las acciones realizadas para completarlo', onclick: openPlanner }, icon('todo'));
+  // Los dos abren el mismo panel de Tareas: uno en la vista Tablero, el otro en la vista Lista.
+  var kanBtn = h('button', { class: 'icon-btn', title: 'Tablero de tareas (Por hacer · En progreso · Hecho)', onclick: function () { openTareas('tablero'); } }, icon('board'));
+  var planBtn = h('button', { class: 'icon-btn', title: 'Plan del día: qué hacer hoy, en qué estado está y los pasos para completarlo', onclick: function () { openTareas('lista'); } }, icon('todo'));
   var tabletBtn = h('button', { class: 'icon-btn' + (ui.tablet ? ' on' : ''), title: 'Modo tablet: escribir/dibujar con lápiz o dedo', onclick: toggleTabletMode }, icon('pen'));
   var moreBtn = h('button', { class: 'icon-btn', title: 'Más opciones', onclick: function (e) { e.stopPropagation(); openTopbarMenu(moreBtn); } }, icon('more'));
   var reviewBtn = h('button', { class: 'idea-review-top', title: 'Revisar idea: analiza el contexto (idea seleccionada o la nota) y lo consulta a un prompt especializado', onclick: function () { openIdeaReview(); } }, icon('search'), 'Revisar idea');

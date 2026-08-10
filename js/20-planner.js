@@ -1,6 +1,8 @@
-/* tuNota — Plan del día: qué tengo que hacer hoy, con las acciones/subtareas realizadas
-   para completarlo y el progreso de cada tarea. Los datos viven en data.plan (se guardan
-   y entran en las copias de seguridad). Cargado en orden desde index.html. */
+/* tuNota — Modelo de las tareas del día: qué tengo que hacer, en qué estado está y qué pasos
+   (subtareas) faltan para completarlo. Los datos viven en data.plan y son los MISMOS que pinta
+   el tablero Kanban del panel de Tareas (js/22-tareas.js): una tarea es una sola cosa, se vea
+   en la lista del día o en una columna. Aquí viven los datos y las operaciones; la interfaz
+   está en 22-tareas.js. Cargado en orden desde index.html. */
 'use strict';
 
 function planTodayStr() {
@@ -16,130 +18,125 @@ function planVisibleTasks() {
   var today = planTodayStr();
   return (data.plan || []).filter(function (t) { return t.day === today || !t.done; });
 }
-
-function closePlanner() { var o = document.getElementById('plannerOverlay'); if (o) o.remove(); }
-function openPlanner() {
-  closePlanner();
-  if (!Array.isArray(data.plan)) data.plan = []; // sesiones existentes: normalizeData puede no haber corrido
-  var overlay = h('div', { class: 'overlay', id: 'plannerOverlay', onclick: function (e) { if (e.target === overlay) closePlanner(); } });
-  var panel = h('div', { class: 'log-panel planner-panel' });
-  var today = planTodayStr();
-  var list = h('div', { class: 'log-body planner-body' });
-  var summary = h('div', { class: 'planner-summary' });
-
-  function render() {
-    var tasks = planVisibleTasks();
-    var doneN = tasks.filter(function (t) { return t.done; }).length;
-    summary.innerHTML = '';
-    summary.appendChild(h('div', { class: 'planner-progress' },
-      h('div', { class: 'planner-progress-fill', style: { width: (tasks.length ? Math.round(doneN / tasks.length * 100) : 0) + '%' } })));
-    summary.appendChild(h('span', { class: 'planner-count' }, tasks.length ? (doneN + ' de ' + tasks.length + ' tareas completadas') : 'Escribe lo primero que tengas que hacer hoy'));
-    list.innerHTML = '';
-    // Pendientes primero; completadas al final.
-    tasks.sort(function (a, b) { return (a.done ? 1 : 0) - (b.done ? 1 : 0) || (a.createdAt || 0) - (b.createdAt || 0); });
-    tasks.forEach(function (t) { list.appendChild(taskRow(t)); });
-    if (!tasks.length) list.appendChild(h('p', { class: 'tree-empty' }, 'Sin tareas para hoy. ¡Día despejado! 🌿'));
-  }
-
-  function taskRow(t) {
-    t.subs = t.subs || [];
-    var open = !!t._open;
-    var subsDone = t.subs.filter(function (s) { return s.done; }).length;
-    var chk = h('input', { type: 'checkbox' });
-    chk.checked = !!t.done;
-    chk.addEventListener('change', function () {
-      t.done = chk.checked;
-      t.doneAt = t.done ? now() : null;
-      if (t.done) t.day = planTodayStr(); // se completó HOY (aunque viniera arrastrada)
-      logChange(t.done ? 'Tarea completada' : 'Tarea reabierta', t.title);
-      save(); render();
-    });
-    var title = editable(h('span', { class: 'planner-title' + (t.done ? ' done' : '') }, t.title), t.title, function (v) { t.title = v; save(); render(); });
-    var carried = !t.done && t.day !== planTodayStr();
-    var row = h('div', { class: 'planner-task' + (t.done ? ' done' : '') },
-      h('div', { class: 'planner-task-row' },
-        chk, title,
-        carried ? h('span', { class: 'planner-carried', title: 'Pendiente desde ' + t.day }, t.day.slice(5)) : null,
-        t.subs.length ? h('span', { class: 'planner-subcount' + (subsDone === t.subs.length ? ' all' : '') }, subsDone + '/' + t.subs.length) : null,
-        h('button', { class: 'act', title: open ? 'Ocultar acciones' : 'Ver/añadir las acciones realizadas', onclick: function () { t._open = !open; render(); } }, icon(open ? 'chevronDown' : 'chevron')),
-        h('button', { class: 'act danger', title: 'Eliminar tarea', onclick: function () { data.plan = data.plan.filter(function (x) { return x.id !== t.id; }); save(); render(); } }, icon('trash'))));
-    // Metadatos: fecha/hora de inserción, tipo, hoja anidada y recordatorio.
-    var meta = h('div', { class: 'planner-meta' });
-    meta.appendChild(h('span', { class: 'planner-meta-at', title: 'Insertada el ' + fmtWhen(t.createdAt) }, '⏱ ' + fmtDate(t.createdAt) + ' · ' + fmtTime(t.createdAt)));
-    var kind = t.kind || 'relevant', rk = rankMeta(kind);
-    meta.appendChild(h('button', { class: 'planner-kind rank-' + kind, title: 'Tipo: ' + rk.label + ' — clic para cambiarlo', onclick: function () {
-      var order = NOTE_RANKS.map(function (r) { return r.key; });
-      t.kind = order[(order.indexOf(kind) + 1) % order.length];
-      save(); render();
-    } }, rk.label));
-    var linked = t.noteId && getNote(t.noteId);
-    if (linked) {
-      meta.appendChild(h('button', { class: 'planner-note-chip', title: 'Anidada a esta hoja — clic para abrirla', onclick: function () { closePlanner(); selectNote(t.noteId); } }, '📄 ' + (linked.title || 'Hoja')));
-    }
-    var linkBtn = h('button', { class: 'act', title: linked ? 'Cambiar o quitar la hoja anidada' : 'Anidar la tarea a una hoja o nota' }, icon('link'));
-    linkBtn.addEventListener('click', function (e) { e.stopPropagation(); openPlanNotePicker(t, linkBtn, render); });
-    meta.appendChild(linkBtn);
-    if (t.remindAt && t.remindAt > now()) {
-      meta.appendChild(h('span', { class: 'planner-remind-chip', title: 'Sonará a las ' + planFmtTime(t.remindAt) }, '⏰ ' + planFmtTime(t.remindAt)));
-    }
-    var bellBtn = h('button', { class: 'act', title: 'Recordatorio en X minutos (suena y avisa)' }, icon('bell'));
-    bellBtn.addEventListener('click', function (e) { e.stopPropagation(); openPlanRemindPicker(t, bellBtn, render); });
-    meta.appendChild(bellBtn);
-    row.appendChild(meta);
-    if (t.subs.length) {
-      row.appendChild(h('div', { class: 'planner-bar' },
-        h('div', { class: 'planner-bar-fill', style: { width: Math.round(subsDone / t.subs.length * 100) + '%' } })));
-    }
-    if (open) {
-      var subsEl = h('div', { class: 'planner-subs' });
-      t.subs.forEach(function (s) {
-        var sChk = h('input', { type: 'checkbox' });
-        sChk.checked = !!s.done;
-        sChk.addEventListener('change', function () { s.done = sChk.checked; s.at = s.done ? now() : null; save(); render(); });
-        subsEl.appendChild(h('label', { class: 'planner-sub' + (s.done ? ' done' : '') },
-          sChk,
-          h('span', { class: 'planner-sub-text' }, s.text),
-          s.done && s.at ? h('span', { class: 'planner-sub-at', title: 'Hecha a las ' + planFmtTime(s.at) }, planFmtTime(s.at)) : null,
-          h('button', { class: 'act danger', title: 'Quitar', onclick: function (e) { e.preventDefault(); t.subs = t.subs.filter(function (x) { return x.id !== s.id; }); save(); render(); } }, icon('x'))));
-      });
-      var subInp = h('input', { class: 'planner-inp planner-sub-inp', placeholder: 'Acción realizada o siguiente paso… (Enter)' });
-      var addSub = function () {
-        var v = subInp.value.trim(); if (!v) return;
-        t.subs.push({ id: uid(), text: v, done: false, at: null });
-        save(); t._open = true; render();
-        var again = list.querySelector('.planner-task .planner-sub-inp'); if (again) again.focus();
-      };
-      subInp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addSub(); } });
-      subsEl.appendChild(h('div', { class: 'planner-sub-add' }, subInp));
-      row.appendChild(subsEl);
-    }
-    return row;
-  }
-
-  var inp = h('input', { class: 'planner-inp', placeholder: '¿Qué tienes que hacer hoy? (Enter para añadir)' });
-  var addTask = function () {
-    var v = inp.value.trim(); if (!v) return;
-    data.plan.push({ id: uid(), title: v, day: today, done: false, doneAt: null, createdAt: now(), subs: [] });
-    inp.value = '';
-    logChange('Tarea del día añadida', v);
-    save(); render(); inp.focus();
-  };
-  inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addTask(); } });
-
-  var dateLbl = new Date().toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
-  panel.appendChild(h('div', { class: 'log-head' },
-    h('div', { class: 'log-title' }, icon('todo'), 'Plan del día', h('span', { class: 'planner-date' }, dateLbl)),
-    h('button', { class: 'icon-btn', title: 'Cerrar', onclick: closePlanner }, icon('x'))));
-  panel.appendChild(summary);
-  panel.appendChild(h('div', { class: 'planner-add' }, inp, h('button', { class: 'tour-btn', onclick: addTask }, 'Añadir')));
-  panel.appendChild(list);
-  overlay.appendChild(panel);
-  document.body.appendChild(overlay);
-  render();
-  inp.focus();
+function planTasks() { if (!Array.isArray(data.plan)) data.plan = []; return data.plan; }
+function planTaskById(id) {
+  var all = planTasks();
+  for (var i = 0; i < all.length; i++) { if (all[i].id === id) return all[i]; }
+  return null;
+}
+function planStatusOf(t) {
+  if (t.status === 'todo' || t.status === 'doing' || t.status === 'done') return t.status;
+  return t.done ? 'done' : 'todo';
+}
+function planOrderOf(t) { return (typeof t.order === 'number') ? t.order : (t.createdAt || 0); }
+// Tareas del día en una columna del tablero, ya ordenadas.
+function planTasksIn(status) {
+  return planVisibleTasks()
+    .filter(function (t) { return planStatusOf(t) === status; })
+    .sort(function (a, b) { return planOrderOf(a) - planOrderOf(b); });
+}
+function planSubsDone(t) {
+  var subs = t.subs || [];
+  return subs.filter(function (s) { return s.done; }).length;
 }
 
-// ---------- Pickers del Plan del día: anidar a una hoja y recordatorio en X minutos ----------
+// ---------- Operaciones sobre una tarea ----------
+// Crear. Nace en "Por hacer" y al final de esa columna.
+function planAddTask(title, opts) {
+  var v = (title || '').trim();
+  if (!v) return null;
+  opts = opts || {};
+  var t = {
+    id: uid(), title: v, day: planTodayStr(),
+    status: opts.status || 'todo', done: opts.status === 'done',
+    doneAt: null, createdAt: now(), order: now(), subs: [],
+    noteId: opts.noteId || null,
+  };
+  planTasks().push(t);
+  logChange('Tarea del día añadida', v);
+  save();
+  return t;
+}
+// Aplicar el estado. done es siempre el espejo de status === 'done': una sola verdad.
+function planApplyStatus(t, status, ord) {
+  var was = planStatusOf(t);
+  t.status = status;
+  if (typeof ord === 'number') t.order = ord;
+  t.done = status === 'done';
+  t.doneAt = t.done ? now() : null;
+  if (t.done) t.day = planTodayStr(); // se completó HOY (aunque viniera arrastrada de otro día)
+  if (was !== status) logChange('Tarea a ' + kanbanLabel(status), t.title);
+  save();
+  return t;
+}
+// Cambiar de columna colocándola entre sus vecinas (índice fraccional, como el tablero).
+function planSetStatus(t, status, beforeId) {
+  var col = planTasksIn(status).filter(function (x) { return x.id !== t.id; });
+  var idx = beforeId ? col.map(function (x) { return x.id; }).indexOf(beforeId) : col.length;
+  if (idx < 0) idx = col.length;
+  var prev = col[idx - 1], next = col[idx];
+  var lo = prev ? planOrderOf(prev) : (next ? planOrderOf(next) - 2 : now());
+  var hi = next ? planOrderOf(next) : (prev ? planOrderOf(prev) + 2 : now());
+  return planApplyStatus(t, status, (lo + hi) / 2);
+}
+// La casilla de "completada" y la columna "Hecho" son lo mismo.
+function planToggleDone(t, value) {
+  var v = (typeof value === 'boolean') ? value : !t.done;
+  planSetStatus(t, v ? 'done' : 'todo');
+  logChange(v ? 'Tarea completada' : 'Tarea reabierta', t.title);
+  save();
+}
+function planDeleteTask(t) {
+  data.plan = planTasks().filter(function (x) { return x.id !== t.id; });
+  logChange('Tarea eliminada', t.title);
+  save();
+}
+
+// ---------- Subtareas (los pasos para completar la tarea) ----------
+// Misma forma para una tarea del día y para una tarjeta del lienzo: { id, text, done, at }.
+function planSubAdd(owner, text) {
+  var v = (text || '').trim();
+  if (!v) return null;
+  if (!Array.isArray(owner.subs)) owner.subs = [];
+  var s = { id: uid(), text: v, done: false, at: null };
+  owner.subs.push(s);
+  save();
+  return s;
+}
+function planSubSetText(owner, s, text) {
+  var v = (text || '').trim();
+  if (!v || v === s.text) return;
+  s.text = v;
+  save();
+}
+function planSubRemove(owner, s) {
+  owner.subs = (owner.subs || []).filter(function (x) { return x.id !== s.id; });
+  save();
+}
+// Marcar el primer paso arranca la tarea; marcar el último ofrece cerrarla.
+// Es el único automatismo, y es el que de verdad ahorra clics.
+function planSubToggle(owner, s, checked) {
+  s.done = !!checked;
+  s.at = s.done ? now() : null;
+  var subs = owner.subs || [];
+  var doneN = subs.filter(function (x) { return x.done; }).length;
+  var isTask = !owner.type; // las tareas del día no tienen `type`; los bloques del lienzo sí
+  if (isTask) {
+    if (s.done && doneN === 1 && planStatusOf(owner) === 'todo') planSetStatus(owner, 'doing');
+    else if (!s.done && planStatusOf(owner) === 'done') planSetStatus(owner, 'doing');
+  }
+  save();
+  if (s.done && doneN === subs.length && subs.length > 1 && !(isTask && owner.done)) {
+    var label = isTask ? owner.title : reminderText(owner);
+    toastAction('Todos los pasos de «' + label + '» están hechos.', 'Darla por completada', function () {
+      if (isTask) planSetStatus(owner, 'done');
+      else setKanban(owner, 'done');
+      if (typeof refreshTareas === 'function') refreshTareas(true);
+    });
+  }
+}
+
+// ---------- Pickers: anidar a una hoja y recordatorio en X minutos ----------
 function openPlanNotePicker(t, anchor, rerender) {
   closeTopbarMenu();
   var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
@@ -195,3 +192,7 @@ function openPlanRemindPicker(t, anchor, rerender) {
   positionPop(pop, anchor, 230);
   custom.focus();
 }
+
+// El "Plan del día" es la vista Lista del panel de Tareas.
+function openPlanner() { openTareas('lista'); }
+function closePlanner() { closeTareas(); }

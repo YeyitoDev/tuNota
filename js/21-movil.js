@@ -255,15 +255,13 @@ function mRemindSheet(kind, obj, label) {
 
 // ---------- Pestaña 1: Tareas (plan del día) ----------
 function mAddTask(text, noteId) {
-  if (!Array.isArray(data.plan)) data.plan = [];
-  data.plan.push({ id: uid(), title: text, day: planTodayStr(), done: false, doneAt: null,
-    createdAt: now(), subs: [], noteId: noteId || null });
-  logChange('Tarea añadida (móvil)', text);
-  save();
+  return planAddTask(text, { noteId: noteId || null });
 }
 function mRenderTareas() {
+  // En marcha primero, luego lo pendiente y al final lo hecho.
+  var rank = { doing: 0, todo: 1, done: 2 };
   var tasks = planVisibleTasks().slice().sort(function (a, b) {
-    return (a.done ? 1 : 0) - (b.done ? 1 : 0) || (a.createdAt || 0) - (b.createdAt || 0);
+    return (rank[planStatusOf(a)] - rank[planStatusOf(b)]) || (planOrderOf(a) - planOrderOf(b));
   });
   var doneN = tasks.filter(function (t) { return t.done; }).length;
   var pct = tasks.length ? Math.round(doneN / tasks.length * 100) : 0;
@@ -287,25 +285,24 @@ function mTaskRow(t) {
   var row = h('div', { class: 'm-item m-task' + (t.done ? ' done' : '') });
 
   var chk = h('button', { class: 'm-check' + (t.done ? ' on' : ''), title: t.done ? 'Reabrir' : 'Completar' }, icon('todo'));
-  chk.addEventListener('click', function () {
-    t.done = !t.done;
-    t.doneAt = t.done ? now() : null;
-    if (t.done) t.day = planTodayStr();
-    logChange(t.done ? 'Tarea completada' : 'Tarea reabierta', t.title);
-    save();
-    renderMobile();
-  });
+  chk.addEventListener('click', function () { planToggleDone(t); renderMobile(); });
 
   var main = h('div', { class: 'm-item-main' });
   main.appendChild(h('div', { class: 'm-item-text' }, t.title));
   var meta = h('div', { class: 'm-meta' });
+  // Toque en el estado: pasa a la siguiente columna sin abrir nada.
+  var st = planStatusOf(t);
+  var stIdx = KAN.map(function (k) { return k[0]; }).indexOf(st);
+  var stBtn = h('button', { class: 'm-tag m-status k-' + st, title: 'Estado: ' + kanbanLabel(st) + ' — tocar para cambiarlo' }, kanbanLabel(st));
+  stBtn.addEventListener('click', function (e) { e.stopPropagation(); planSetStatus(t, KAN[(stIdx + 1) % KAN.length][0]); renderMobile(); });
+  meta.appendChild(stBtn);
   if (carried) meta.appendChild(h('span', { class: 'm-tag warn', title: 'Pendiente desde ' + t.day }, 'de ' + t.day.slice(5)));
   if (t.remindAt && t.remindAt > now()) meta.appendChild(h('span', { class: 'm-tag rem' }, '⏰ ' + fmtShort(t.remindAt)));
   if (t.subs.length) meta.appendChild(h('span', { class: 'm-tag' + (subsDone === t.subs.length ? ' ok' : '') }, subsDone + '/' + t.subs.length + ' pasos'));
   var linked = t.noteId && getNote(t.noteId);
   if (linked) meta.appendChild(h('span', { class: 'm-tag' }, '📄 ' + snippet(linked.title || 'Hoja')));
   if (meta.children.length) main.appendChild(meta);
-  main.addEventListener('click', function () { t._open = !t._open; renderMobile(); });
+  main.addEventListener('click', function () { tareasOpen[t.id] = !tareasOpen[t.id]; renderMobile(); });
 
   var more = h('button', { class: 'm-item-btn', title: 'Opciones' }, icon('more'));
   more.addEventListener('click', function (e) { e.stopPropagation(); mTaskSheet(t); });
@@ -316,24 +313,27 @@ function mTaskRow(t) {
     row.appendChild(h('div', { class: 'm-bar thin' },
       h('div', { class: 'm-bar-fill', style: { width: Math.round(subsDone / t.subs.length * 100) + '%' } })));
   }
-  if (t._open) {
+  if (tareasOpen[t.id]) {
     var subs = h('div', { class: 'm-subs' });
     t.subs.forEach(function (s) {
       var sChk = h('button', { class: 'm-check small' + (s.done ? ' on' : '') }, icon('todo'));
-      sChk.addEventListener('click', function () { s.done = !s.done; s.at = s.done ? now() : null; save(); renderMobile(); });
+      sChk.addEventListener('click', function () { planSubToggle(t, s, !s.done); renderMobile(); });
       var del = h('button', { class: 'm-item-btn small', title: 'Quitar' }, icon('x'));
-      del.addEventListener('click', function () { t.subs = t.subs.filter(function (x) { return x.id !== s.id; }); save(); renderMobile(); });
-      subs.appendChild(h('div', { class: 'm-sub-item' + (s.done ? ' done' : '') }, sChk, h('span', {}, s.text), del));
+      del.addEventListener('click', function () { planSubRemove(t, s); renderMobile(); });
+      // Toque largo (o doble toque) sobre el texto para editar el paso.
+      var txt = h('span', { class: 'm-sub-txt' }, s.text);
+      txt.addEventListener('click', function (e) {
+        e.stopPropagation();
+        mEditSheet('Editar el paso', s.text, 'Qué hay que hacer', function (v) { planSubSetText(t, s, v); renderMobile(); });
+      });
+      subs.appendChild(h('div', { class: 'm-sub-item' + (s.done ? ' done' : '') }, sChk, txt, del));
     });
     var si = h('input', { class: 'm-sub-inp', placeholder: 'Siguiente paso… (Enter)', enterkeyhint: 'done' });
     si.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter') return;
       e.preventDefault();
-      var v = si.value.trim();
-      if (!v) return;
-      t.subs.push({ id: uid(), text: v, done: false, at: null });
-      t._open = true;
-      save();
+      if (!planSubAdd(t, si.value)) return;
+      tareasOpen[t.id] = true;
       renderMobile();
       var again = mBodyEl.querySelector('.m-sub-inp');
       if (again) again.focus();
@@ -349,19 +349,18 @@ function mTaskSheet(t) {
     { icon: 'edit', label: 'Editar el texto', onClick: function () {
       mEditSheet('Editar tarea', t.title, 'Descripción de la tarea', function (v) { t.title = v; save(); renderMobile(); });
     } },
-    { icon: 'board', label: 'Pasarla al Kanban', hint: 'Por hacer', onClick: function () {
-      var b = mAddKanbanCard(t.title, 'todo');
-      data.plan = data.plan.filter(function (x) { return x.id !== t.id; });
-      save();
+    { icon: 'board', label: 'Cambiar el estado', hint: kanbanLabel(planStatusOf(t)), onClick: function () {
+      mSheet('Estado de «' + snippet(t.title) + '»', KAN.map(function (k) {
+        return { icon: 'board', label: k[1], hint: planStatusOf(t) === k[0] ? 'actual' : '', onClick: function () { planSetStatus(t, k[0]); renderMobile(); } };
+      }));
+    } },
+    { icon: 'popout', label: 'Llevarla al lienzo', hint: 'con sus pasos', onClick: function () {
+      taskToCanvas(t);
       setMobileTab('kanban');
-      toast('«' + snippet(t.title) + '» está ahora en el Kanban.', 'ok');
-      return b;
     } },
     { sep: true },
     { icon: 'trash', label: 'Eliminar la tarea', danger: true, onClick: function () {
-      data.plan = data.plan.filter(function (x) { return x.id !== t.id; });
-      logChange('Tarea eliminada', t.title);
-      save();
+      planDeleteTask(t);
       renderMobile();
     } },
   ]);
@@ -410,17 +409,19 @@ function mAddKanbanCard(text, status) {
   save();
   return b;
 }
+// El tablero móvil enseña lo mismo que el de escritorio: las tarjetas del lienzo y
+// las tareas del día, en la misma columna.
 function mRenderKanban() {
   var cur = mKanCol();
   var seg = h('div', { class: 'm-seg' });
   KAN.forEach(function (k) {
-    var n = kanbanItems(k[0]).length;
+    var n = boardAll(k[0]).length;
     seg.appendChild(h('button', { class: 'm-seg-btn k-' + k[0] + (k[0] === cur ? ' on' : ''), onclick: function () { mSetKanCol(k[0]); } },
       h('span', {}, k[1]), h('em', {}, String(n))));
   });
   mSubEl.appendChild(seg);
 
-  var items = kanbanItems(cur);
+  var items = boardAll(cur);
   if (!items.length) {
     mBodyEl.appendChild(mEmpty('board',
       cur === 'done' ? 'Nada terminado todavía' : 'Columna vacía',
@@ -428,7 +429,37 @@ function mRenderKanban() {
         : 'Mueve tarjetas hasta aquí con las flechas de cada tarjeta.'));
     return;
   }
-  items.forEach(function (b) { mBodyEl.appendChild(mKanCard(b, cur)); });
+  items.forEach(function (it) {
+    mBodyEl.appendChild(it.src === 'task' ? mKanTaskCard(it.ref, cur) : mKanCard(it.ref, cur));
+  });
+}
+// Una tarea del día dentro del tablero móvil: mismos gestos que una tarjeta.
+function mKanTaskCard(t, status) {
+  t.subs = t.subs || [];
+  var idx = KAN.map(function (k) { return k[0]; }).indexOf(status);
+  var subsDone = planSubsDone(t);
+  var card = h('div', { class: 'm-item m-kan m-kan-task' });
+  var main = h('div', { class: 'm-item-main' });
+  main.appendChild(h('div', { class: 'm-item-text' }, t.title));
+  var meta = h('div', { class: 'm-meta' });
+  meta.appendChild(h('span', { class: 'm-tag ok' }, '🗓 Del día'));
+  if (t.subs.length) meta.appendChild(h('span', { class: 'm-tag' + (subsDone === t.subs.length ? ' ok' : '') }, subsDone + '/' + t.subs.length + ' pasos'));
+  if (t.remindAt && t.remindAt > now()) meta.appendChild(h('span', { class: 'm-tag rem' }, '⏰ ' + fmtShort(t.remindAt)));
+  main.appendChild(meta);
+  var more = h('button', { class: 'm-item-btn', title: 'Opciones' }, icon('more'));
+  more.addEventListener('click', function (e) { e.stopPropagation(); mTaskSheet(t); });
+  card.appendChild(h('div', { class: 'm-item-row' }, main, more));
+  if (t.subs.length) {
+    card.appendChild(h('div', { class: 'm-bar thin' },
+      h('div', { class: 'm-bar-fill', style: { width: Math.round(subsDone / t.subs.length * 100) + '%' } })));
+  }
+  var moves = h('div', { class: 'm-move' });
+  if (idx > 0) moves.appendChild(h('button', { class: 'm-move-btn', onclick: function () { planSetStatus(t, KAN[idx - 1][0]); renderMobile(); } },
+    icon('chevronL'), KAN[idx - 1][1]));
+  if (idx < KAN.length - 1) moves.appendChild(h('button', { class: 'm-move-btn next', onclick: function () { planSetStatus(t, KAN[idx + 1][0]); renderMobile(); } },
+    KAN[idx + 1][1], icon('chevron')));
+  card.appendChild(moves);
+  return card;
 }
 function mKanCard(b, status) {
   var note = getNote(b.noteId);

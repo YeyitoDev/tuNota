@@ -209,7 +209,7 @@ function checkReminders() {
     logChange('Recordatorio de tarea del día', duePlan.map(function (p) { return p.title; }).join(' · '));
     save();
     playBeep();
-    if (document.getElementById('plannerOverlay') && typeof openPlanner === 'function') openPlanner(); // refresca el panel si está abierto
+    if (typeof refreshTareas === 'function') refreshTareas(); // refresca el panel de Tareas si está abierto
     if (typeof mobileRefresh === 'function') mobileRefresh();
   }
   var due = (data.blocks || []).filter(function (b) {
@@ -650,7 +650,6 @@ function closeCardMenu() { var bd = document.getElementById('cardMenuBackdrop');
 
 // ---------- Kanban ----------
 var KAN = [['todo', 'Por hacer'], ['doing', 'En progreso'], ['done', 'Hecho']];
-var dragKanId = null;
 function kanbanLabel(s) { for (var i = 0; i < KAN.length; i++) { if (KAN[i][0] === s) return KAN[i][1]; } return s; }
 function kanbanOrderOf(b) { return (typeof b.kanbanOrder === 'number') ? b.kanbanOrder : (b.kanbanAt || 0); }
 function kanbanItems(status) {
@@ -685,6 +684,7 @@ function ensureKanbanDefaultSection() {
 function addToKanban(b) {
   var t = now();
   b.kanban = 'todo'; b.kanbanAt = t; b.kanbanOrder = t;
+  if (!Array.isArray(b.subs)) b.subs = []; // desde el tablero puede desglosarse en pasos
   touchNote(b.noteId);
   logChange('Enviado a Kanban', reminderText(b));
   save();
@@ -699,9 +699,13 @@ function removeFromKanban(b) {
   renderCanvas();
   renderKanbanBody();
 }
+// Colocar una tarjeta del lienzo en una columna. El cálculo del hueco vive en boardPlace()
+// (js/22-tareas.js) porque el tablero mezcla estas tarjetas con las tareas del día y el orden
+// tiene que ser uno solo. Aquí queda el camino corto por si el panel no está cargado.
 function placeInColumn(id, status, beforeId) {
   var b = getBlockById(id);
   if (!b) return;
+  if (typeof boardPlace === 'function') { boardPlace('block', id, status, beforeId); return; }
   var col = kanbanItems(status).filter(function (x) { return x.id !== id; });
   var idx = beforeId ? col.map(function (x) { return x.id; }).indexOf(beforeId) : col.length;
   if (idx < 0) idx = col.length;
@@ -715,7 +719,6 @@ function placeInColumn(id, status, beforeId) {
   touchNote(b.noteId);
   save();
   renderCanvas();
-  renderKanbanBody();
   // Al entrar en "Pendiente" sin recordatorio, ofrece crear uno (con alarma,
   // sonido y exportación al calendario desde el propio panel).
   if (status === 'todo' && wasStatus !== 'todo' && !(b.reminder && !b.reminder.done)) {
@@ -724,146 +727,12 @@ function placeInColumn(id, status, beforeId) {
     });
   }
 }
-function openKanban() {
-  closeKanban();
-  var overlay = h('div', { class: 'overlay kanban-overlay', id: 'kanbanOverlay', onmousedown: function (e) { if (e.target === overlay) closeKanban(); } });
-  var panel = h('div', { class: 'kanban-panel' });
-  var sel = h('select', { class: 'kanban-filter', title: 'Filtrar por libro' });
-  sel.appendChild(h('option', { value: '' }, 'Todos los libros'));
-  notebooksAll().forEach(function (nb) {
-    sel.appendChild(h('option', { value: nb.id }, (nb.emoji ? nb.emoji + ' ' : '') + nb.name));
-  });
-  sel.value = ui.kanbanBook || '';
-  sel.addEventListener('change', function () {
-    ui.kanbanBook = sel.value;
-    writeLS(LS_UI, JSON.stringify(ui));
-    renderKanbanBody();
-  });
-  var blockedBtn = h('button', { class: 'icon-btn kanban-blocked-btn' + (ui.kanbanBlockedOnly ? ' on' : ''), title: 'Mostrar solo bloqueadas' }, icon('bellRing'));
-  blockedBtn.addEventListener('click', function () {
-    ui.kanbanBlockedOnly = !ui.kanbanBlockedOnly;
-    writeLS(LS_UI, JSON.stringify(ui));
-    blockedBtn.classList.toggle('on', ui.kanbanBlockedOnly);
-    renderKanbanBody();
-  });
-  panel.appendChild(h('div', { class: 'kanban-head' },
-    h('div', { class: 'kanban-title' }, icon('board'), 'Kanban de ideas'),
-    h('div', { class: 'kanban-head-right' },
-      blockedBtn,
-      h('span', { class: 'kanban-filter-wrap' }, icon('book'), sel),
-      h('button', { class: 'icon-btn', title: 'Cerrar', onclick: closeKanban }, icon('x')))
-  ));
-  panel.appendChild(h('div', { class: 'kanban-cols', id: 'kanbanCols' }));
-  overlay.appendChild(panel);
-  document.body.appendChild(overlay);
-  renderKanbanBody();
-}
-function closeKanban() { var o = document.getElementById('kanbanOverlay'); if (o) o.remove(); }
-function renderKanbanBody() {
-  var cols = document.getElementById('kanbanCols');
-  if (!cols) return;
-  cols.innerHTML = '';
-  KAN.forEach(function (k) {
-    var status = k[0];
-    var items = kanbanItems(status);
-    var col = h('div', { class: 'kanban-col k-' + status });
-    col.appendChild(h('div', { class: 'kanban-col-head' },
-      h('span', { class: 'kc-dot' }), h('span', { class: 'kc-name' }, k[1]), h('span', { class: 'kc-count' }, String(items.length))));
-    if (status === 'todo') {
-      var inp = h('input', { class: 'kanban-add-inp', placeholder: 'Nueva idea\u2026' });
-      var addIt = function () {
-        var v = inp.value.trim();
-        if (!v) return;
-        var secId = ensureKanbanDefaultSection();
-        var t = now();
-        var note = { id: uid(), sectionId: secId, title: v.length > 40 ? v.slice(0, 40) + '\u2026' : v, createdAt: t, updatedAt: t };
-        data.notes.push(note);
-        var blk = addBlock(note.id, 'text', 36 + Math.round(Math.random() * 140), 36 + Math.round(Math.random() * 120));
-        blk.content = blk.content || {}; blk.content.text = v; blk.content.rank = 'idea';
-        addToKanban(blk);
-        logChange('Nota creada desde Kanban', note.title);
-        inp.value = '';
-      };
-      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addIt(); } });
-      var add = h('div', { class: 'kanban-add' }, inp, h('button', { class: 'kanban-add-btn', title: 'A\u00f1adir', onclick: addIt }, icon('plus')));
-      col.appendChild(add);
-    }
-    var body = h('div', { class: 'kanban-col-body' });
-    body.addEventListener('dragover', function (e) { e.preventDefault(); body.classList.add('drop'); });
-    body.addEventListener('dragleave', function () { body.classList.remove('drop'); });
-    body.addEventListener('drop', function (e) {
-      e.preventDefault();
-      body.classList.remove('drop');
-      if (!dragKanId) return;
-      var beforeId = null;
-      var cards = Array.prototype.slice.call(body.querySelectorAll('.kanban-card'));
-      for (var i = 0; i < cards.length; i++) {
-        var rect = cards[i].getBoundingClientRect();
-        if (e.clientY < rect.top + rect.height / 2) { beforeId = cards[i].getAttribute('data-id'); break; }
-      }
-      placeInColumn(dragKanId, status, beforeId);
-      dragKanId = null;
-    });
-    if (!items.length) body.appendChild(h('div', { class: 'kanban-empty' }, 'Sin tarjetas'));
-    items.forEach(function (b) { body.appendChild(kanbanCard(b, status)); });
-    col.appendChild(body);
-    cols.appendChild(col);
-  });
-}
-function kanbanCard(b, status) {
-  var note = getNote(b.noteId);
-  var sec = note ? getSection(note.sectionId) : null;
-  var nb = sec ? getNotebook(sec.notebookId) : null;
-  var loc = note ? note.title : 'Nota';
-  // Muestra de qué libro viene la tarea: "📓 Libro · Sección"
-  var bookLine = nb ? ((nb.emoji ? nb.emoji + ' ' : '📓 ') + nb.name + (sec ? ' · ' + sec.name : '')) : (sec ? sec.name : '');
-  var task = (b.content && b.content.text) ? snippet(b.content.text) : typeMeta(b.type).label;
-  var card = h('div', { class: 'kanban-card' + (b.important ? ' important' : '') + (b.blocked ? ' blocked' : ''), 'data-id': b.id, draggable: 'true' });
-  card.addEventListener('dragstart', function (e) { dragKanId = b.id; card.classList.add('dragging'); try { e.dataTransfer.setData('text/plain', b.id); e.dataTransfer.effectAllowed = 'move'; } catch (er) {} });
-  card.addEventListener('dragend', function () { card.classList.remove('dragging'); dragKanId = null; });
-  var top = h('div', { class: 'kc-top' }, icon(typeMeta(b.type).icon), h('span', { class: 'kc-loc', title: loc }, loc));
-  if (b.important) top.appendChild(h('span', { class: 'kc-star', title: 'Importante' }, icon('star')));
-  if (b.blocked) top.appendChild(h('span', { class: 'kc-blocked-badge', title: 'Bloqueado' }, icon('bellRing')));
-  card.appendChild(top);
-  // Texto editable: doble clic para editar el contenido de la tarjeta
-  var taskEl = h('div', { class: 'kc-task', title: 'Doble clic para editar' }, task);
-  taskEl.addEventListener('dblclick', function (e) {
-    e.stopPropagation(); e.preventDefault();
-    var currentText = (b.content && b.content.text) ? b.content.text : '';
-    var inp = h('textarea', { class: 'kanban-edit-inp', value: currentText });
-    inp.addEventListener('mousedown', function (ev) { ev.stopPropagation(); });
-    inp.addEventListener('click', function (ev) { ev.stopPropagation(); });
-    inp.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); inp.blur(); }
-      if (ev.key === 'Escape') { inp.value = currentText; inp.blur(); }
-    });
-    var commit = function () {
-      var v = inp.value.trim();
-      if (v && v !== currentText) {
-        b.content = b.content || {}; b.content.text = v;
-        touchNote(b.noteId); logChange('Tarjeta Kanban editada', v); save();
-        if (note) note.title = v.length > 40 ? v.slice(0, 40) + '\u2026' : v;
-      }
-      renderKanbanBody();
-    };
-    inp.addEventListener('blur', commit);
-    taskEl.replaceWith(inp);
-    inp.focus(); inp.select();
-  });
-  card.appendChild(taskEl);
-  if (bookLine) card.appendChild(h('div', { class: 'kc-sub' }, bookLine));
-  if (b.reminder && !b.reminder.done) card.appendChild(h('div', { class: 'kc-rem' }, icon('clock'), fmtShort(b.reminder.at)));
-  var idx = KAN.map(function (k) { return k[0]; }).indexOf(status);
-  var actions = h('div', { class: 'kc-actions' },
-    h('button', { class: 'kc-btn', title: 'Mover a la izquierda', disabled: idx <= 0 ? '' : null, onclick: function () { if (idx > 0) setKanban(b, KAN[idx - 1][0]); } }, icon('chevronL')),
-    h('button', { class: 'kc-btn' + (b.blocked ? ' on' : ''), title: b.blocked ? 'Quitar bloqueo' : 'Marcar como bloqueado', onclick: function () { toggleBlocked(b); } }, icon('bellRing')),
-    h('button', { class: 'kc-btn', title: 'Ver nota', onclick: function () { selectNote(b.noteId); closeKanban(); } }, icon('popout')),
-    h('button', { class: 'kc-btn', title: 'Quitar del Kanban', onclick: function () { removeFromKanban(b); } }, icon('x')),
-    h('button', { class: 'kc-btn', title: 'Mover a la derecha', disabled: idx >= KAN.length - 1 ? '' : null, onclick: function () { if (idx < KAN.length - 1) setKanban(b, KAN[idx + 1][0]); } }, icon('chevron'))
-  );
-  card.appendChild(actions);
-  return card;
-}
+// El Kanban es la vista Tablero del panel de Tareas (js/22-tareas.js): las tarjetas del lienzo
+// y las tareas del día comparten columnas, orden y pasos.
+function openKanban() { openTareas('tablero'); }
+function closeKanban() { closeTareas(); }
+// Compatibilidad: todo lo que antes repintaba el tablero ahora repinta el panel de Tareas.
+function renderKanbanBody() { if (typeof renderTareas === 'function') renderTareas(); }
 
 // ---------- Copiar / pegar bloques entre lienzos ----------
 // Copia los bloques seleccionados al portapapeles como JSON con un tipo MIME personalizado.

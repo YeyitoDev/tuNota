@@ -254,8 +254,12 @@ function editable(node, value, onCommit, trigger) {
     input.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter') {
         ev.preventDefault();
+        ev.stopPropagation();
         commit();
       } else if (ev.key === 'Escape') {
+        // Escape cancela SOLO la edición: no debe además cerrar el panel de fondo
+        // ni vaciar la selección del lienzo.
+        ev.stopPropagation();
         done = true;
         if (input.isConnected) input.replaceWith(node);
       }

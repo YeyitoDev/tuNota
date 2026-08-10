@@ -12,7 +12,7 @@ var TOUR_STEPS = [
   { sel: '[title^="Plantillas de canvas"]', title: 'Plantillas', body: 'Business Model Canvas, DAFO, Lean Canvas, arquitectura… y la IA puede rellenarlas describiendo tu proyecto.', place: 'bottom' },
   { sel: '[title^="Buscar en todo"]', title: 'Buscar en todo', body: 'Con ' + MOD + '+K encuentras cualquier nota o bloque al instante, estés donde estés.', place: 'bottom' },
   { sel: '[title^="Mapa de conocimiento"]', title: 'Mapa de conocimiento', body: 'Un grafo de todo tu contenido para ver cómo se conecta. Clic en un nodo para ir allí.', place: 'bottom' },
-  { sel: '[title^="Kanban"]', title: 'Kanban de ideas', body: 'Organiza tus bloques por estado: por hacer, en curso y hecho.', place: 'bottom' },
+  { sel: '[title^="Tablero de tareas"]', title: 'Tus tareas, en lista o en tablero', body: 'Un solo sitio para lo que tienes que hacer. En Lista ves el plan del día con sus pasos y cuánto llevas; en Tablero, lo mismo repartido en Por hacer · En progreso · Hecho. Cada tarea se desglosa en pasos y cualquier texto se edita con doble clic.', place: 'bottom' },
   { sel: '.ai-btn', title: 'Asistente IA', body: 'Resume, expande, genera ideas, busca en internet citando fuentes y crea imágenes. Puedes usar tu propia clave (OpenAI, Gemini, Anthropic…): se guarda solo en tu navegador.', place: 'bottom' },
   { sel: '.zoom-ctl', title: 'No te pierdas', body: 'Centra la vista (' + MOD + '+0), ajusta todo a la pantalla (' + MOD + '+1) y usa el minimapa para orientarte.', place: 'top' },
   { sel: '[title^="Más opciones"]', title: 'Todo lo demás vive aquí', body: 'Temas de color, copias de seguridad, sincronización, atajos (pulsa ?), este tour y la guía completa con capturas.', place: 'bottom' },

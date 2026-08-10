@@ -13,6 +13,18 @@ function normalizeData() {
   if (!Array.isArray(data.links)) data.links = [];
   if (!Array.isArray(data.groups)) data.groups = [];
   if (!Array.isArray(data.plan)) data.plan = []; // Plan del día (tareas + acciones realizadas)
+  // Migración: las tareas del plan ganan estado de tablero (Por hacer · En progreso · Hecho)
+  // y orden propio, para que la lista del día y el Kanban sean la misma cosa.
+  data.plan.forEach(function (t) {
+    if (!t) return;
+    if (!Array.isArray(t.subs)) t.subs = [];
+    if (t.status !== 'todo' && t.status !== 'doing' && t.status !== 'done') t.status = t.done ? 'done' : 'todo';
+    t.done = t.status === 'done'; // una sola noción de "completada"
+    if (typeof t.order !== 'number') t.order = t.createdAt || 0;
+    delete t._open; // era una bandera de interfaz que se estaba persistiendo por error
+  });
+  // Las tarjetas del lienzo también pueden desglosarse en pasos.
+  (data.blocks || []).forEach(function (b) { if (b && b.kanban && !Array.isArray(b.subs)) b.subs = []; });
   // Migración: el tipo 'idea' pasa a ser una nota clasificada como idea (sin perder datos).
   (data.blocks || []).forEach(function (b) {
     if (b && b.type === 'idea') {
@@ -163,6 +175,7 @@ function mergeFromStorage(fresh) {
       ex.reminder = fb.reminder;
       ex.important = fb.important;
       ex.kanban = fb.kanban; ex.kanbanOrder = fb.kanbanOrder; ex.kanbanAt = fb.kanbanAt;
+      ex.blocked = fb.blocked; ex.subs = fb.subs;
       if (fb.id !== activeId) {
         ex.content = fb.content;
         ex.x = fb.x; ex.y = fb.y; ex.width = fb.width; ex.height = fb.height; ex.updatedAt = fb.updatedAt;
@@ -177,6 +190,7 @@ function mergeFromStorage(fresh) {
   data.notebooks = fresh.notebooks || [];
   data.links = fresh.links || [];
   data.log = fresh.log || [];
+  if (Array.isArray(fresh.plan)) data.plan = fresh.plan; // el plan del día también viaja entre ventanas
 }
 var lastSig = '';
 function sidebarSig() {
@@ -195,6 +209,7 @@ function refreshAfterMerge() {
     if (sig !== lastSig) { renderSidebar(); lastSig = sig; }
     renderTopbar();
   }
+  if (typeof refreshTareas === 'function') refreshTareas(); // panel de Tareas abierto en otra ventana
 }
 function syncCanvasCards() {
   if (!canvasContentEl) return;

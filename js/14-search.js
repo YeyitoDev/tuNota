@@ -557,7 +557,10 @@ function searchMatches(q, filters) {
       var hay = (t.title || '') + '\n' + subs;
       var m = searchMatchText(hay, Q);
       if (!m) return;
-      var chips = [t.done ? 'Completada' : 'Pendiente', t.day || ''];
+      // El estado del tablero es más informativo que "pendiente" a secas.
+      var chips = [kanbanLabel(planStatusOf(t)), t.day || ''];
+      var nSubs = (t.subs || []).length;
+      if (nSubs) chips.push(planSubsDone(t) + '/' + nSubs + ' pasos');
       if (t.remindAt) chips.push('⏰ ' + fmtShort(t.remindAt));
       push({ kind: 'task', icon: 'todo', title: t.title || 'Tarea', titleLen: (t.title || '').length, path: 'Plan del día', ts: ts || 0, taskId: t.id, chips: chips.filter(Boolean) }, hay, m);
     });

@@ -1,0 +1,227 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { loadApp } from './harness.js';
+
+// El plan del día y el tablero comparten datos: estas pruebas fijan ese contrato.
+function bootApp() {
+  const app = loadApp(['01-storage.js', '02-state.js', '10-sync-panels.js', '20-planner.js', '22-tareas.js']);
+  // Lo que en la app viene de módulos con DOM.
+  app.KAN = [['todo', 'Por hacer'], ['doing', 'En progreso'], ['done', 'Hecho']];
+  app.kanbanLabel = (s) => (app.KAN.find((k) => k[0] === s) || [s, s])[1];
+  app.kanbanOrderOf = (b) => (typeof b.kanbanOrder === 'number' ? b.kanbanOrder : b.kanbanAt || 0);
+  app.notebookIdOfBlock = () => '';
+  app.serverSave = () => {};
+  app.renderCanvas = () => {};
+  app.renderTareas = () => {};
+  app.toastAction = () => {};
+  app.toast = () => {};
+  app.touchNote = () => {};
+  app.getNote = () => null;
+  app.getSection = () => null;
+  app.getBlockById = (id) => (app.data.blocks || []).find((b) => b.id === id) || null;
+  app.reminderText = (b) => (b.content && b.content.text) || '';
+  app.ui = { currentNoteId: null, kanbanBook: '', kanbanBlockedOnly: false, tasksView: 'lista', tasksSrc: 'all' };
+  app.data = { notebooks: [], sections: [], notes: [], blocks: [], links: [], groups: [], log: [], plan: [] };
+  return app;
+}
+
+describe('normalizeData — migración de las tareas del día', () => {
+  it('da estado y orden a las tareas antiguas y limpia la bandera de interfaz', () => {
+    const app = bootApp();
+    app.data.plan = [
+      { id: 't1', title: 'vieja pendiente', day: '2026-01-01', done: false, createdAt: 111, _open: true },
+      { id: 't2', title: 'vieja hecha', day: '2026-01-01', done: true, createdAt: 222, subs: null },
+    ];
+    app.normalizeData();
+    const [t1, t2] = app.data.plan;
+    expect(t1.status).toBe('todo');
+    expect(t2.status).toBe('done');
+    expect(t1.order).toBe(111);
+    expect(t2.order).toBe(222);
+    expect(Array.isArray(t2.subs)).toBe(true);
+    expect('_open' in t1).toBe(false);
+  });
+
+  it('done queda siempre en espejo con status, aunque el guardado viniera incoherente', () => {
+    const app = bootApp();
+    app.data.plan = [{ id: 't1', title: 'x', day: '2026-01-01', done: true, status: 'doing', createdAt: 1 }];
+    app.normalizeData();
+    expect(app.data.plan[0].done).toBe(false);
+  });
+
+  it('las tarjetas del tablero pueden desglosarse en pasos', () => {
+    const app = bootApp();
+    app.data.blocks = [{ id: 'b1', kanban: 'todo' }, { id: 'b2' }];
+    app.normalizeData();
+    expect(app.data.blocks[0].subs).toEqual([]);
+    expect(app.data.blocks[1].subs).toBeUndefined(); // solo las que están en el tablero
+  });
+});
+
+describe('mergeFromStorage — sincronización entre ventanas', () => {
+  it('trae el plan del día de la otra ventana (antes se quedaba congelado)', () => {
+    const app = bootApp();
+    app.data.plan = [{ id: 't1', title: 'viejo', status: 'todo', done: false }];
+    app.activeCardId = () => null;
+    app.mergeFromStorage({
+      blocks: [], notes: [], sections: [], notebooks: [], links: [], log: [],
+      plan: [{ id: 't1', title: 'movida en la otra ventana', status: 'doing', done: false }],
+    });
+    expect(app.data.plan[0].title).toBe('movida en la otra ventana');
+    expect(app.data.plan[0].status).toBe('doing');
+  });
+
+  it('propaga el bloqueo y los pasos de las tarjetas', () => {
+    const app = bootApp();
+    app.data.blocks = [{ id: 'b1', noteId: 'n1', blocked: false, subs: [] }];
+    app.activeCardId = () => null;
+    app.mergeFromStorage({
+      blocks: [{ id: 'b1', noteId: 'n1', blocked: true, subs: [{ id: 's1', text: 'paso', done: false }] }],
+      notes: [], sections: [], notebooks: [], links: [], log: [],
+    });
+    expect(app.data.blocks[0].blocked).toBe(true);
+    expect(app.data.blocks[0].subs).toHaveLength(1);
+  });
+});
+
+describe('modelo de tareas — estado, orden y pasos', () => {
+  let app;
+  beforeEach(() => { app = bootApp(); });
+
+  it('una tarea nueva nace en «Por hacer» y sin completar', () => {
+    const t = app.planAddTask('escribir el informe');
+    expect(t.status).toBe('todo');
+    expect(t.done).toBe(false);
+    expect(t.day).toBe(app.planTodayStr());
+    expect(t.subs).toEqual([]);
+    expect(app.data.plan).toHaveLength(1);
+  });
+
+  it('ignora el texto vacío', () => {
+    expect(app.planAddTask('   ')).toBeNull();
+    expect(app.data.plan).toHaveLength(0);
+  });
+
+  it('marcar la casilla la manda a «Hecho» y desmarcarla la reabre', () => {
+    const t = app.planAddTask('x');
+    app.planToggleDone(t, true);
+    expect(t.status).toBe('done');
+    expect(t.doneAt).toBeTypeOf('number');
+    app.planToggleDone(t, false);
+    expect(t.status).toBe('todo');
+    expect(t.done).toBe(false);
+    expect(t.doneAt).toBeNull();
+  });
+
+  it('moverla a «Hecho» en el tablero también marca la casilla', () => {
+    const t = app.planAddTask('x');
+    app.planSetStatus(t, 'done');
+    expect(t.done).toBe(true);
+  });
+
+  it('completar una tarea arrastrada la fecha en el día de hoy', () => {
+    const t = app.planAddTask('x');
+    t.day = '2020-01-01';
+    app.planSetStatus(t, 'done');
+    expect(t.day).toBe(app.planTodayStr());
+  });
+
+  it('colocar entre dos tareas les asigna un orden intermedio', () => {
+    const a = app.planAddTask('a');
+    const b = app.planAddTask('b');
+    const c = app.planAddTask('c');
+    a.order = 10; b.order = 20; c.order = 30;
+    app.planSetStatus(c, 'todo', b.id); // c pasa a ir justo antes de b
+    expect(c.order).toBeGreaterThan(a.order);
+    expect(c.order).toBeLessThan(b.order);
+    expect(app.planTasksIn('todo').map((x) => x.id)).toEqual([a.id, c.id, b.id]);
+  });
+
+  it('marcar el primer paso arranca la tarea; desmarcar uno reabre la completada', () => {
+    const t = app.planAddTask('x');
+    const s1 = app.planSubAdd(t, 'paso 1');
+    app.planSubAdd(t, 'paso 2');
+    app.planSubToggle(t, s1, true);
+    expect(t.status).toBe('doing');
+    app.planSetStatus(t, 'done');
+    app.planSubToggle(t, s1, false);
+    expect(t.status).toBe('doing');
+    expect(t.done).toBe(false);
+  });
+
+  it('los pasos se añaden, se editan y se quitan', () => {
+    const t = app.planAddTask('x');
+    const s = app.planSubAdd(t, 'primer paso');
+    expect(app.planSubAdd(t, '  ')).toBeNull();
+    app.planSubSetText(t, s, 'paso corregido');
+    expect(t.subs[0].text).toBe('paso corregido');
+    app.planSubSetText(t, s, '   '); // vacío: no pisa el texto bueno
+    expect(t.subs[0].text).toBe('paso corregido');
+    app.planSubRemove(t, s);
+    expect(t.subs).toHaveLength(0);
+  });
+
+  it('planSubsDone cuenta solo los pasos marcados', () => {
+    const t = app.planAddTask('x');
+    const s1 = app.planSubAdd(t, 'a');
+    app.planSubAdd(t, 'b');
+    app.planSubToggle(t, s1, true);
+    expect(app.planSubsDone(t)).toBe(1);
+  });
+});
+
+describe('tablero — tareas del día y tarjetas del lienzo en las mismas columnas', () => {
+  let app;
+  beforeEach(() => { app = bootApp(); });
+
+  it('boardAll mezcla ambos orígenes y los ordena por su posición', () => {
+    const t = app.planAddTask('tarea');
+    t.order = 20;
+    app.data.blocks = [{ id: 'b1', kanban: 'todo', kanbanOrder: 10, content: { text: 'tarjeta' } }];
+    const items = app.boardAll('todo');
+    expect(items.map((i) => i.src)).toEqual(['block', 'task']);
+    expect(items.map((i) => i.id)).toEqual(['b1', t.id]);
+  });
+
+  it('el filtro de origen deja ver solo lo del día o solo lo del lienzo', () => {
+    app.planAddTask('tarea');
+    app.data.blocks = [{ id: 'b1', kanban: 'todo', kanbanOrder: 1, content: { text: 'tarjeta' } }];
+    app.ui.tasksSrc = 'task';
+    expect(app.boardItems('todo').map((i) => i.src)).toEqual(['task']);
+    app.ui.tasksSrc = 'block';
+    expect(app.boardItems('todo').map((i) => i.src)).toEqual(['block']);
+    app.ui.tasksSrc = 'all';
+    expect(app.boardItems('todo')).toHaveLength(2);
+  });
+
+  it('boardPlace mueve una tarea de columna respetando a sus vecinas', () => {
+    const a = app.planAddTask('a');
+    const b = app.planAddTask('b');
+    app.planSetStatus(a, 'doing');
+    a.order = 100;
+    app.boardPlace('task', b.id, 'doing', a.id); // b se coloca antes que a
+    expect(b.status).toBe('doing');
+    expect(b.order).toBeLessThan(a.order);
+  });
+
+  it('boardPlace mueve una tarjeta del lienzo y la deja junto a una tarea del día', () => {
+    const t = app.planAddTask('tarea');
+    app.planSetStatus(t, 'doing');
+    t.order = 50;
+    app.data.blocks = [{ id: 'b1', noteId: 'n1', kanban: 'todo', kanbanOrder: 1, content: { text: 'tarjeta' } }];
+    app.boardPlace('block', 'b1', 'doing', t.id);
+    expect(app.data.blocks[0].kanban).toBe('doing');
+    expect(app.data.blocks[0].kanbanOrder).toBeLessThan(50);
+    expect(app.boardAll('doing').map((i) => i.id)).toEqual(['b1', t.id]);
+  });
+
+  it('planVisibleTasks arrastra lo pendiente de días anteriores y suelta lo ya hecho', () => {
+    const viejaPendiente = app.planAddTask('pendiente de ayer');
+    viejaPendiente.day = '2020-01-01';
+    const viejaHecha = app.planAddTask('hecha ayer');
+    app.planSetStatus(viejaHecha, 'done');
+    viejaHecha.day = '2020-01-01';
+    const ids = app.planVisibleTasks().map((t) => t.id);
+    expect(ids).toContain(viejaPendiente.id);
+    expect(ids).not.toContain(viejaHecha.id);
+  });
+});

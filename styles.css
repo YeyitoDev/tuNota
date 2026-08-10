@@ -7667,3 +7667,64 @@ body.mobile-on { overscroll-behavior-y: none; }
   box-shadow: var(--shadow-lg); cursor: pointer;
 }
 .m-pill .icon { width: 16px; height: 16px; color: var(--primary); }
+
+/* ---------- Panel de Tareas: el plan del día y el tablero son la misma cosa ---------- */
+.tareas-overlay { justify-content: center; align-items: center; z-index: 2800; }
+.tareas-panel { background: var(--card); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; animation: pop .16s ease-out; max-width: 96vw; }
+.tareas-panel.v-lista { width: 540px; height: 84vh; }
+.tareas-panel.v-tablero { width: 1060px; height: 86vh; }
+.tareas-head { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+.tareas-title { display: flex; align-items: baseline; gap: 9px; font-family: 'Fraunces', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--fg); white-space: nowrap; min-width: 0; overflow: hidden; }
+.tareas-title .planner-date { text-transform: none; overflow: hidden; text-overflow: ellipsis; }
+.tareas-title .icon { width: 20px; height: 20px; color: var(--primary); }
+.tareas-views { display: flex; gap: 2px; margin-left: auto; background: var(--secondary); border-radius: 10px; padding: 3px; flex: none; }
+.tareas-view-btn { display: inline-flex; align-items: center; gap: 6px; border: none; background: none; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 700; border-radius: 8px; padding: 5px 11px; cursor: pointer; }
+.tareas-view-btn .icon { width: 14px; height: 14px; }
+.tareas-view-btn:hover { color: var(--fg); }
+.tareas-view-btn.on { background: var(--card); color: var(--primary); box-shadow: var(--shadow); }
+.tareas-head-right { display: flex; align-items: center; gap: 8px; flex: none; }
+.tareas-summary-row { display: flex; align-items: center; gap: 12px; padding: 2px 16px 0; }
+.tareas-summary-row .planner-summary { flex: 1; padding: 10px 0 6px; }
+.tareas-src { display: flex; gap: 4px; flex: none; }
+.tareas-src .cm-chip { font-size: 11px; padding: 4px 10px; flex: none; }
+.tareas-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.tareas-body.is-tablero { overflow: auto; }
+.tareas-body.is-tablero .kanban-cols { padding: 10px 14px 16px; }
+
+/* Chip de estado: en qué columna está la tarea, sin salir de la lista */
+.planner-status { border: none; cursor: pointer; font-family: inherit; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: #fff; border-radius: 999px; padding: 2px 9px; transition: filter .12s, transform .1s; }
+.planner-status:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.planner-status.k-todo { background: var(--muted2); }
+.planner-status.k-doing { background: var(--ocre); }
+.planner-status.k-done { background: var(--sage); }
+.planner-src-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; color: var(--muted); background: var(--secondary); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+.planner-src-chip .icon { width: 11px; height: 11px; }
+.planner-task.from-canvas { border-left: 3px solid var(--ocre); }
+
+/* Pasos (subtareas) dentro de una tarjeta del tablero */
+.kanban-card.is-task { border-left: 3px solid var(--sage); }
+.kc-steps-bar { height: 4px; border-radius: 999px; background: var(--secondary); overflow: hidden; margin: 6px 0 2px; }
+.kc-steps-fill { height: 100%; border-radius: 999px; background: var(--sage); transition: width .3s ease; }
+.kc-rank { font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: #fff; border-radius: 999px; padding: 1px 6px; flex: none; }
+.kc-rank.rank-relevant { background: #6f9257; }
+.kc-rank.rank-idea { background: var(--ocre); }
+.kc-rank.rank-important { background: #e0873c; }
+.kc-rank.rank-crucial { background: var(--danger); }
+.kc-steps-n { font-size: 9.5px; font-weight: 800; margin-left: 3px; }
+.kc-btn.on, .kc-btn.has-steps { color: var(--primary); }
+.kanban-card .planner-subs { margin: 6px 0 2px; }
+.kanban-card .planner-sub { font-size: 11.5px; }
+.kanban-card .planner-sub-inp { font-size: 11.5px; padding: 5px 8px; }
+.kanban-card .planner-sub-add { margin-top: 4px; }
+
+/* Estado de la tarea y pasos editables en el móvil */
+.m-tag.m-status { border: none; font-family: inherit; cursor: pointer; color: #fff; font-weight: 800; }
+.m-tag.m-status.k-todo { background: var(--muted2); }
+.m-tag.m-status.k-doing { background: var(--ocre); }
+.m-tag.m-status.k-done { background: var(--sage); }
+.m-sub-txt { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.m-item.m-kan-task { border-left: 3px solid var(--sage); }
+/* La fila de un paso ya no es un <label>: el texto se edita, la casilla se marca */
+.planner-sub { cursor: default; }
+.planner-sub .planner-sub-text { cursor: text; }
+.planner-sub input[type='checkbox'] { cursor: pointer; }
