@@ -102,8 +102,66 @@ function imgItemRaw(it) { return typeof it === 'string' ? it : (it && it.src) ||
 function imgItemSrc(it) { return resolveSrc(imgItemRaw(it)); }
 function imgItemW(it) { return (it && typeof it === 'object' && it.w) ? it.w : 0; }
 var DEFAULT_IMG_W = 260;
+// Imágenes que trae un evento de pegado o de arrastre. Lee items y, si ahí no hay nada,
+// cae a .files: hay orígenes (y navegadores) que solo rellenan uno de los dos.
+function clipboardImageFiles(dt) {
+  var out = [];
+  if (!dt) return out;
+  var items = dt.items;
+  if (items) {
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file' && /^image\//.test(items[i].type || '')) {
+        var f = items[i].getAsFile();
+        if (f) out.push(f);
+      }
+    }
+  }
+  if (!out.length && dt.files && dt.files.length) {
+    for (var j = 0; j < dt.files.length; j++) {
+      var g = dt.files[j];
+      if (!g) continue;
+      if (/^image\//.test(g.type || '') || /\.(png|jpe?g|gif|webp|bmp|tiff?|heic|heif|avif|svg)$/i.test(g.name || '')) out.push(g);
+    }
+  }
+  return out;
+}
+// ¿Los primeros bytes son los de un formato de imagen conocido? Sirve para distinguir
+// "el navegador no supo decodificarla aquí" (una captura TIFF, un AVIF) de "esto no es una
+// imagen" (archivo truncado o corrupto), sin depender del tipo MIME que declare el sistema.
+var IMG_MAGIC = [
+  [0x89, 0x50, 0x4e, 0x47],             // PNG
+  [0xff, 0xd8, 0xff],                   // JPEG
+  [0x47, 0x49, 0x46, 0x38],             // GIF8
+  [0x42, 0x4d],                         // BMP
+  [0x49, 0x49, 0x2a, 0x00],             // TIFF little-endian (capturas de macOS)
+  [0x4d, 0x4d, 0x00, 0x2a],             // TIFF big-endian
+  [0x52, 0x49, 0x46, 0x46],             // RIFF (WebP)
+  [0x00, 0x00, 0x01, 0x00],             // ICO
+];
+function hasImageSignature(dataUrl) {
+  if (typeof dataUrl !== 'string') return false;
+  var coma = dataUrl.indexOf(',');
+  if (coma < 0) return false;
+  // SVG y demás formatos de texto viajan sin base64.
+  if (dataUrl.lastIndexOf(';base64', coma) < 0) return /<svg|<\?xml/i.test(dataUrl.slice(coma + 1, coma + 200));
+  var bin;
+  try { bin = atob(dataUrl.substr(coma + 1, 32)); } catch (e) { return false; }
+  if (bin.length < 4) return false;
+  var b = [];
+  for (var i = 0; i < 16 && i < bin.length; i++) b.push(bin.charCodeAt(i));
+  // HEIC/AVIF y demás contenedores ISO-BMFF: 'ftyp' en el byte 4.
+  if (bin.substr(4, 4) === 'ftyp') return true;
+  return IMG_MAGIC.some(function (m) {
+    for (var i = 0; i < m.length; i++) if (b[i] !== m[i]) return false;
+    return true;
+  });
+}
+// Devuelve cb(dataUrl, anchoOriginal), o cb(null, 0) si el archivo no se pudo leer o
+// decodificar. Quien llama DEBE descartar los nulos: guardar un blob ilegible dejaba
+// tarjetas con una imagen rota para siempre y sin ningún aviso.
 function fileToScaledDataURL(file, cb) {
   var reader = new FileReader();
+  reader.onerror = function () { cb(null, 0); }; // sin esto, un archivo ilegible colgaba el contador
   reader.onload = function () {
     var original = reader.result;                       // bytes originales, sin pérdida
     var img = new Image();
@@ -129,7 +187,15 @@ function fileToScaledDataURL(file, cb) {
         cb(keepOriginal ? original : out, keepOriginal ? w : cw);
       } catch (e) { cb(original, w); }
     };
-    img.onerror = function () { cb(original, 0); };
+    img.onerror = function () {
+      // El <img> de prueba no siempre decodifica formatos que el navegador SÍ sabe pintar
+      // (TIFF de una captura de macOS, AVIF en versiones antiguas, SVG con rarezas). Si los
+      // bytes tienen firma de imagen de verdad, se guarda igual: perder una captura del
+      // usuario es mucho peor que guardar algo que quizá no se vea. Solo se descarta lo que
+      // ni siquiera parece una imagen (archivo truncado o corrupto).
+      if (hasImageSignature(original) || IMG_NO_REENCODE.test((file && file.type) || '')) { cb(original, 0); return; }
+      cb(null, 0);
+    };
     img.src = original;
   };
   reader.readAsDataURL(file);
@@ -154,25 +220,27 @@ function convertHeicToJpeg(file, cb) {
 }
 function convertHeicFilesIfNeeded(files, cb) {
   var arr = Array.prototype.slice.call(files || []);
-  var heic = arr.filter(isHeic);
-  if (!heic.length) return cb(arr);
+  // Indexamos por POSICIÓN, no por nombre: dos fotos distintas suelen llamarse igual
+  // (IMG_0001.HEIC) y con un mapa por nombre una pisaba a la otra.
+  var idxs = [];
+  arr.forEach(function (f, i) { if (isHeic(f)) idxs.push(i); });
+  if (!idxs.length) return cb(arr);
   var progressEl = showProgressToast('Convirtiendo HEIC...');
   var t0 = performance.now();
-  var done = 0, errors = [], outMap = {};
-  heic.forEach(function (file) {
-    convertHeicToJpeg(file, function (err, jpeg, ms) {
-      if (err) errors.push(file.name || 'HEIC');
-      else outMap[file.name] = jpeg;
+  var done = 0, errors = [], out = new Array(arr.length);
+  idxs.forEach(function (i) {
+    convertHeicToJpeg(arr[i], function (err, jpeg) {
+      if (err) errors.push(arr[i].name || 'HEIC');
+      else out[i] = jpeg;
       done++;
-      updateProgressToast(progressEl, 'Convirtiendo HEIC (' + done + '/' + heic.length + ')...');
-      if (done === heic.length) {
+      updateProgressToast(progressEl, 'Convirtiendo HEIC (' + done + '/' + idxs.length + ')...');
+      if (done === idxs.length) {
         var total = Math.round(performance.now() - t0);
         var msg = errors.length
           ? 'HEIC convertido en ' + total + ' ms (' + errors.length + ' error)'
           : 'HEIC convertido en ' + total + ' ms';
         hideProgressToast(progressEl, msg, 1600);
-        var result = arr.map(function (f) { return isHeic(f) ? (outMap[f.name] || f) : f; });
-        cb(result);
+        cb(arr.map(function (f, k) { return out[k] || f; }));
       }
     });
   });
@@ -183,22 +251,37 @@ function addImagesToBlock(b, files, done) {
     if (!arr.length) { if (done) done(0); return; }
     b.content = b.content || {};
     b.content.images = b.content.images || [];
-    var pending = arr.length, added = 0;
-    arr.forEach(function (f) {
+    // Una casilla reservada por archivo: las imágenes quedan en el mismo orden en que se
+    // copiaron aunque una tarde más que otra en decodificarse (antes ganaba la más rápida).
+    var slots = new Array(arr.length), pending = arr.length, failed = 0;
+    arr.forEach(function (f, i) {
       fileToScaledDataURL(f, function (url, cw) {
-        var dw = cw ? Math.min(cw, DEFAULT_IMG_W) : 0;
-        var ref = storeBlob(url); // el blob va a IndexedDB; aquí solo queda la referencia
-        b.content.images.push(dw ? { src: ref, w: dw } : { src: ref });
-        added++; pending--;
-        if (pending <= 0) {
+        if (url) {
+          var dw = cw ? Math.min(cw, DEFAULT_IMG_W) : 0;
+          var ref = storeBlob(url); // el blob va a IndexedDB; aquí solo queda la referencia
+          slots[i] = dw ? { src: ref, w: dw } : { src: ref };
+        } else { failed++; }
+        pending--;
+        if (pending > 0) return;                 // aún faltan archivos por resolver
+        var added = 0;
+        slots.forEach(function (it) { if (it) { b.content.images.push(it); added++; } });
+        if (added) {
           touchNote(b.noteId);
           logChange('Imagen a\u00f1adida', '');
           save();
-          if (done) done(added);
-      }
+        }
+        if (failed) warnUnreadableImages(failed);
+        if (done) done(added);
+      });
     });
   });
-});
+}
+// Aviso cuando el navegador no pudo leer o decodificar un archivo de imagen. Antes se
+// guardaba igual y quedaba una tarjeta con la imagen rota, sin explicación.
+function warnUnreadableImages(n) {
+  toast(n === 1
+    ? 'No se pudo leer esa imagen: archivo dañado o formato no soportado.'
+    : ('No se pudieron leer ' + n + ' imágenes: archivos dañados o formato no soportado.'), 'warn');
 }
 function removeCardImage(b, index, cardEl) {
   if (!b.content || !b.content.images) return;

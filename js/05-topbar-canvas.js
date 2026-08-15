@@ -884,27 +884,35 @@ function insertInlineImagesAt(b, seg, segIdx, segs, cursorPos, files, done) {
     b.content.inlineImages = b.content.inlineImages || [];
     var beforeText = seg.text.slice(0, cursorPos);
     var afterText = seg.text.slice(cursorPos);
-    var newSegs = [{ type: 'text', text: beforeText }];
-    var pending = arr.length;
-    arr.forEach(function (f) {
+    // Una casilla por archivo y el montaje al final: así las imágenes se insertan en el
+    // orden en que se copiaron (antes se colocaban según cuál terminara de decodificar
+    // primero, y pegar dos a la vez podía invertirlas).
+    var slots = new Array(arr.length), pending = arr.length, failed = 0;
+    arr.forEach(function (f, i) {
       fileToScaledDataURL(f, function (url, cw) {
-        var dw = cw ? Math.min(cw, DEFAULT_IMG_W) : 0;
-        var ref = storeBlob(url);
-        var imgIdx = b.content.inlineImages.length;
-        b.content.inlineImages.push(dw ? { src: ref, w: dw } : { src: ref });
-        newSegs.push({ type: 'image', imgIndex: imgIdx });
+        if (url) {
+          var dw = cw ? Math.min(cw, DEFAULT_IMG_W) : 0;
+          var ref = storeBlob(url);
+          slots[i] = dw ? { src: ref, w: dw } : { src: ref };
+        } else { failed++; }
         pending--;
-        if (pending <= 0) {
-          newSegs.push({ type: 'text', text: afterText });
-          segs.splice.apply(segs, [segIdx, 1].concat(newSegs));
-          // Reconstruye b.content.text desde los segmentos modificados ANTES de re-renderizar,
-          // para que textBody() encuentre el marcador al volver a leer b.content.text.
-          b.content.text = segs.map(function (s) {
-            return s.type === 'text' ? s.text : '\u0001' + s.imgIndex + '\u0001';
-          }).join('');
-          touchNote(b.noteId); logChange('Imagen insertada en nota', ''); save();
-          if (done) done();
-        }
+        if (pending > 0) return;
+        var newSegs = [{ type: 'text', text: beforeText }];
+        slots.forEach(function (it) {
+          if (!it) return;
+          newSegs.push({ type: 'image', imgIndex: b.content.inlineImages.length });
+          b.content.inlineImages.push(it);
+        });
+        newSegs.push({ type: 'text', text: afterText });
+        segs.splice.apply(segs, [segIdx, 1].concat(newSegs));
+        // Reconstruye b.content.text desde los segmentos modificados ANTES de re-renderizar,
+        // para que textBody() encuentre el marcador al volver a leer b.content.text.
+        b.content.text = segs.map(function (s) {
+          return s.type === 'text' ? s.text : '\u0001' + s.imgIndex + '\u0001';
+        }).join('');
+        if (arr.length > failed) { touchNote(b.noteId); logChange('Imagen insertada en nota', ''); save(); }
+        if (failed) warnUnreadableImages(failed);
+        if (done) done();
       });
     });
   });
@@ -938,12 +946,7 @@ function textBody(b) {
         ta.addEventListener('mousedown', function (e) { e.stopPropagation(); });
         // Paste: inserta imagen inline en la posición del cursor
         ta.addEventListener('paste', function (e) {
-          var items = e.clipboardData && e.clipboardData.items;
-          if (!items) return;
-          var files = [];
-          for (var i = 0; i < items.length; i++) {
-            if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { var f = items[i].getAsFile(); if (f) files.push(f); }
-          }
+          var files = clipboardImageFiles(e.clipboardData);
           if (files.length) {
             e.preventDefault();
             var cursorPos = ta.selectionStart;
@@ -1553,12 +1556,7 @@ function imageBody(b) {
   var media = h('div', { class: 'card-media img-media', tabindex: '0' });
   media.addEventListener('mousedown', function (e) { if (e.target === media) media.focus(); });
   media.addEventListener('paste', function (e) {
-    var items = e.clipboardData && e.clipboardData.items;
-    if (!items) return;
-    var files = [];
-    for (var i = 0; i < items.length; i++) {
-      if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { var f = items[i].getAsFile(); if (f) files.push(f); }
-    }
+    var files = clipboardImageFiles(e.clipboardData);
     if (files.length) {
       e.preventDefault(); e.stopPropagation();
       var el = media.closest('.card');

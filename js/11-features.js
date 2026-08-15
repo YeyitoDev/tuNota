@@ -741,6 +741,8 @@ function renderKanbanBody() { if (typeof renderTareas === 'function') renderTare
 // para que el bloque pegado sea independiente del original.
 var CLIPBOARD_MIME = 'application/x-tunota-blocks';
 var _tunotaClipboard = null;
+var _tunotaClipboardText = ''; // texto plano equivalente: sirve para reconocer los bloques
+                               // copiados cuando el navegador no admite tipos propios.
 function copySelectedBlocks() {
   var ids = Object.keys(selectedIds).filter(function (id) { return getBlockById(id); });
   if (!ids.length) return;
@@ -771,14 +773,15 @@ function copySelectedBlocks() {
   // Guarda en memoria como fallback
   _tunotaClipboard = payload;
   // Intenta escribir al portapapeles del sistema
-  if (navigator.clipboard && navigator.clipboard.write) {
+  _tunotaClipboardText = textFallback;
+  if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
     try {
-      var blob = new Blob([payload], { type: CLIPBOARD_MIME });
-      var textBlob = new Blob([textFallback], { type: 'text/plain' });
-      var item = new ClipboardItem({});
-      item[CLIPBOARD_MIME] = blob;
-      item['text/plain'] = textBlob;
-      navigator.clipboard.write([item]).catch(function () {});
+      // Los tipos propios solo se aceptan con el prefijo 'web ' y HAY que pasarlos al
+      // constructor: asignarlos como propiedades del item (como se hacía antes) no añadía
+      // nada, así que al portapapeles del sistema solo llegaba un item vacío.
+      var partes = { 'text/plain': new Blob([textFallback], { type: 'text/plain' }) };
+      partes['web ' + CLIPBOARD_MIME] = new Blob([payload], { type: CLIPBOARD_MIME });
+      navigator.clipboard.write([new ClipboardItem(partes)]).catch(function () {});
     } catch (er) {}
   }
   toast(ids.length + ' bloque' + (ids.length > 1 ? 's' : '') + ' copiado' + (ids.length > 1 ? 's' : ''), 'ok');
@@ -874,37 +877,9 @@ document.addEventListener('keydown', function (e) {
     }
     return;
   }
-  // Ctrl+V: pegar bloques del portapapeles en el lienzo actual
-  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'v' || e.key === 'V')) {
-    var ve = document.activeElement;
-    if (ve && (ve.tagName === 'TEXTAREA' || ve.tagName === 'INPUT' || ve.isContentEditable)) return; // deja el paste nativo del texto
-    if (!ui.currentNoteId || document.querySelector('.overlay')) return;
-    e.preventDefault();
-    // Intenta primero el portapapeles asíncrono
-    if (navigator.clipboard && navigator.clipboard.read) {
-      navigator.clipboard.read().then(function (items) {
-        for (var i = 0; i < items.length; i++) {
-          for (var j = 0; j < items[i].types.length; j++) {
-            if (items[i].types[j] === CLIPBOARD_MIME) {
-              items[i].getType(CLIPBOARD_MIME).then(function (bl) {
-                var reader = new FileReader();
-                reader.onload = function () { doPasteBlocks(String(reader.result), 200, 200); };
-                reader.readAsText(bl);
-              });
-              return;
-            }
-          }
-        }
-        // Si no encontró el MIME personalizado, usa el fallback en memoria
-        if (_tunotaClipboard) { doPasteBlocks(_tunotaClipboard, 200, 200); }
-      }).catch(function () {
-        if (_tunotaClipboard) { doPasteBlocks(_tunotaClipboard, 200, 200); }
-      });
-    } else if (_tunotaClipboard) {
-      doPasteBlocks(_tunotaClipboard, 200, 200);
-    }
-    return;
-  }
+  // Ctrl/Cmd+V NO se intercepta aquí: hacerlo cancelaba el pegado del navegador y el evento
+  // 'paste' (que es donde se gestionan capturas, imágenes, bloques y texto) no llegaba a
+  // dispararse nunca con el foco en el lienzo. Todo se decide en ese evento, más abajo.
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'a' || e.key === 'A')) {
     var sa2 = document.activeElement;
     if (sa2 && (sa2.tagName === 'TEXTAREA' || sa2.tagName === 'INPUT' || sa2.isContentEditable)) return; // seleccionar texto nativo
@@ -961,21 +936,27 @@ document.addEventListener('keyup', function (e) { if (e.key === 'Shift') setLink
 // Pegar (Ctrl+V) una captura/imagen o texto en el tablero -> crea una tarjeta con el contenido.
 document.addEventListener('paste', function (e) {
   var a = document.activeElement;
-  // Si se esta editando una nota/idea, su propio manejador ya agrega la imagen/texto a esa tarjeta.
-  if (a && a.classList && a.classList.contains('card-ta') && !a.classList.contains('mono')) return;
-  // No secuestrar el pegado en otros campos de edicion (codigo, titulos, celdas, etc.).
-  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) return;
-  if (!ui.currentNoteId || !getNote(ui.currentNoteId) || !canvasContentEl) return;
+  var cls = (a && a.classList) || null;
+  // Las notas/ideas insertan la imagen EN LÍNEA con su propio manejador (js/05). El texto
+  // libre, el código y el editor Markdown NO saben hacerlo: antes se salía aquí por ser
+  // <textarea> y la imagen se perdía en silencio. Ahora siguen y acaban en una tarjeta.
+  if (cls && cls.contains('card-ta') && !cls.contains('mono') && !cls.contains('free-ta')) return;
+  var enCampo = !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable));
   var cd = e.clipboardData;
   if (!cd) return;
+  if (document.querySelector('.overlay')) {
+    // Con un panel abierto manda el panel; si traes una imagen, dilo en vez de callar.
+    if (!enCampo && clipboardImageFiles(cd).length) toast('Cierra el panel para pegar la imagen en el lienzo.', 'warn');
+    return;
+  }
 
-  // Imagenes primero.
-  var items = cd.items;
-  var files = [];
-  if (items) {
-    for (var i = 0; i < items.length; i++) {
-      if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { var f = items[i].getAsFile(); if (f) files.push(f); }
-    }
+  // Imágenes primero: una captura de pantalla es lo más habitual.
+  var files = clipboardImageFiles(cd);
+  var sinLienzo = !ui.currentNoteId || !getNote(ui.currentNoteId) || !canvasContentEl;
+  if (sinLienzo) {
+    // Nunca en silencio: si hay una imagen en el portapapeles, explica por qué no entra.
+    if (files.length) { e.preventDefault(); toast('Abre un lienzo para pegar la imagen.', 'warn'); }
+    return;
   }
   if (files.length) {
     e.preventDefault();
@@ -987,7 +968,9 @@ document.addEventListener('paste', function (e) {
     var b = createAt(cx, cy, 'freeimage');
     if (!b) return;
     var el = cardEl(b.id);
-    addImagesToBlock(b, files, function () {
+    addImagesToBlock(b, files, function (added) {
+      // Si ninguna imagen se pudo leer, no dejamos una tarjeta vacía en el lienzo.
+      if (!added) { deleteBlock(b.id); renderCanvas(); return; }
       if (!el) return;
       var media = el.querySelector('.freeimg-media');
       if (media) renderFreeImage(media, b);
@@ -997,8 +980,25 @@ document.addEventListener('paste', function (e) {
     return;
   }
 
-  // Texto plano: detectar Markdown y crear el bloque adecuado.
-  var text = cd.getData('text/plain');
+  // Bloques copiados con Ctrl/Cmd+C dentro de la app (antes esto lo hacía el atajo de
+  // teclado, que además cancelaba el pegado del navegador y se comía las capturas).
+  var text = cd.getData('text/plain') || '';
+  if (!enCampo) {
+    var bloques = cd.getData(CLIPBOARD_MIME) || cd.getData('web ' + CLIPBOARD_MIME) || '';
+    // Respaldo en memoria: si el navegador no admite tipos propios, reconocemos los bloques
+    // porque su texto equivalente coincide con lo que hay en el portapapeles.
+    if (!bloques && _tunotaClipboard && (text === _tunotaClipboardText)) bloques = _tunotaClipboard;
+    if (bloques) {
+      e.preventDefault();
+      var pc = (typeof toContent === 'function' && lastMouse.over) ? toContent(lastMouse.x, lastMouse.y) : null;
+      doPasteBlocks(bloques, pc ? pc.x : 200, pc ? pc.y : 200);
+      return;
+    }
+  }
+
+  // Texto plano: fuera de un campo de edición, crear el bloque adecuado (Markdown o nota).
+  // Dentro de un campo lo maneja el navegador: no lo secuestramos.
+  if (enCampo) return;
   if (text && text.trim()) {
     e.preventDefault();
     var cx2, cy2, wrap2 = document.getElementById('canvas');

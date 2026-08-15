@@ -377,8 +377,33 @@
   }
 
   // ---------- Im\u00e1genes ----------
+  // Copia local (note.html no carga js/07-media.js): ¿los primeros bytes son de una imagen
+  // conocida? Distingue "este <img> no supo decodificarla" de "esto no es una imagen".
+  var IMG_MAGIC = [[0x89, 0x50, 0x4e, 0x47], [0xff, 0xd8, 0xff], [0x47, 0x49, 0x46, 0x38], [0x42, 0x4d],
+    [0x49, 0x49, 0x2a, 0x00], [0x4d, 0x4d, 0x00, 0x2a], [0x52, 0x49, 0x46, 0x46], [0x00, 0x00, 0x01, 0x00]];
+  function hasImageSignature(dataUrl) {
+    if (typeof dataUrl !== 'string') return false;
+    var coma = dataUrl.indexOf(',');
+    if (coma < 0) return false;
+    if (dataUrl.lastIndexOf(';base64', coma) < 0) return /<svg|<\?xml/i.test(dataUrl.slice(coma + 1, coma + 200));
+    var bin;
+    try { bin = atob(dataUrl.substr(coma + 1, 32)); } catch (e) { return false; }
+    if (bin.length < 4) return false;
+    if (bin.substr(4, 4) === 'ftyp') return true;
+    var b = [];
+    for (var i = 0; i < 16 && i < bin.length; i++) b.push(bin.charCodeAt(i));
+    return IMG_MAGIC.some(function (m) {
+      for (var i = 0; i < m.length; i++) if (b[i] !== m[i]) return false;
+      return true;
+    });
+  }
+  // Devuelve cb(dataUrl) o cb(null) si el archivo no se pudo leer/decodificar: quien llama
+  // lo descarta. Antes se guardaba igual y quedaba una imagen rota, o el contador de
+  // pendientes no llegaba nunca a cero y no se guardaba nada.
+  var NO_REENCODE = /^image\/(gif|svg\+xml|avif)$/i;
   function fileToScaledDataURL(file, cb) {
     var reader = new FileReader();
+    reader.onerror = function () { cb(null); };
     reader.onload = function () {
       var img = new Image();
       img.onload = function () {
@@ -393,7 +418,13 @@
           cb(c.toDataURL('image/jpeg', 0.82));
         } catch (e) { cb(reader.result); }
       };
-      img.onerror = function () { cb(reader.result); };
+      img.onerror = function () {
+        // Si los bytes tienen firma de imagen real (TIFF de una captura, AVIF, SVG), se guarda
+        // igual aunque este <img> no la decodifique. Solo se descarta lo que no es una imagen.
+        var ok = NO_REENCODE.test((file && file.type) || '')
+          || (typeof hasImageSignature === 'function' && hasImageSignature(reader.result));
+        cb(ok ? reader.result : null);
+      };
       img.src = reader.result;
     };
     reader.readAsDataURL(file);
@@ -404,21 +435,28 @@
     if (!files || !files.length) return;
     var arr = Array.prototype.slice.call(files).filter(function (f) { return /^image\//.test(f.type); });
     if (!arr.length) return;
-    var pending = arr.length;
-    arr.forEach(function (f) {
+    // Una casilla por archivo y un solo guardado al final: las imágenes quedan en el orden
+    // en que se copiaron (antes ganaba la que terminara antes de decodificarse).
+    var slots = new Array(arr.length), pending = arr.length, failed = 0;
+    arr.forEach(function (f, i) {
       fileToScaledDataURL(f, function (url) {
-        persist(function (fresh) {
-          var fb = fresh.blocks.find(function (x) { return x.id === id; });
-          if (fb) {
-            fb.content = fb.content || {};
-            fb.content.images = fb.content.images || [];
-            fb.content.images.push({ src: storeBlob(url) });
-            fb.updatedAt = now();
-            logTo(fresh, 'Imagen a\u00f1adida', '');
-          }
-        });
+        if (url) slots[i] = { src: storeBlob(url) }; else failed++;
         pending--;
-        if (pending <= 0) render();
+        if (pending > 0) return;
+        var added = slots.filter(Boolean);
+        if (added.length) {
+          persist(function (fresh) {
+            var fb = fresh.blocks.find(function (x) { return x.id === id; });
+            if (fb) {
+              fb.content = fb.content || {};
+              fb.content.images = (fb.content.images || []).concat(added);
+              fb.updatedAt = now();
+              logTo(fresh, 'Imagen a\u00f1adida', '');
+            }
+          });
+        }
+        if (failed) window.alert('No se pudo leer ' + (failed === 1 ? 'una imagen' : failed + ' imágenes') + ': archivo dañado o formato no soportado.');
+        render();
       });
     });
   }
@@ -802,15 +840,18 @@
     var beforeText = seg.text.slice(0, cursorPos);
     var afterText = seg.text.slice(cursorPos);
     var newSegs = [{ type: 'text', text: beforeText }];
-    var pending = arr.length;
-    arr.forEach(function (f) {
+    var slots = new Array(arr.length), pending = arr.length, failed = 0;
+    arr.forEach(function (f, i) {
       fileToScaledDataURL(f, function (url) {
-        var ref = storeBlob(url);
-        var imgIdx = b.content.inlineImages.length;
-        b.content.inlineImages.push({ src: ref, w: 260 });
-        newSegs.push({ type: 'image', imgIndex: imgIdx });
+        if (url) slots[i] = { src: storeBlob(url), w: 260 }; else failed++;
         pending--;
         if (pending <= 0) {
+          slots.forEach(function (it) {
+            if (!it) return;
+            newSegs.push({ type: 'image', imgIndex: b.content.inlineImages.length });
+            b.content.inlineImages.push(it);
+          });
+          if (failed) window.alert('No se pudo leer ' + (failed === 1 ? 'una imagen' : failed + ' imágenes') + ': archivo dañado o formato no soportado.');
           newSegs.push({ type: 'text', text: afterText });
           segs.splice.apply(segs, [segIdx, 1].concat(newSegs));
           b.content.text = segs.map(function (s) { return s.type === 'text' ? s.text : '\u0001' + s.imgIndex + '\u0001'; }).join('');
