@@ -435,6 +435,12 @@ function pickImagesFor(b, cardEl) {
 function refreshImageCard(b) {
   var el = cardEl(b.id);
   if (!el) return;
+  if (b.type === 'shape') {
+    var box = el.querySelector('.shape-box');
+    if (box && typeof renderShapeImage === 'function') renderShapeImage(box, b);
+    if (typeof drawLinks === 'function') drawLinks();
+    return; // la caja conserva el tamaño que tenga (puede haberla ajustado el usuario)
+  }
   if (b.type === 'freeimage') {
     var media = el.querySelector('.freeimg-media');
     if (media && typeof renderFreeImage === 'function') renderFreeImage(media, b);

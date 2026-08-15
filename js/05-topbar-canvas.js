@@ -715,6 +715,7 @@ function card(b) {
   }
   if (isShape) {
     head.appendChild(h('button', { class: 'card-shape-type', title: 'Cambiar tipo de forma', onclick: function (e) { e.stopPropagation(); openShapePicker(b, e.currentTarget); } }, icon('shapes')));
+    head.appendChild(h('button', { class: 'card-shape-img', title: 'Poner una imagen dentro (o pégala con ' + MOD + '+V, o suéltala encima)', onclick: function (e) { e.stopPropagation(); pickShapeImage(b); } }, icon('image')));
   }
   head.appendChild(menuBtn);
   head.appendChild(del);
@@ -1394,6 +1395,96 @@ function newSubCanvas() {
   if (!b) { toast('Abre una nota primero.', 'warn'); return; }
   createSubCanvas(b);
 }
+// ---------- Imagen dentro de una forma ----------
+// Las formas (las mismas del flujograma) admiten UNA imagen: pegada, arrastrada o elegida
+// desde la cabecera. La caja se ajusta sola a la proporción de la imagen. Se guarda en
+// content.images[0], como el resto de bloques, así entra gratis en las copias de seguridad,
+// el recolector de blobs, el copiar/pegar y el editor de imagen.
+var SHAPE_IMG_MAX = 300;   // lado mayor al insertarla (encaja en la rejilla del vision board)
+var SHAPE_IMG_MIN = 110;   // por debajo de esto no se encoge
+
+function shapeImageOf(b) { return ((b.content && b.content.images) || [])[0] || null; }
+function renderShapeImage(box, b) {
+  var viejo = box.querySelector('.shape-img'); if (viejo) viejo.remove();
+  var viejoDel = box.querySelector('.shape-img-del'); if (viejoDel) viejoDel.remove();
+  var it = shapeImageOf(b);
+  box.classList.toggle('has-img', !!it);
+  if (!it) return;
+  var img = h('img', { class: 'shape-img', src: imgItemSrc(it), alt: '', draggable: 'false',
+    title: 'Doble clic para editar la imagen: dibujar, señalar, recortar…' });
+  // Sin stopPropagation en mousedown: la forma se sigue arrastrando tirando de la imagen.
+  img.addEventListener('dblclick', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    if (typeof openImageEditor === 'function') openImageEditor(b, 0);
+  });
+  var del = h('button', { class: 'shape-img-del', title: 'Quitar la imagen' }, icon('x'));
+  del.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  del.addEventListener('click', function (e) { e.stopPropagation(); removeShapeImage(b); });
+  box.insertBefore(img, box.firstChild ? box.firstChild.nextSibling : null);
+  if (!img.isConnected) box.appendChild(img);
+  box.appendChild(del);
+}
+function insertImageIntoShape(b, files) {
+  if (!files || !files.length) return;
+  var previas = ((b.content && b.content.images) || []).slice();
+  addImagesToBlock(b, [files[0]], function (added) {
+    if (!added) return;
+    var todas = b.content.images || [];
+    var nueva = todas[todas.length - 1];
+    previas.forEach(function (it) { deleteBlobRef(imgItemRaw(it)); }); // una imagen por forma
+    b.content.images = [nueva];
+    logChange('Imagen dentro de una forma', snippet(b.content.text));
+    fitShapeToImage(b);
+  });
+}
+// Ajusta la caja a la proporción real de la imagen (lado mayor = SHAPE_IMG_MAX).
+function fitShapeToImage(b, done) {
+  var it = shapeImageOf(b);
+  if (!it) { if (done) done(); return; }
+  var probe = new Image();
+  probe.onload = function () {
+    var iw = probe.naturalWidth || 1, ih = probe.naturalHeight || 1;
+    var k = SHAPE_IMG_MAX / Math.max(iw, ih);
+    var w = Math.max(SHAPE_IMG_MIN, Math.round(iw * k));
+    var hh = Math.max(70, Math.round(ih * k));
+    var el = cardEl(b.id);
+    var head = el && el.querySelector('.card-head');
+    var extra = head ? head.offsetHeight + 3 : 25; // cabecera + margen inferior de la caja
+    b.width = w + 6;                                // márgenes laterales de .shape-box
+    b.height = hh + extra;
+    if (el) {
+      el.style.width = b.width + 'px';
+      el.style.height = b.height + 'px';
+      var box = el.querySelector('.shape-box');
+      if (box) renderShapeImage(box, b);
+    }
+    touchNote(b.noteId);
+    save();
+    if (typeof drawLinks === 'function') drawLinks();
+    if (done) done();
+  };
+  probe.onerror = function () { if (done) done(); };
+  probe.src = imgItemSrc(it);
+}
+function removeShapeImage(b) {
+  var it = shapeImageOf(b);
+  if (!it) return;
+  deleteBlobRef(imgItemRaw(it));
+  b.content.images = [];
+  touchNote(b.noteId);
+  logChange('Imagen quitada de la forma', snippet(b.content.text));
+  save();
+  var el = cardEl(b.id), box = el && el.querySelector('.shape-box');
+  if (box) renderShapeImage(box, b);
+}
+function pickShapeImage(b) {
+  var input = h('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
+  input.addEventListener('change', function () { insertImageIntoShape(b, input.files); input.value = ''; });
+  document.body.appendChild(input);
+  input.click();
+  setTimeout(function () { input.remove(); }, 60000);
+}
+
 function shapeBody(b) {
   b.content = b.content || {};
   var key = b.content.shape || 'rect';
@@ -1406,6 +1497,29 @@ function shapeBody(b) {
   ta.addEventListener('change', function () { logChange('Forma editada', snippet(ta.value)); save(); });
   ta.addEventListener('mousedown', function (e) { e.stopPropagation(); });
   box.appendChild(ta);
+  renderShapeImage(box, b);
+  // Pegar o soltar una imagen la mete DENTRO de la forma (stopPropagation para que el
+  // manejador del lienzo no cree además una tarjeta suelta).
+  box.addEventListener('paste', function (e) {
+    var files = clipboardImageFiles(e.clipboardData);
+    if (!files.length) return;
+    e.preventDefault(); e.stopPropagation();
+    insertImageIntoShape(b, files);
+  });
+  box.addEventListener('dragover', function (e) {
+    if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) {
+      e.preventDefault();
+      box.classList.add('drag-over');
+    }
+  });
+  box.addEventListener('dragleave', function () { box.classList.remove('drag-over'); });
+  box.addEventListener('drop', function (e) {
+    var files = clipboardImageFiles(e.dataTransfer);
+    if (!files.length) return;
+    e.preventDefault(); e.stopPropagation();
+    box.classList.remove('drag-over');
+    insertImageIntoShape(b, files);
+  });
   return box;
 }
 function setShapeType(b, key) {
@@ -1419,6 +1533,7 @@ function setShapeType(b, key) {
     if (old) old.remove();
     var glyph = shapeGlyph(key);
     if (glyph) box.insertBefore(glyph, box.firstChild);
+    renderShapeImage(box, b); // la imagen sobrevive al cambio de forma
   }
   touchNote(b.noteId); logChange('Tipo de forma', SHAPE_LABEL[key] || key); save();
 }

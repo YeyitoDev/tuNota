@@ -6449,6 +6449,77 @@ body.resizing-free { cursor: nwse-resize; user-select: none; }
 .shape-diamond .shape-ta,
 .shape-ellipse .shape-ta { width: 66%; height: 60%; }
 
+/* ---------- Imagen dentro de una forma ----------
+   La imagen se coloca sobre el relleno (inset 2px deja ver el contorno) y hereda el
+   recorte de la figura: en un rombo o un hexágono la foto sale con esa silueta. */
+.shape-img {
+  position: absolute;
+  inset: 2px;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  object-fit: cover;
+  border-radius: inherit;
+  z-index: 0;
+  user-select: none;
+}
+.shape-box.has-svg .shape-img {
+  /* Cilindro, nube, documento…: el contorno lo pinta un SVG, así que la imagen se
+     ajusta dentro sin recortar para no desbordar la silueta. */
+  object-fit: contain;
+  inset: 9%;
+  width: 82%;
+  height: 82%;
+}
+.shape-box.has-img .shape-ta {
+  /* El texto pasa a ser pie de foto legible sobre la imagen. */
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: auto;
+  max-height: 62%;
+  z-index: 1;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+  background: linear-gradient(to top, rgba(20, 16, 12, 0.72), rgba(20, 16, 12, 0));
+  padding: 16px 8px 7px;
+  border-radius: 0 0 inherit inherit;
+}
+.shape-box.has-img .shape-ta::placeholder { color: rgba(255, 255, 255, 0.75); }
+/* Sin texto no hace falta el degradado: la foto se ve limpia. */
+.shape-box.has-img .shape-ta:placeholder-shown {
+  background: none;
+  text-shadow: none;
+}
+.shape-img-del {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 7px;
+  background: rgba(20, 16, 12, 0.55);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.shape-img-del .icon { width: 13px; height: 13px; }
+.card.shape:hover .shape-img-del,
+.card.shape.selected .shape-img-del { opacity: 1; }
+.shape-img-del:hover { background: var(--danger); }
+/* Al arrastrar un archivo encima de la forma */
+.shape-box.drag-over {
+  outline: 2px dashed var(--primary);
+  outline-offset: 2px;
+}
+
 /* Paleta y selector de forma */
 .shape-pop { padding: 8px; }
 .shape-grid {
