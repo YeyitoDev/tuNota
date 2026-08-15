@@ -1599,8 +1599,14 @@ function renderFreeImage(wrap, b) {
   var imgs = (b.content && b.content.images) || [];
   if (!imgs.length) return;
   var it = imgs[0];
-  var img = h('img', { src: imgItemSrc(it), alt: '' });
+  // Mismo editor que en las tarjetas de tipo imagen: sin esto, una captura pegada en el
+  // lienzo (que nace como 'freeimage') se quedaba sin dibujar, señalar ni recortar.
+  var img = h('img', { src: imgItemSrc(it), alt: '', title: 'Doble clic para editar: dibujar, señalar, notas, formas, recortar…' });
   setupImageDrag(img, b);
+  img.addEventListener('dblclick', function (e) {
+    e.stopPropagation(); e.preventDefault();
+    if (typeof openImageEditor === 'function') openImageEditor(b, 0);
+  });
   wrap.appendChild(img);
 }
 function freeImageBody(b) {

@@ -967,15 +967,10 @@ document.addEventListener('paste', function (e) {
     else { cx = 220; cy = 200; }
     var b = createAt(cx, cy, 'freeimage');
     if (!b) return;
-    var el = cardEl(b.id);
     addImagesToBlock(b, files, function (added) {
       // Si ninguna imagen se pudo leer, no dejamos una tarjeta vacía en el lienzo.
       if (!added) { deleteBlock(b.id); renderCanvas(); return; }
-      if (!el) return;
-      var media = el.querySelector('.freeimg-media');
-      if (media) renderFreeImage(media, b);
-      fitImageCard(el, b);
-      drawLinks();
+      refreshImageCard(b);
     });
     return;
   }

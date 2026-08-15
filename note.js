@@ -5,7 +5,6 @@
   var LS_DATA = 'tunota.data.v1';
   var id = new URLSearchParams(location.search).get('id');
   var bc = ('BroadcastChannel' in window) ? new BroadcastChannel('tunota') : null;
-  var MAX_DIM = 1400;
   var SERVER = false;
   if (window.fetch) {
     fetch('api/data', { cache: 'no-store' }).then(function (r) { SERVER = !!r.ok; }).catch(function () { SERVER = false; });
@@ -397,38 +396,58 @@
       return true;
     });
   }
-  // Devuelve cb(dataUrl) o cb(null) si el archivo no se pudo leer/decodificar: quien llama
-  // lo descarta. Antes se guardaba igual y quedaba una imagen rota, o el contador de
-  // pendientes no llegaba nunca a cero y no se guardaba nada.
-  var NO_REENCODE = /^image\/(gif|svg\+xml|avif)$/i;
+  // Devuelve cb(dataUrl, anchoOriginal) o cb(null, 0) si el archivo no se pudo leer o
+  // decodificar: quien llama lo descarta.
+  // CALIDAD: se guarda el ARCHIVO ORIGINAL sin recomprimir, igual que en el lienzo (una
+  // captura PNG sigue siendo el mismo PNG a resolución nativa). Antes esta ventana pasaba
+  // TODO por un canvas a JPEG 0.82 y 1400 px, así que la misma imagen pegada aquí quedaba
+  // borrosa comparada con la del lienzo. Solo se reescala lo enorme, conservando el formato:
+  // PNG sin pérdida y JPEG a alta calidad. Los blobs viven en IndexedDB, así que el peso
+  // no infla la estructura guardada.
+  var MAX_IMG_DIM = 4096;                    // cubre capturas 4K; 5K/6K se reducen a esto
+  var SOFT_MAX_CHARS = 24 * 1024 * 1024;     // ~17 MB reales: por encima, se reduce el área
+  var DEFAULT_IMG_W = 260;                   // ancho con el que se muestra al insertarla
+  var NO_REENCODE = /^image\/(gif|svg\+xml|avif)$/i; // animación / vector: nunca rasterizar
   function fileToScaledDataURL(file, cb) {
     var reader = new FileReader();
-    reader.onerror = function () { cb(null); };
+    reader.onerror = function () { cb(null, 0); };
     reader.onload = function () {
+      var original = reader.result;          // bytes originales, sin pérdida
       var img = new Image();
       img.onload = function () {
-        var w = img.width, h2 = img.height;
-        var scale = Math.min(1, MAX_DIM / Math.max(w, h2));
-        var cw = Math.max(1, Math.round(w * scale));
-        var ch = Math.max(1, Math.round(h2 * scale));
+        var w = img.naturalWidth || img.width, h2 = img.naturalHeight || img.height;
+        var maxSide = Math.max(w, h2);
+        var heavy = (original.length || 0) > SOFT_MAX_CHARS;
+        // Caso normal (capturas, imágenes web): se guarda el original tal cual.
+        if ((maxSide <= MAX_IMG_DIM && !heavy) || NO_REENCODE.test((file && file.type) || '')) { cb(original, w); return; }
+        // Imagen enorme: reescalar lo mínimo imprescindible, conservando el formato.
+        var scale = Math.min(1, MAX_IMG_DIM / maxSide);
+        if (heavy) scale = Math.min(scale, Math.sqrt(SOFT_MAX_CHARS / original.length));
+        var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h2 * scale));
         var c = document.createElement('canvas');
         c.width = cw; c.height = ch;
         try {
-          c.getContext('2d').drawImage(img, 0, 0, cw, ch);
-          cb(c.toDataURL('image/jpeg', 0.82));
-        } catch (e) { cb(reader.result); }
+          var ctx = c.getContext('2d');
+          ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, cw, ch);
+          var isPng = /^data:image\/png/i.test(original);
+          var out = isPng ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.92);
+          var keepOriginal = out.length >= original.length; // nunca dejarla más pesada
+          cb(keepOriginal ? original : out, keepOriginal ? w : cw);
+        } catch (e) { cb(original, w); }
       };
       img.onerror = function () {
         // Si los bytes tienen firma de imagen real (TIFF de una captura, AVIF, SVG), se guarda
         // igual aunque este <img> no la decodifique. Solo se descarta lo que no es una imagen.
-        var ok = NO_REENCODE.test((file && file.type) || '')
-          || (typeof hasImageSignature === 'function' && hasImageSignature(reader.result));
-        cb(ok ? reader.result : null);
+        var ok = NO_REENCODE.test((file && file.type) || '') || hasImageSignature(original);
+        cb(ok ? original : null, 0);
       };
-      img.src = reader.result;
+      img.src = original;
     };
     reader.readAsDataURL(file);
   }
+  // Ancho de presentación: el natural, topado al de la app principal (tarjetas homogéneas).
+  function displayW(w) { return w ? Math.min(w, DEFAULT_IMG_W) : DEFAULT_IMG_W; }
   function imgSrc(it) { return typeof it === 'string' ? it : (it && it.src) || ''; }
   function imgW(it) { return (it && typeof it === 'object' && it.w) ? it.w : 0; }
   function handleFiles(files) {
@@ -439,8 +458,8 @@
     // en que se copiaron (antes ganaba la que terminara antes de decodificarse).
     var slots = new Array(arr.length), pending = arr.length, failed = 0;
     arr.forEach(function (f, i) {
-      fileToScaledDataURL(f, function (url) {
-        if (url) slots[i] = { src: storeBlob(url) }; else failed++;
+      fileToScaledDataURL(f, function (url, w) {
+        if (url) slots[i] = { src: storeBlob(url), w: displayW(w) }; else failed++;
         pending--;
         if (pending > 0) return;
         var added = slots.filter(Boolean);
@@ -842,8 +861,8 @@
     var newSegs = [{ type: 'text', text: beforeText }];
     var slots = new Array(arr.length), pending = arr.length, failed = 0;
     arr.forEach(function (f, i) {
-      fileToScaledDataURL(f, function (url) {
-        if (url) slots[i] = { src: storeBlob(url), w: 260 }; else failed++;
+      fileToScaledDataURL(f, function (url, w) {
+        if (url) slots[i] = { src: storeBlob(url), w: displayW(w) }; else failed++;
         pending--;
         if (pending <= 0) {
           slots.forEach(function (it) {

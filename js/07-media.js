@@ -45,13 +45,9 @@ function importFiles(fileList, atX, atY) {
     var isImg = /^image\//.test(f.type) || /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif)$/i.test(name);
     if (isImg) {
       var ib = createAt(ox, oy, 'freeimage'); if (!ib) return;
-      var iel = cardEl(ib.id);
-      addImagesToBlock(ib, [f], function () {
-        if (!iel) return;
-        var media = iel.querySelector('.freeimg-media');
-        if (media) renderFreeImage(media, ib);
-        fitImageCard(iel, ib);
-        drawLinks();
+      addImagesToBlock(ib, [f], function (added) {
+        if (!added) { deleteBlock(ib.id); renderCanvas(); return; }
+        refreshImageCard(ib);
       });
     } else if (isMd) {
       var mr = new FileReader();
@@ -433,6 +429,21 @@ function pickImagesFor(b, cardEl) {
   input.click();
   setTimeout(function () { input.remove(); }, 60000);
 }
+// Repinta la imagen de una tarjeta según su tipo: las 'freeimage' van a sangre
+// (renderFreeImage) y el resto usan la figura con sus botones. Busca el elemento en el
+// momento de repintar, así no depende de una referencia capturada antes de una espera.
+function refreshImageCard(b) {
+  var el = cardEl(b.id);
+  if (!el) return;
+  if (b.type === 'freeimage') {
+    var media = el.querySelector('.freeimg-media');
+    if (media && typeof renderFreeImage === 'function') renderFreeImage(media, b);
+  } else {
+    updateCardMedia(el, b);
+  }
+  if (typeof fitImageCard === 'function') fitImageCard(el, b);
+  if (typeof drawLinks === 'function') drawLinks();
+}
 function cardFigure(b, index, cardEl) {
   var it = b.content.images[index];
   var img = h('img', { src: imgItemSrc(it), alt: '', title: 'Doble clic para editar: dibujar, señalar, notas, formas, recortar…' });
@@ -626,7 +637,7 @@ function buildImageEditor(b, index, baseImg) {
     pushUndo('Editar imagen'); var ref = storeBlob(url), oldW = imgItemW(it);
     b.content.images[index] = oldW ? { src: ref, w: oldW } : { src: ref };
     touchNote(b.noteId); logChange('Imagen editada', ''); save();
-    var el = cardEl(b.id); if (el) { updateCardMedia(el, b); if (typeof fitImageCard === 'function') fitImageCard(el, b); drawLinks(); }
+    refreshImageCard(b);
     closeImageEditor();
   }
   var toolbar = h('div', { class: 'imed-tools' },
