@@ -47,12 +47,18 @@ function setMobileTab(k) {
 }
 function setMobileMode(on) {
   ui.mobile = on ? 'on' : 'off';
+  // En un teléfono la barra lateral se lleva 284 px de 390 y del lienzo no queda casi nada:
+  // al pasar al escritorio se pliega sola (el botón de la barra superior la devuelve).
+  var plegada = false;
+  if (!on && deviceLooksMobile() && !ui.sidebarCollapsed) { ui.sidebarCollapsed = true; plegada = true; }
   writeLS(LS_UI, JSON.stringify(ui));
   applyMobileMode();
   if (!on) {
     renderAll();
     if (typeof drawLinks === 'function') drawLinks();
-    toast('Escritorio completo. Vuelve al móvil con el botón de abajo a la izquierda.', 'ok');
+    toast(plegada
+      ? 'Escritorio completo. Plegué la barra lateral para dejarte el lienzo; vuelve al móvil abajo a la izquierda.'
+      : 'Escritorio completo. Vuelve al móvil con el botón de abajo a la izquierda.', 'ok');
   }
 }
 function applyMobileMode() {

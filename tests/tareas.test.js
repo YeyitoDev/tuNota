@@ -400,18 +400,45 @@ describe('modo del panel: acoplado o ventana', () => {
   it('sin ancho guardado, cada vista tiene el suyo', () => {
     app.ui.tasksWidth = 0;
     app.ui.tasksView = 'lista';
-    expect(app.tareasWidth()).toBe(460);
+    expect(app.tareasWidth()).toBe(420);
     app.ui.tasksView = 'tablero';
-    expect(app.tareasWidth()).toBe(900);
+    expect(app.tareasWidth()).toBe(760);
   });
 
-  it('respeta el ancho guardado y nunca se come la pantalla entera', () => {
+  // La regla es que SIEMPRE quede lienzo visible: el tope es el 56% de la ventana y, además,
+  // el sitio que queda desde donde empieza el lienzo menos 200 px reservados para verlo.
+  it('respeta el ancho guardado y nunca se come el lienzo entero', () => {
     app.ui.tasksWidth = 640;
     expect(app.tareasWidth()).toBe(640);
-    app.ui.tasksWidth = 5000; // más ancho que la ventana
-    expect(app.tareasWidth()).toBe(1260); // 90% de 1400
-    app.ui.tasksWidth = 50; // absurdamente estrecho: cae al valor por defecto
+    app.ui.tasksWidth = 5000;                  // más ancho que la ventana
+    expect(app.tareasWidth()).toBe(784);       // 56% de 1400
+    app.ui.tasksWidth = 50;                    // absurdamente estrecho: cae al valor por defecto
     app.ui.tasksView = 'lista';
-    expect(app.tareasWidth()).toBe(460);
+    expect(app.tareasWidth()).toBe(420);
+  });
+
+  it('en pantalla estrecha el panel se acopla abajo, no al lado', () => {
+    app.ui.tasksDock = 'dock';
+    const w = app.window.innerWidth;
+    app.window.innerWidth = 390;               // teléfono
+    expect(app.tareasIsSheet()).toBe(true);
+    app.window.innerWidth = 1400;              // escritorio con sitio de sobra
+    expect(app.tareasIsSheet()).toBe(false);
+    app.ui.tasksDock = 'modal';                // en ventana centrada no hay hoja
+    app.window.innerWidth = 390;
+    expect(app.tareasIsSheet()).toBe(false);
+    app.ui.tasksDock = 'dock';
+    app.window.innerWidth = w;
+  });
+
+  it('el alto de la hoja deja ver el lienzo por encima', () => {
+    app.window.innerHeight = 800; // el arnés solo define el ancho
+    app.ui.tasksHeight = 0;
+    const alto = app.tareasHeight();           // por defecto, 55% de la ventana
+    expect(alto).toBeLessThan(app.window.innerHeight * 0.6);
+    app.ui.tasksHeight = 5000;                 // no puede tragarse la pantalla
+    expect(app.tareasHeight()).toBeLessThanOrEqual(Math.round(app.window.innerHeight * 0.82));
+    app.ui.tasksHeight = 10;                   // ridículo: cae al mínimo usable
+    expect(app.tareasHeight()).toBeGreaterThanOrEqual(180);
   });
 });

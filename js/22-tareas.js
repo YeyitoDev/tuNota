@@ -26,10 +26,38 @@ function tareasSort() { return ui.tasksSort === 'prio' ? 'prio' : 'manual'; }
 // Acoplado (a un lado, sin tapar el lienzo) o en ventana centrada. Acoplado es el modo por
 // defecto: así puedes reordenar prioridades mientras sigues moviendo tarjetas en el lienzo.
 function tareasDock() { return ui.tasksDock === 'modal' ? 'modal' : 'dock'; }
+// Ancho del panel acoplado. La regla es que SIEMPRE quede lienzo a la vista: por eso el
+// tope es poco más de la mitad de la ventana (antes 90%, que tapaba casi todo) y el ancho
+// por defecto del tablero es el justo para ver sus tres columnas.
+// En pantalla estrecha (teléfono) el panel al lado no cabe: la barra lateral y el panel se
+// comen el lienzo entero. Ahí se acopla ABAJO, como una hoja, y el lienzo queda visible
+// arriba para seguir explorándolo mientras se apuntan tareas.
+var TAREAS_ANCHO_HOJA = 760;   // por debajo de esto, siempre hoja abajo
+var TAREAS_MIN_LIENZO = 200;   // px de lienzo que deben quedar SIEMPRE a la vista
+var TAREAS_MIN_LADO = 380;     // menos de esto al lado no da para el panel: mejor abajo
+// El sitio libre se mide desde donde empieza el lienzo, no desde el borde de la ventana:
+// con la barra lateral abierta (284 px) un panel «del 74%» tapaba el lienzo entero.
+function tareasSitioLateral() {
+  var c = document.getElementById('canvas');
+  var izq = c ? c.getBoundingClientRect().left : 0;
+  return (window.innerWidth || 1200) - izq - TAREAS_MIN_LIENZO;
+}
+function tareasIsSheet() {
+  if (tareasDock() !== 'dock') return false;
+  if ((window.innerWidth || 1200) <= TAREAS_ANCHO_HOJA) return true;
+  return tareasSitioLateral() < TAREAS_MIN_LADO;
+}
+function tareasHeight() {
+  var vh = window.innerHeight || 800;
+  var hgt = parseInt(ui.tasksHeight, 10);
+  if (!hgt || hgt < 180) hgt = Math.round(vh * 0.55);
+  return Math.max(180, Math.min(hgt, Math.round(vh * 0.82)));
+}
 function tareasWidth() {
   var w = parseInt(ui.tasksWidth, 10);
-  if (!w || w < 320) w = tareasView() === 'tablero' ? 900 : 460;
-  return Math.min(w, Math.round(window.innerWidth * 0.9));
+  if (!w || w < 300) w = tareasView() === 'tablero' ? 760 : 420;
+  var tope = Math.max(300, Math.min(Math.round((window.innerWidth || 1200) * 0.56), tareasSitioLateral()));
+  return Math.max(300, Math.min(w, tope));
 }
 function closeTareas() {
   var o = document.getElementById('tareasOverlay');
@@ -135,30 +163,40 @@ function boardPlace(src, id, status, beforeId) {
   renderTareas();
 }
 
-// Asa del borde izquierdo: arrastra para dar más o menos sitio al panel sin cerrarlo.
-// Doble clic devuelve el ancho por defecto de la vista.
-function tareasResizer(dockEl) {
-  var grip = h('div', { class: 'tareas-resize', title: 'Arrastra para cambiar el ancho · doble clic para restablecerlo' });
-  grip.addEventListener('mousedown', function (e) {
+// Asa para dar más o menos sitio al panel sin cerrarlo: el borde izquierdo cuando está al
+// lado, el borde superior cuando es una hoja abajo. Doble clic/toque restablece la medida.
+// Eventos de puntero (no de ratón) para que también se arrastre con el dedo.
+function tareasResizer(dockEl, sheet) {
+  var grip = h('div', { class: 'tareas-resize' + (sheet ? ' is-vert' : ''), title: sheet
+    ? 'Arrastra para ver más o menos lienzo · doble toque para restablecer'
+    : 'Arrastra para cambiar el ancho · doble clic para restablecerlo' });
+  grip.addEventListener('pointerdown', function (e) {
     e.preventDefault();
     document.body.classList.add('tareas-resizing');
+    try { grip.setPointerCapture(e.pointerId); } catch (er) {}
     var move = function (ev) {
-      var w = Math.max(320, Math.min(window.innerWidth - 80, window.innerWidth - ev.clientX));
-      dockEl.style.width = w + 'px';
+      if (sheet) {
+        dockEl.style.height = Math.max(160, Math.min(window.innerHeight - 60, window.innerHeight - ev.clientY)) + 'px';
+      } else {
+        dockEl.style.width = Math.max(300, Math.min(window.innerWidth - 80, window.innerWidth - ev.clientX)) + 'px';
+      }
     };
     var up = function () {
-      document.removeEventListener('mousemove', move);
-      document.removeEventListener('mouseup', up);
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', up);
+      grip.removeEventListener('pointercancel', up);
       document.body.classList.remove('tareas-resizing');
-      ui.tasksWidth = parseInt(dockEl.style.width, 10) || 0;
+      if (sheet) ui.tasksHeight = parseInt(dockEl.style.height, 10) || 0;
+      else ui.tasksWidth = parseInt(dockEl.style.width, 10) || 0;
       save();
     };
-    document.addEventListener('mousemove', move);
-    document.addEventListener('mouseup', up);
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', up);
+    grip.addEventListener('pointercancel', up);
   });
   grip.addEventListener('dblclick', function () {
-    ui.tasksWidth = 0; save();
-    dockEl.style.width = tareasWidth() + 'px';
+    if (sheet) { ui.tasksHeight = 0; save(); dockEl.style.height = tareasHeight() + 'px'; }
+    else { ui.tasksWidth = 0; save(); dockEl.style.width = tareasWidth() + 'px'; }
   });
   return grip;
 }
@@ -169,14 +207,16 @@ function openTareas(view) {
   planTasks(); // sesiones existentes: normalizeData puede no haber corrido
   if (view === 'lista' || view === 'tablero') ui.tasksView = view;
   var dock = tareasDock() === 'dock';
+  var sheet = tareasIsSheet(); // teléfono: hoja abajo en vez de panel al lado
   // Acoplado: sin fondo oscuro y sin capturar los clics, para que el lienzo siga vivo detrás.
   var overlay = dock
-    ? h('div', { class: 'tareas-dock', id: 'tareasOverlay' })
+    ? h('div', { class: 'tareas-dock' + (sheet ? ' is-sheet' : ''), id: 'tareasOverlay' })
     : h('div', { class: 'overlay tareas-overlay', id: 'tareasOverlay', onmousedown: function (e) { if (e.target === overlay) closeTareas(); } });
   var panel = h('div', { class: 'tareas-panel v-' + tareasView() + (dock ? ' is-dock' : '') });
   if (dock) {
-    overlay.style.width = tareasWidth() + 'px';
-    overlay.appendChild(tareasResizer(overlay));
+    if (sheet) overlay.style.height = tareasHeight() + 'px';
+    else overlay.style.width = tareasWidth() + 'px';
+    overlay.appendChild(tareasResizer(overlay, sheet));
   }
 
   // Conmutador de vista: los mismos datos, dos preguntas distintas.

@@ -405,6 +405,16 @@ body {
     display: none;
   }
 }
+
+/* En un teléfono la barra superior se quedaba sin sitio: las migas y el título se apelotonaban
+   bajo los botones. El nombre del lienzo ya está en la fila de pestañas, así que aquí se
+   esconden las migas y el título se acorta, dejando el ancho para las acciones. */
+@media (max-width: 620px) {
+  #topbar { gap: 8px; padding: 10px 12px; }
+  .tb-left { flex: 0 0 auto; min-width: 0; }   /* que no se aplaste a 0: la barra ya se desplaza */
+  .tb-left .crumb { display: none; }
+  .tb-left .note-title { font-size: 16px; max-width: 34vw; }
+}
 @media (max-width: 1100px) {
   .hint {
     max-width: 180px;
@@ -7871,10 +7881,59 @@ body.mobile-on { overscroll-behavior-y: none; }
 body.tareas-resizing { cursor: col-resize; user-select: none; }
 body.tareas-resizing .tareas-resize::after { background: var(--ocre); }
 .tareas-head .icon-btn.on { color: var(--primary); background: var(--secondary); }
+/* En pantallas estrechas el panel ocupaba el 100% y tapaba el lienzo entero. Al lado tampoco
+   cabe (la barra lateral ya se lleva 284 px), así que se acopla ABAJO como una hoja: el
+   lienzo queda visible arriba y se puede seguir explorando mientras se apuntan tareas. */
 @media (max-width: 900px) {
-  .tareas-dock { width: 100% !important; }
-  .tareas-resize { display: none; }
+  .tareas-dock:not(.is-sheet) { max-width: 74vw; }
+  .tareas-resize:not(.is-vert) { width: 14px; }
+  .tareas-resize:not(.is-vert)::after { inset: 0 5px; background: var(--border); }
 }
+.tareas-dock.is-sheet {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: none;
+  flex-direction: column;
+  animation: tareasSheet 0.2s cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+@keyframes tareasSheet { from { transform: translateY(30px); opacity: 0.5; } to { transform: none; opacity: 1; } }
+.tareas-dock.is-sheet .tareas-panel.is-dock {
+  width: 100%;
+  height: auto;
+  flex: 1;
+  min-height: 0;
+  border-radius: 16px 16px 0 0;
+  border-top: 1px solid var(--border);
+  border-left: none;
+  box-shadow: 0 -14px 40px -18px rgba(58, 51, 44, 0.5);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* Tirador horizontal de la hoja: se agarra con el dedo para dejar ver más o menos lienzo. */
+.tareas-resize.is-vert {
+  width: 100%;
+  height: 20px;
+  flex: none;
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  background: var(--card);
+  border-radius: 16px 16px 0 0;
+}
+.tareas-resize.is-vert::after {
+  content: '';
+  position: static;
+  inset: auto;
+  width: 46px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border);
+}
+.tareas-resize.is-vert:hover::after { background: var(--ocre); }
 
 /* ---------- Elegir valor de una lista (prioridad, estado) ---------- */
 .planner-prio.has-arrow, .planner-status.has-arrow { display: inline-flex; align-items: center; gap: 3px; }
