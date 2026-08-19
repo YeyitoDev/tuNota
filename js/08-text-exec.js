@@ -1120,7 +1120,35 @@ function tblStartRangeDrag(wrap, vr, vc) {
   document.addEventListener('mousemove', move);
   document.addEventListener('mouseup', up);
 }
-function tblMove(wrap, b, vr, vc, grow) {
+// ---------- Enumeración que continúa en las tablas ----------
+// Igual que en una nota: si la celda de arriba (misma columna) es un ítem de lista, al bajar
+// con Enter o Tab la celda nueva se estrena con el marcador siguiente —1. → 2., a) → b),
+// I. → II., viñeta → viñeta, casilla → casilla vacía—. Respeta el estilo de ui.fmt.num.
+function tblNextMarker(prev) {
+  if (typeof outlineParse !== 'function') return '';
+  var it = outlineParse(String(prev == null ? '' : prev).split('\n').pop());
+  if (!it.list || !it.text) return '';   // un "1." suelto sin texto no arrastra la lista
+  if (it.kind === 'ordered') return numMarkerStyled((it.num || 0) + 1, it.style);
+  if (it.kind === 'task') return '- [ ] ';
+  var bl = outlineBullets();
+  return bl[0] + ' ';
+}
+// Rellena la celda destino si está vacía y la de arriba enumera. Trabaja sobre las filas de
+// la VISTA, así respeta el orden y los filtros activos.
+function tblAutoNumber(st, vr, vc) {
+  var t = st.t;
+  if (vr < 2) return false;                       // vr 0 es la cabecera: no arrastra numeración
+  var r = tblRowAt(st, vr), c = tblColAt(st, vc);
+  var rPrev = tblRowAt(st, vr - 1);
+  if (!t.rows[r] || !t.rows[rPrev] || t.rows[r][c]) return false;  // solo celdas vacías
+  var m = tblNextMarker(t.rows[rPrev][c]);
+  if (!m) return false;
+  t.rows[r][c] = m;
+  return true;
+}
+// autonumDesde: fila de partida. Solo se continúa la enumeración si el salto BAJA de fila
+// (Enter, o Tab que se desborda al final de la fila); tabulando por la misma fila, no.
+function tblMove(wrap, b, vr, vc, grow, autonumDesde) {
   var st = wrap._tbl;
   var maxR = st.view.rows.length, maxC = st.view.cols.length - 1;
   if (vc > maxC) { vc = 0; vr++; }
@@ -1138,15 +1166,33 @@ function tblMove(wrap, b, vr, vc, grow) {
   var ta = td && td.querySelector('textarea.cell');
   if (!ta) return;
   tblSetSel(wrap, vr, vc, vr, vc);
+  if (autonumDesde != null && vr > autonumDesde && tblAutoNumber(wrap._tbl, vr, vc)) {
+    ta.value = wrap._tbl.t.rows[tblRowAt(wrap._tbl, vr)][tblColAt(wrap._tbl, vc)];
+    touchNote(b.noteId);
+    debouncedSave();
+    tblRelayout(wrap);
+  }
   ta.focus();
   ta.setSelectionRange(ta.value.length, ta.value.length);
 }
 function tblCellKey(e, b, wrap, ta, vr, vc) {
   var k = e.key;
   if (k === 'Escape') { e.stopPropagation(); tblFocusWrap(wrap); return; }
-  if (k === 'Tab') { e.preventDefault(); e.stopPropagation(); tblMove(wrap, b, vr, vc + (e.shiftKey ? -1 : 1), true); return; }
+  if (k === 'Tab') { e.preventDefault(); e.stopPropagation(); tblMove(wrap, b, vr, vc + (e.shiftKey ? -1 : 1), true, e.shiftKey ? null : vr); return; }
   if (k === 'Enter' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
-    e.preventDefault(); e.stopPropagation(); tblMove(wrap, b, vr + 1, vc, true); return;
+    e.preventDefault(); e.stopPropagation(); tblMove(wrap, b, vr + 1, vc, true, vr); return;
+  }
+  // Shift/Alt+Enter parte la celda en varias líneas: dentro de ella la lista también continúa.
+  if (k === 'Enter' && (e.shiftKey || e.altKey) && typeof outlineApply === 'function') {
+    var stC = wrap._tbl, tC = stC.t, rC = tblRowAt(stC, vr), cC = tblColAt(stC, vc);
+    var sync = function () {
+      tC.rows[rC][cC] = ta.value;
+      if (!tC.rowH[rC]) tblAutoGrow(ta);
+      touchNote(b.noteId); debouncedSave(); tblRelayout(wrap);
+    };
+    if (outlineApply(ta, sync, 'enter', false)) { e.preventDefault(); e.stopPropagation(); return; }
+    e.stopPropagation();
+    return;
   }
   if ((e.ctrlKey || e.metaKey) && /^[cvxadCVXAD]$/.test(k)) { e.stopPropagation(); return; } // no molestar a los atajos del lienzo
   if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
