@@ -7870,8 +7870,19 @@ body.mobile-on { overscroll-behavior-y: none; }
 .m-steps-btn.all.open { background: var(--sage); color: #fff; }
 
 /* ---------- Panel de Tareas acoplado: se trabaja en el lienzo con él abierto ---------- */
-.tareas-dock { position: fixed; top: 0; right: 0; bottom: 0; z-index: 2600; display: flex; animation: tareasSlide .2s cubic-bezier(.22, .9, .3, 1); }
-@keyframes tareasSlide { from { transform: translateX(24px); opacity: .4; } to { transform: none; opacity: 1; } }
+/* Cajón deslizante: entra desde el borde derecho (o desde abajo si es hoja). Se monta con
+   .is-pre —fuera de pantalla y sin transición—, se pinta su contenido y solo entonces se
+   quita la clase: así el deslizamiento sale limpio en vez de comerse los primeros
+   fotogramas mientras se dibujaba la lista. Al cerrar, la misma clase lo saca por donde vino. */
+.tareas-dock {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 2600; display: flex;
+  transition: transform 0.22s cubic-bezier(0.22, 0.9, 0.3, 1);
+  will-change: transform;
+}
+.tareas-dock.is-pre { transform: translateX(100%); }
+.tareas-dock.is-sheet.is-pre { transform: translateY(100%); }
+.tareas-dock.no-anim { transition: none; }
+.tareas-dock.is-closing { pointer-events: none; }
 .tareas-panel.is-dock { width: 100%; height: 100%; border-radius: 0; border-top: none; border-right: none; border-bottom: none; box-shadow: -14px 0 40px -18px rgba(58, 51, 44, .45); animation: none; }
 /* El panel se superpone al borde derecho; el lienzo no se toca (su zoom y su pan dependen de
    un transform, y cambiarle el ancho descuadraría las coordenadas del ratón). */
@@ -7897,9 +7908,7 @@ body.tareas-resizing .tareas-resize::after { background: var(--ocre); }
   width: 100%;
   max-width: none;
   flex-direction: column;
-  animation: tareasSheet 0.2s cubic-bezier(0.22, 0.9, 0.3, 1);
 }
-@keyframes tareasSheet { from { transform: translateY(30px); opacity: 0.5; } to { transform: none; opacity: 1; } }
 .tareas-dock.is-sheet .tareas-panel.is-dock {
   width: 100%;
   height: auto;
@@ -7934,6 +7943,77 @@ body.tareas-resizing .tareas-resize::after { background: var(--ocre); }
   background: var(--border);
 }
 .tareas-resize.is-vert:hover::after { background: var(--ocre); }
+
+/* ---------- Pomodoro: sesión de foco sobre una tarea ---------- */
+.pomo-slot:empty { display: none; }
+.pomo-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 12px 8px;
+  padding: 9px 10px 12px;
+  border: 1px solid var(--primary);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--card));
+  overflow: hidden;
+}
+.pomo-bar.is-rest { border-color: var(--sage); background: color-mix(in srgb, var(--sage) 12%, var(--card)); }
+.pomo-bar.is-paused { opacity: 0.75; }
+.pomo-emoji { font-size: 18px; line-height: 1; flex: none; }
+.pomo-clock {
+  font-size: 21px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  flex: none;
+  min-width: 62px;
+}
+.pomo-what { flex: 1; min-width: 0; line-height: 1.15; }
+.pomo-what strong { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+.pomo-task { display: block; font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pomo-actions { display: flex; gap: 5px; flex: none; }
+.pomo-btn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  border-radius: 9px;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 8px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.pomo-btn:hover { border-color: var(--primary); color: var(--primary); }
+.pomo-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+.pomo-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0, 0, 0, 0.07); }
+.pomo-progress-fill { height: 100%; background: var(--primary); transition: width 0.9s linear; }
+.pomo-bar.is-rest .pomo-progress-fill { background: var(--sage); }
+/* Botón de cada fila */
+.pomo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.pomo-chip:hover { border-color: var(--primary); color: var(--fg); }
+.pomo-chip.has-done { color: var(--fg); }
+.pomo-chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.pomo-chip.on.paused { background: var(--ocre); border-color: var(--ocre); }
+.pomo-pop { min-width: 236px; }
+/* En el móvil el mismo botón, algo más grande para el dedo */
+.m-meta .pomo-chip { padding: 4px 10px; font-size: 11.5px; }
 
 /* ---------- Elegir valor de una lista (prioridad, estado) ---------- */
 .planner-prio.has-arrow, .planner-status.has-arrow { display: inline-flex; align-items: center; gap: 3px; }

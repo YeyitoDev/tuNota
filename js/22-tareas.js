@@ -61,7 +61,14 @@ function tareasWidth() {
 }
 function closeTareas() {
   var o = document.getElementById('tareasOverlay');
-  if (o) o.remove();
+  if (o) {
+    // Se va deslizando por donde entró. Pierde el id al instante: para la app ya está
+    // cerrado, y lo que queda es un fantasma que acaba la animación y se borra solo.
+    o.removeAttribute('id');
+    o.classList.add('is-closing');
+    o.classList.add('is-pre');     // se va por donde vino
+    setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 260);
+  }
   document.body.classList.remove('has-tareas-dock');
 }
 function tareasIsOpen() { return !!document.getElementById('tareasOverlay'); }
@@ -203,6 +210,7 @@ function tareasResizer(dockEl, sheet) {
 
 // ---------- Panel ----------
 function openTareas(view) {
+  var yaEstaba = tareasIsOpen();   // cambiar de vista no repite la entrada deslizante
   closeTareas();
   planTasks(); // sesiones existentes: normalizeData puede no haber corrido
   if (view === 'lista' || view === 'tablero') ui.tasksView = view;
@@ -210,7 +218,7 @@ function openTareas(view) {
   var sheet = tareasIsSheet(); // teléfono: hoja abajo en vez de panel al lado
   // Acoplado: sin fondo oscuro y sin capturar los clics, para que el lienzo siga vivo detrás.
   var overlay = dock
-    ? h('div', { class: 'tareas-dock' + (sheet ? ' is-sheet' : ''), id: 'tareasOverlay' })
+    ? h('div', { class: 'tareas-dock' + (sheet ? ' is-sheet' : '') + (yaEstaba ? ' no-anim' : ''), id: 'tareasOverlay' })
     : h('div', { class: 'overlay tareas-overlay', id: 'tareasOverlay', onmousedown: function (e) { if (e.target === overlay) closeTareas(); } });
   var panel = h('div', { class: 'tareas-panel v-' + tareasView() + (dock ? ' is-dock' : '') });
   if (dock) {
@@ -276,12 +284,20 @@ function openTareas(view) {
   panel.appendChild(h('div', { class: 'tareas-summary-row' },
     dock ? h('span', { class: 'planner-date dock-date' }, dateLbl) : null,
     h('div', { class: 'planner-summary', id: 'tareasSummary' }), srcRow));
+  panel.appendChild(h('div', { class: 'pomo-slot', id: 'pomoSlot' }));   // sesión de foco en curso
   panel.appendChild(h('div', { class: 'tareas-filters', id: 'tareasFilters' }));
   panel.appendChild(h('div', { class: 'tareas-body', id: 'tareasBody' }));
   overlay.appendChild(panel);
+  if (dock && !yaEstaba) overlay.classList.add('is-pre');   // fuera de pantalla hasta estar pintado
   document.body.appendChild(overlay);
   document.body.classList.toggle('has-tareas-dock', dock);
   renderTareas();
+  if (dock && !yaEstaba) {
+    // Dos fotogramas: uno para que cuaje la posición inicial y otro para lanzar la entrada.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { overlay.classList.remove('is-pre'); });
+    });
+  }
   var first = panel.querySelector('.planner-inp, .kanban-add-inp');
   if (first) first.focus();
 }
@@ -363,6 +379,11 @@ function fechaHint(k) {
 }
 
 function renderTareas() {
+  var slot = document.getElementById('pomoSlot');
+  if (slot) {
+    slot.innerHTML = '';
+    if (typeof pomoBar === 'function') { var pb = pomoBar(); if (pb) slot.appendChild(pb); }
+  }
   var body = document.getElementById('tareasBody');
   if (!body) return;
   renderTareasSummary();
@@ -546,6 +567,7 @@ function taskRow(t) {
   var bellBtn = h('button', { class: 'act', title: 'Recordatorio en X minutos (suena y avisa)' }, icon('bell'));
   bellBtn.addEventListener('click', function (e) { e.stopPropagation(); openPlanRemindPicker(t, bellBtn, renderTareas); });
   meta.appendChild(bellBtn);
+  if (typeof pomoRowBtn === 'function') meta.appendChild(pomoRowBtn('task', t.id));
   var toCanvas = h('button', { class: 'act', title: 'Llevarla al lienzo como tarjeta' }, icon('popout'));
   toCanvas.addEventListener('click', function (e) { e.stopPropagation(); taskToCanvas(t); });
   meta.appendChild(toCanvas);
@@ -584,6 +606,7 @@ function blockRow(b) {
     meta.appendChild(h('button', { class: 'planner-note-chip', title: 'Abrir la hoja', onclick: function () { closeTareas(); selectNote(b.noteId); } }, '📄 ' + (note.title || 'Hoja')));
   }
   if (b.reminder && !b.reminder.done) meta.appendChild(h('span', { class: 'planner-remind-chip' }, '⏰ ' + fmtShort(b.reminder.at)));
+  if (typeof pomoRowBtn === 'function') meta.appendChild(pomoRowBtn('block', b.id));
   var toPlan = h('button', { class: 'act', title: 'Copiarla al plan de hoy' }, icon('todo'));
   toPlan.addEventListener('click', function (e) { e.stopPropagation(); blockToTask(b); });
   meta.appendChild(toPlan);

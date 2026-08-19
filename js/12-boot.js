@@ -87,6 +87,7 @@ function boot() {
           renderAll();
           lastSig = sidebarSig();
           startReminderLoop();
+          if (typeof pomoBoot === 'function') pomoBoot(); // retoma el pomodoro si quedó uno vivo
           gcBlobs();
           // En teléfono arranca la versión móvil (tareas, Kanban e ideas rápidas).
           if (typeof applyMobileMode === 'function') applyMobileMode();

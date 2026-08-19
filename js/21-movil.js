@@ -463,6 +463,7 @@ function mKanTaskCard(t, status) {
   var meta = h('div', { class: 'm-meta' });
   meta.appendChild(h('span', { class: 'm-tag ok' }, '🗓 Del día'));
   if (t.subs.length) meta.appendChild(h('span', { class: 'm-tag' + (subsDone === t.subs.length ? ' ok' : '') }, subsDone + '/' + t.subs.length + ' pasos'));
+  if (typeof pomoRowBtn === 'function') meta.appendChild(pomoRowBtn('task', t.id)); // pomodoro
   if (t.remindAt && t.remindAt > now()) meta.appendChild(h('span', { class: 'm-tag rem' }, '⏰ ' + fmtShort(t.remindAt)));
   main.appendChild(meta);
   var more = h('button', { class: 'm-item-btn', title: 'Opciones' }, icon('more'));
