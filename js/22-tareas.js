@@ -220,7 +220,10 @@ function openTareas(view) {
   var overlay = dock
     ? h('div', { class: 'tareas-dock' + (sheet ? ' is-sheet' : '') + (yaEstaba ? ' no-anim' : ''), id: 'tareasOverlay' })
     : h('div', { class: 'overlay tareas-overlay', id: 'tareasOverlay', onmousedown: function (e) { if (e.target === overlay) closeTareas(); } });
-  var panel = h('div', { class: 'tareas-panel v-' + tareasView() + (dock ? ' is-dock' : '') });
+  // Modo compacto: acoplado y estrecho, o en una pantalla de portátil. Sin esto, en un
+  // 1366x768 al 125% el cromo se comía 252 px y solo se veían tres tareas.
+  var apretado = dock && (sheet || tareasWidth() < 520 || (window.innerHeight || 900) < 820);
+  var panel = h('div', { class: 'tareas-panel v-' + tareasView() + (dock ? ' is-dock' : '') + (apretado ? ' is-tight' : '') });
   if (dock) {
     if (sheet) overlay.style.height = tareasHeight() + 'px';
     else overlay.style.width = tareasWidth() + 'px';

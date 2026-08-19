@@ -375,6 +375,33 @@ function toggleTaskAtCaret(ta, b) {
   if (typeof scheduleAppleSync === 'function') scheduleAppleSync();
   return true;
 }
+// Esconder la salida (respuesta de cURL o resultado de Python): a veces solo interesa el
+// comando y la respuesta ocupa media pantalla. Se recuerda por bloque en content.ui.outHidden
+// y el bloque se encoge y recupera su alto al volver a mostrarla.
+function toggleMonoOut(b, out, resize, btn, etiqueta) {
+  b.content = b.content || {};
+  b.content.ui = b.content.ui || {};
+  var oculta = !b.content.ui.outHidden;
+  var alto = (parseInt(out.style.height, 10) || 130) + 10;   // salida + tirador
+  b.content.ui.outHidden = oculta;
+  applyMonoOutHidden(b, out, resize, btn, etiqueta);
+  var el = cardEl(b.id);
+  if (oculta) { b.content.ui.hFull = b.height; b.height = Math.max(110, (b.height || 0) - alto); }
+  else if (b.content.ui.hFull) { b.height = b.content.ui.hFull; }
+  if (el) el.style.height = b.height + 'px';
+  touchNote(b.noteId);
+  logChange(oculta ? 'Respuesta oculta' : 'Respuesta visible', '');
+  save();
+  if (typeof drawLinks === 'function') drawLinks();
+}
+function applyMonoOutHidden(b, out, resize, btn, etiqueta) {
+  var oculta = !!(b.content && b.content.ui && b.content.ui.outHidden);
+  out.style.display = oculta ? 'none' : '';
+  if (resize) resize.style.display = oculta ? 'none' : '';
+  btn.textContent = oculta ? 'Ver ' + etiqueta : 'Ocultar';
+  btn.title = oculta ? 'Volver a mostrar la ' + etiqueta : 'Esconder la ' + etiqueta + ' (el bloque se encoge)';
+  btn.classList.toggle('on', oculta);
+}
 function monoBody(b) {
   b.content = b.content || {};
   var ph = b.type === 'curl' ? 'curl -X GET https://api.ejemplo.com' : (b.type === 'json' ? '{\n  "clave": "valor"\n}' : (b.type === 'python' ? 'print("Hola")' : '// tu c\u00f3digo aqu\u00ed'));
@@ -411,7 +438,11 @@ function monoBody(b) {
     attachCurlResize(resize, out, b);
     if (b.content.result) renderPyResult(b.content.result, out, status);
     else { out.classList.add('empty'); out.textContent = 'La salida aparecerá aquí tras ejecutar (' + MOD + '+Enter).'; }
-    return [ta, h('div', { class: 'mono-bar' }, runBtn, copyBtn, status), resize, out];
+    var hidePy = h('button', { class: 'mono-fmt' });
+    hidePy.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    hidePy.addEventListener('click', function (e) { e.stopPropagation(); toggleMonoOut(b, out, resize, hidePy, 'salida'); });
+    applyMonoOutHidden(b, out, resize, hidePy, 'salida');
+    return [ta, h('div', { class: 'mono-bar' }, runBtn, copyBtn, hidePy, status), resize, out];
   }
   if (b.type === 'curl') {
     ta.classList.add('curl-input');
@@ -435,7 +466,11 @@ function monoBody(b) {
     attachCurlResize(resize, out, b);
     if (b.content.response && b.content.response.body != null) renderCurlResponse(b.content.response, out, status);
     else { out.classList.add('empty'); out.textContent = 'La respuesta aparecer\u00e1 aqu\u00ed tras ejecutar.'; }
-    return [ta, h('div', { class: 'mono-bar' }, runBtn, copyBtn, status), resize, out];
+    var hideBtn = h('button', { class: 'mono-fmt' });
+    hideBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    hideBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleMonoOut(b, out, resize, hideBtn, 'respuesta'); });
+    applyMonoOutHidden(b, out, resize, hideBtn, 'respuesta');
+    return [ta, h('div', { class: 'mono-bar' }, runBtn, copyBtn, hideBtn, status), resize, out];
   }
   if (b.type !== 'json') return [ta];
   var status = h('span', { class: 'mono-status' });
@@ -518,6 +553,12 @@ function runCurlBlock(b, ta, out, status, runBtn) {
         return;
       }
       b.content.response = { status: resp.status, reason: resp.reason, body: resp.body, contentType: resp.contentType, timeMs: resp.timeMs };
+      // Si estaba escondida, una respuesta nueva la saca: si no, parecería que no pasó nada.
+      if (b.content.ui && b.content.ui.outHidden) {
+        var elc = cardEl(b.id);
+        var btnc = elc && elc.querySelector('.mono-bar .mono-fmt.on');
+        if (btnc) toggleMonoOut(b, out, elc.querySelector('.curl-resize'), btnc, 'respuesta');
+      }
       renderCurlResponse(resp, out, status);
       logChange('cURL ejecutado', (resp.method || '') + ' ' + resp.status + ' ' + snippet(resp.url || ''));
       save();
