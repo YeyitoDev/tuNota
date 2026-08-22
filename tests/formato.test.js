@@ -1,185 +1,198 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { loadApp } from './harness.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
 
-// La barra de texto escribe marcadores markdown en un textarea. Estas pruebas fijan el
-// comportamiento del toggle, que es donde más fácil se cuela un error de índices.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const MARCA = '\u0001'; // marcador de imagen intercalada en el texto plano
+
+// El editor enriquecido vive en el DOM, así que estas pruebas corren sobre jsdom cargando
+// los módulos reales. Lo que se fija aquí es el contrato que sostiene todo lo demás:
+// content.html es lo que ves, content.text es lo que leen la IA, el buscador y las tareas.
 function bootApp() {
-  const app = loadApp(['01-storage.js', '02-state.js', '24-formato.js']);
-  app.h = () => ({ style: {}, appendChild() {}, addEventListener() {} });
-  app.pushUndo = () => {};
-  app.touchNote = () => {};
-  app.snippet = (t) => String(t).slice(0, 48);
-  app.save = () => {};
-  app.serverSave = () => {};
-  app.cardEl = () => null;
-  app.positionFmtBar = () => {};
-  app.data = { notebooks: [], sections: [], notes: [], blocks: [], links: [], log: [], plan: [] };
-  app.ui = {};
-  return app;
-}
-// Un textarea de mentira: value + selección, que es todo lo que toca el código.
-function fakeTa(value, start, end) {
-  return { value, selectionStart: start, selectionEnd: end ?? start, isConnected: false, focus() {} };
-}
-function aplicar(app, texto, ini, fin, marca) {
-  const ta = fakeTa(texto, ini, fin);
-  const b = { id: 'b1', noteId: 'n1', content: { text: texto } };
-  app.applyCharMark(b, ta, marca);
-  return { texto: ta.value, sel: [ta.selectionStart, ta.selectionEnd], guardado: b.content.text };
-}
-
-describe('estilo de carácter — poner y quitar', () => {
-  let app;
-  beforeEach(() => { app = bootApp(); });
-
-  it('envuelve la selección y deja seleccionado el texto, no los marcadores', () => {
-    const r = aplicar(app, 'hola mundo', 5, 10, 'bold');
-    expect(r.texto).toBe('hola **mundo**');
-    expect(r.texto.slice(r.sel[0], r.sel[1])).toBe('mundo');
-  });
-
-  it('el mismo botón lo quita si ya estaba puesto', () => {
-    const r = aplicar(app, 'hola **mundo**', 5, 14, 'bold');
-    expect(r.texto).toBe('hola mundo');
-  });
-
-  it('también lo quita si seleccionaste el texto sin los marcadores', () => {
-    const r = aplicar(app, 'hola **mundo**', 7, 12, 'bold');
-    expect(r.texto).toBe('hola mundo');
-    expect(r.texto.slice(r.sel[0], r.sel[1])).toBe('mundo');
-  });
-
-  it('sin selección actúa sobre la palabra bajo el cursor', () => {
-    const r = aplicar(app, 'hola mundo', 7, 7); // cursor dentro de "mundo"
-    const s = aplicar(app, 'hola mundo', 7, 7, 'italic');
-    expect(s.texto).toBe('hola _mundo_');
-  });
-
-  it('cada marca usa su propio par de marcadores', () => {
-    expect(aplicar(app, 'x', 0, 1, 'underline').texto).toBe('++x++');
-    expect(aplicar(app, 'x', 0, 1, 'highlight').texto).toBe('==x==');
-    expect(aplicar(app, 'x', 0, 1, 'strike').texto).toBe('~~x~~');
-    expect(aplicar(app, 'x', 0, 1, 'code').texto).toBe('`x`');
-  });
-
-  it('se pueden anidar dos estilos sobre el mismo texto', () => {
-    const uno = aplicar(app, 'clave', 0, 5, 'bold');
-    const ta = fakeTa(uno.texto, uno.sel[0], uno.sel[1]);
-    const b = { id: 'b1', noteId: 'n1', content: {} };
-    app.applyCharMark(b, ta, 'highlight');
-    expect(ta.value).toBe('**==clave==**');
-  });
-
-  it('guarda el resultado en el bloque', () => {
-    const r = aplicar(app, 'hola', 0, 4, 'bold');
-    expect(r.guardado).toBe('**hola**');
-  });
-
-  it('una marca desconocida no toca nada', () => {
-    const ta = fakeTa('hola', 0, 4);
-    const b = { id: 'b1', noteId: 'n1', content: {} };
-    app.applyCharMark(b, ta, 'inventada');
-    expect(ta.value).toBe('hola');
-  });
-});
-
-describe('quitar todo el formato', () => {
-  let app;
-  beforeEach(() => { app = bootApp(); });
-
-  it('deja el texto limpio de marcadores de carácter y de párrafo', () => {
-    const ta = fakeTa('## Título\n**negrita** y ==resaltado== y ++sub++ y ~~tachado~~ y `code`\n> cita', 0, 0);
-    const b = { id: 'b1', noteId: 'n1', content: {} };
-    app.clearFormatting(b, ta);
-    expect(ta.value).toBe('Título\nnegrita y resaltado y sub y tachado y code\ncita');
-  });
-
-  it('sin selección limpia el bloque entero; con selección solo esa parte', () => {
-    const ta = fakeTa('**uno** **dos**', 0, 7);
-    const b = { id: 'b1', noteId: 'n1', content: {} };
-    app.clearFormatting(b, ta);
-    expect(ta.value).toBe('uno **dos**');
-  });
-});
-
-describe('transformaciones de párrafo', () => {
-  let app;
-  beforeEach(() => { app = bootApp(); });
-
-  it('el título sustituye al que ya hubiera, no se acumula', () => {
-    expect(app.headingFn(2)('## Hola')).toBe('## Hola');
-    expect(app.headingFn(1)('### Hola')).toBe('# Hola');
-    expect(app.headingFn(0)('### Hola')).toBe('Hola');
-  });
-
-  it('la cita se pone y se quita con el mismo botón', () => {
-    expect(app.quoteFn('uno\ndos')).toBe('> uno\n> dos');
-    expect(app.quoteFn('> uno\n> dos')).toBe('uno\ndos');
-  });
-
-  it('la sangría respeta las líneas en blanco y no baja de cero', () => {
-    expect(app.indentFn(1)('a\n\nb')).toBe('  a\n\n  b');
-    expect(app.indentFn(-1)('  a\n\n  b')).toBe('a\n\nb');
-    expect(app.indentFn(-1)('a')).toBe('a');
-  });
-});
-
-describe('estilo del bloque', () => {
-  let app;
-  beforeEach(() => { app = bootApp(); });
-
-  it('cada familia conocida tiene su css y las demás caen en la predeterminada', () => {
-    expect(app.textFontCss('mono')).toMatch(/monospace/);
-    expect(app.textFontCss('serif')).toMatch(/Fraunces/);
-    expect(app.textFontCss('')).toBe('');
-    expect(app.textFontCss('inventada')).toBe('');
-  });
-
-  it('guarda el ajuste y lo borra al restablecerlo', () => {
-    const b = { id: 'b1', noteId: 'n1', content: { text: 'x' } };
-    app.setNoteTextStyle(b, 'size', 22, 'tamaño');
-    expect(b.content.size).toBe(22);
-    app.setNoteTextStyle(b, 'size', '', 'tamaño');
-    expect('size' in b.content).toBe(false);
-  });
-});
-
-describe('recorte de la selección — el marcador tiene que quedar pegado al texto', () => {
-  let app;
-  beforeEach(() => { app = bootApp(); });
-  const marcar = (texto, ini, fin, k = 'bold') => {
-    const ta = fakeTa(texto, ini, fin);
-    app.applyCharMark({ id: 'b1', noteId: 'n1', content: {} }, ta, k);
-    return ta.value;
+  const ctx = {
+    console, setTimeout, clearTimeout, document, window, navigator,
+    localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    addEventListener() {}, removeEventListener() {},
   };
+  ctx.window = window;
+  vm.createContext(ctx);
+  for (const f of ['06-markdown-mermaid.js', '25-rich.js']) {
+    // Solo se necesitan las piezas puras; el resto del módulo referencia funciones de otros
+    // ficheros que aquí no hacen falta porque no se llaman.
+    vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f), 'utf8'), ctx, { filename: 'js/' + f });
+  }
+  ctx.resolveSrc = (s) => s;
+  ctx.snippet = (t) => String(t).slice(0, 48);
+  ctx.touchNote = () => {};
+  ctx.logChange = () => {};
+  return ctx;
+}
+const conHtml = (app, html) => {
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  return app.richToText(d);
+};
 
-  it('deja fuera los espacios de los extremos', () => {
-    expect(marcar('hola mundo cruel', 4, 11)).toBe('hola **mundo** cruel');
-  });
-
-  it('deja fuera un salto de línea al principio de la selección', () => {
-    expect(marcar('titulo\nprimera linea', 6, 14)).toBe('titulo\n**primera** linea');
-  });
-
-  it('no marca nada si solo seleccionaste espacios', () => {
-    expect(marcar('hola   mundo', 4, 7)).toBe('hola   mundo');
-  });
-
-  it('una selección de varias líneas se recorta por fuera, no por dentro', () => {
-    expect(marcar('  uno\ndos  ', 0, 11)).toBe('  **uno\ndos**  ');
-  });
-});
-
-describe('convertir en lista una línea que era título o cita', () => {
+describe('de HTML a texto plano — lo que leerán la IA y el buscador', () => {
   let app;
   beforeEach(() => { app = bootApp(); });
 
-  it('quita la almohadilla y el signo de cita antes de numerar', () => {
-    expect(app.listSource('# Titulo\n> cita\nnormal')).toBe('Titulo\ncita\nnormal');
+  it('convierte párrafos y saltos en líneas', () => {
+    expect(conHtml(app, '<p>uno</p><p>dos</p>')).toBe('uno\ndos');
+    expect(conHtml(app, 'uno<br>dos')).toBe('uno\ndos');
   });
 
-  it('respeta la sangría y no toca las almohadillas de dentro del texto', () => {
-    expect(app.listSource('  ## Sub')).toBe('  Sub');
-    expect(app.listSource('el #1 de la lista')).toBe('el #1 de la lista');
+  it('numera las listas ordenadas de verdad, no deja los <li> pelados', () => {
+    expect(conHtml(app, '<ol><li>alfa</li><li>beta</li><li>gamma</li></ol>')).toBe('1. alfa\n2. beta\n3. gamma');
+  });
+
+  it('las viñetas salen con guión', () => {
+    expect(conHtml(app, '<ul><li>alfa</li><li>beta</li></ul>')).toBe('- alfa\n- beta');
+  });
+
+  it('las casillas conservan su estado', () => {
+    expect(conHtml(app, '<ul><li data-task="todo">pendiente</li><li data-task="done">hecha</li></ul>'))
+      .toBe('- [ ] pendiente\n- [x] hecha');
+  });
+
+  it('el formato desaparece: queda solo el texto', () => {
+    expect(conHtml(app, '<p>Hola <strong>mundo</strong> <mark>bonito</mark> y <em>raro</em></p>'))
+      .toBe('Hola mundo bonito y raro');
+  });
+
+  it('una imagen intercalada vuelve a su marcador, para no perder la referencia', () => {
+    const t = conHtml(app, '<p>antes<img data-inline="2" src="x">despues</p>');
+    expect(t).toBe('antes' + MARCA + '2' + MARCA + 'despues');
+  });
+
+  it('una imagen pegada de fuera (sin índice) no ensucia el texto', () => {
+    expect(conHtml(app, '<p>hola<img src="http://x/y.png">adios</p>')).toBe('holaadios');
+  });
+
+  it('los títulos y las citas son líneas normales', () => {
+    expect(conHtml(app, '<h1>Informe</h1><blockquote>una cita</blockquote><p>fin</p>'))
+      .toBe('Informe\nuna cita\nfin');
+  });
+
+  it('colapsa los saltos de sobra y recorta los de los extremos', () => {
+    expect(conHtml(app, '<p></p><p></p><p>solo</p><p></p>')).toBe('solo');
+  });
+});
+
+describe('de texto plano a HTML — al abrir una nota que ya tenías', () => {
+  let app;
+  beforeEach(() => { app = bootApp(); });
+
+  it('los marcadores que hubieras escrito antes se convierten en formato de verdad', () => {
+    const b = { content: { text: 'Con **negrita** y ==resaltado== y ++subrayado++' } };
+    const html = app.richFromText(b);
+    expect(html).toMatch(/<strong>negrita<\/strong>/);
+    expect(html).toMatch(/<mark>resaltado<\/mark>/);
+    expect(html).toMatch(/<u>subrayado<\/u>/);
+  });
+
+  it('una lista escrita a mano pasa a ser una lista de verdad', () => {
+    const html = app.richFromText({ content: { text: '1. uno\n2. dos' } });
+    expect(html).toMatch(/<ol>/);
+    expect(html).toMatch(/<li>uno<\/li>/);
+  });
+
+  it('las imágenes intercaladas sobreviven a la conversión', () => {
+    const b = { content: { text: 'antes' + MARCA + '0' + MARCA + 'despues', inlineImages: [{ src: 'blob:abc' }] } };
+    const html = app.richFromText(b);
+    expect(html).toMatch(/<img data-inline="0"/);
+    expect(html).toMatch(/src="blob:abc"/);
+  });
+
+  it('un bloque vacío no inventa contenido', () => {
+    expect(app.richFromText({ content: { text: '' } })).toBe('');
+  });
+});
+
+describe('ensureRichHtml — cuándo se regenera', () => {
+  let app;
+  beforeEach(() => { app = bootApp(); });
+
+  it('la primera vez lo genera y recuerda de qué texto salió', () => {
+    const b = { content: { text: 'hola **mundo**' } };
+    const html = app.ensureRichHtml(b);
+    expect(html).toMatch(/<strong>/);
+    expect(b.content.htmlFrom).toBe('hola **mundo**');
+  });
+
+  it('si nada cambió, devuelve el mismo html sin rehacerlo', () => {
+    const b = { content: { text: 'hola' } };
+    app.ensureRichHtml(b);
+    b.content.html = '<p>editado a mano</p>';
+    expect(app.ensureRichHtml(b)).toBe('<p>editado a mano</p>');
+  });
+
+  it('si algo reescribe el texto por fuera (la IA), el html se rehace solo', () => {
+    const b = { content: { text: 'viejo' } };
+    app.ensureRichHtml(b);
+    b.content.text = 'nuevo **desde la IA**';          // la IA escribe content.text
+    const html = app.ensureRichHtml(b);
+    expect(html).toMatch(/<strong>desde la IA<\/strong>/);
+    expect(b.content.htmlFrom).toBe('nuevo **desde la IA**');
+  });
+});
+
+describe('limpieza de lo que se pega', () => {
+  let app;
+  beforeEach(() => { app = bootApp(); });
+
+  it('conserva el formato útil', () => {
+    const out = app.sanitizeRich('<p>Hola <strong>mundo</strong> <em>bonito</em></p><ul><li>uno</li></ul>');
+    expect(out).toMatch(/<strong>mundo<\/strong>/);
+    expect(out).toMatch(/<li>uno<\/li>/);
+  });
+
+  it('descarta el script pero se queda con el texto que envolvía otra etiqueta', () => {
+    const out = app.sanitizeRich('<div>seguro<script>alert(1)</script></div>');
+    expect(out).not.toMatch(/alert/);
+    expect(out).toMatch(/seguro/);
+  });
+
+  it('quita un enlace con javascript: y deja el texto', () => {
+    const out = app.sanitizeRich('<a href="javascript:alert(1)">pincha</a>');
+    expect(out).not.toMatch(/javascript:/);
+    expect(out).toMatch(/pincha/);
+  });
+
+  it('tira los manejadores de eventos y las clases ajenas', () => {
+    const out = app.sanitizeRich('<p onclick="robar()" class="de-otra-web" id="x">texto</p>');
+    expect(out).not.toMatch(/onclick|de-otra-web|id=/);
+    expect(out).toMatch(/texto/);
+  });
+
+  it('de los estilos solo deja los de texto', () => {
+    const out = app.sanitizeRich('<span style="color:red;position:fixed;width:900px">rojo</span>');
+    expect(out).toMatch(/color:\s*red/);
+    expect(out).not.toMatch(/position|width/);
+  });
+
+  it('respeta los datos propios: el índice de imagen y el estado de la casilla', () => {
+    const out = app.sanitizeRich('<img data-inline="3" src="blob:x"><li data-task="done">ya</li>');
+    expect(out).toMatch(/data-inline="3"/);
+    expect(out).toMatch(/data-task="done"/);
+  });
+});
+
+describe('ida y vuelta: escribir, guardar y volver a abrir', () => {
+  let app;
+  beforeEach(() => { app = bootApp(); });
+
+  it('el texto plano que se deriva vuelve a producir el mismo formato', () => {
+    const b = { content: { text: '1. uno\n2. dos\n\nUn parrafo' } };
+    const html1 = app.ensureRichHtml(b);
+    const d = document.createElement('div');
+    d.innerHTML = html1;
+    const texto = app.richToText(d);
+    expect(texto).toBe('1. uno\n2. dos\n\nUn parrafo');   // la ida y vuelta es exacta
+    // Y ese texto vuelve a componer la misma lista
+    expect(app.richFromText({ content: { text: texto } })).toMatch(/<ol>/);
   });
 });

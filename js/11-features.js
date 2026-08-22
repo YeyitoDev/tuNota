@@ -941,6 +941,7 @@ document.addEventListener('paste', function (e) {
   // libre, el código y el editor Markdown NO saben hacerlo: antes se salía aquí por ser
   // <textarea> y la imagen se perdía en silencio. Ahora siguen y acaban en una tarjeta.
   if (cls && cls.contains('card-ta') && !cls.contains('mono') && !cls.contains('free-ta')) return;
+  if (cls && cls.contains('card-rich')) return;   // la nota con formato inserta la imagen en línea
   var enCampo = !!(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable));
   var cd = e.clipboardData;
   if (!cd) return;

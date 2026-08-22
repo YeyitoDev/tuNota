@@ -146,13 +146,15 @@ function updateCardPoppedState(el, b) {
   el.classList.toggle('is-popped', popped);
   var ta = el.querySelector('.card-ta');
   if (ta) ta.readOnly = popped;
+  var edp = el.querySelector('.rich-ed');
+  if (edp) edp.setAttribute('contenteditable', popped ? 'false' : 'true');
 }
 
 var syncT;
 function scheduleSync() { clearTimeout(syncT); syncT = setTimeout(syncAfterExternal, 80); }
 function activeCardId() {
   var a = document.activeElement;
-  if (a && a.classList && a.classList.contains('card-ta')) { var c = a.closest('.card'); return c ? c.getAttribute('data-id') : null; }
+  if (a && a.classList && (a.classList.contains('card-ta') || a.classList.contains('rich-ed'))) { var c = a.closest('.card'); return c ? c.getAttribute('data-id') : null; }
   return null;
 }
 function syncAfterExternal() {
@@ -224,6 +226,12 @@ function syncCanvasCards() {
     if (ta && document.activeElement !== ta) {
       var txt = (blk.content && blk.content.text) || '';
       if (ta.value !== txt) ta.value = txt;
+    }
+    // Igual para las notas con formato: se repinta salvo que sea justo la que estás editando.
+    var edRich = el.querySelector('.rich-ed');
+    if (edRich && document.activeElement !== edRich && typeof ensureRichHtml === 'function') {
+      var htmlFresco = ensureRichHtml(blk);
+      if (edRich.innerHTML !== htmlFresco) edRich.innerHTML = sanitizeRich(htmlFresco);
     }
     el.style.left = blk.x + 'px';
     el.style.top = blk.y + 'px';

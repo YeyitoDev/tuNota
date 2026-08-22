@@ -191,8 +191,49 @@
     text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     text = text.replace(/(^|[^\w])_([^_]+)_(?=[^\w]|$)/g, '$1<em>$2</em>');
     text = text.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+    text = text.replace(/==([^=]+)==/g, '<mark>$1</mark>');
+    text = text.replace(/\+\+([^+]+)\+\+/g, '<u>$1</u>');
     text = text.replace(/\u0000IC(\d+)\u0000/g, function (m, n) { return codes[+n]; });
     return text;
+  }
+  // ---------- Texto con formato en esta ventana ----------
+  // Misma idea que en el lienzo (js/25-rich.js): content.html es lo que se ve y content.text
+  // la versión plana que leen la IA y el buscador. Aquí va una copia mínima porque esta
+  // ventana es independiente y no comparte los módulos de la app.
+  function nwRichHtml(b) {
+    var c = b.content || {};
+    if (typeof c.html === 'string' && c.htmlFrom === (c.text || '')) return c.html;
+    return (c.text || '').trim() ? renderMarkdown(c.text) : '';
+  }
+  function nwPlain(root) {
+    var out = [];
+    function esBloque(n) { return /^(P|DIV|LI|H1|H2|H3|H4|H5|H6|BLOCKQUOTE|PRE)$/.test(n.nodeName); }
+    function marca(li) {
+      if (li.parentNode && li.parentNode.nodeName === 'OL') {
+        var n = 1, prev = li.previousElementSibling;
+        while (prev) { if (prev.nodeName === 'LI') n++; prev = prev.previousElementSibling; }
+        return n + '. ';
+      }
+      var t = li.getAttribute('data-task');
+      if (t === 'done') return '- [x] ';
+      if (t === 'todo') return '- [ ] ';
+      return '- ';
+    }
+    (function walk(node) {
+      for (var i = 0; i < node.childNodes.length; i++) {
+        var n = node.childNodes[i];
+        if (n.nodeType === 3) { out.push(n.nodeValue); continue; }
+        if (n.nodeType !== 1) continue;
+        if (n.nodeName === 'BR') { out.push('\n'); continue; }
+        if (n.nodeName === 'IMG') { continue; }
+        var bloque = esBloque(n);
+        if (bloque && out.length && out[out.length - 1] !== '\n') out.push('\n');
+        if (n.nodeName === 'LI') out.push(marca(n));
+        walk(n);
+        if (bloque) out.push('\n');
+      }
+    })(root);
+    return out.join('').replace(/\u00a0/g, ' ').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
   }
   function mdSplitRow(r) { return r.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(function (c) { return c.trim(); }); }
   function renderMarkdown(src) {
@@ -912,66 +953,107 @@
       });
     }
     var taT;
-    segs.forEach(function (seg, idx) {
-      if (seg.type === 'text') {
-        (function (seg, idx) {
-          var ta = h('textarea', { class: 'nw-ta', placeholder: isIdea ? 'Desarrolla tu idea...' : 'Escribe tu nota...' });
-          // El tipo de letra, el tamaño, la alineación y el color se eligen desde la barra de
-          // texto del lienzo (js/24-formato.js) y se guardan en el bloque: aquí se respetan.
-          (function (c) {
-            var FAM = { serif: '"Fraunces", Georgia, "Times New Roman", serif',
-              sans: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-              mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-              hand: '"Bradley Hand", "Segoe Script", "Comic Sans MS", cursive' };
-            if (c.font && FAM[c.font]) ta.style.fontFamily = FAM[c.font];
-            if (c.size) ta.style.fontSize = c.size + 'px';
-            if (c.align) ta.style.textAlign = c.align;
-            if (c.lh) ta.style.lineHeight = c.lh;
-            if (c.color) ta.style.color = c.color;
-          })(b.content || {});
-          ta.value = seg.text;
-          ta.addEventListener('input', function () {
-            seg.text = ta.value; rebuildText();
-            clearTimeout(taT);
-            taT = setTimeout(function () { syncSave(ta); }, 250);
-          });
-          ta.addEventListener('change', function () {
-            seg.text = ta.value; rebuildText();
-            persist(function (fresh) {
-              var fb = fresh.blocks.find(function (x) { return x.id === id; });
-              if (fb) { fb.content = fb.content || {}; fb.content.text = b.content.text; fb.content.inlineImages = b.content.inlineImages; fb.updatedAt = now(); }
-              logTo(fresh, isIdea ? 'Idea editada (ventana)' : 'Nota editada (ventana)', snippet(ta.value));
+    // Sin imágenes intercaladas se edita con formato (igual que en el lienzo), para no perder
+    // las negritas y los resaltados al pasar por esta ventana. Con imágenes se mantiene el
+    // editor por segmentos, que es quien sabe colocarlas.
+    var tieneImagenes = segs.some(function (s) { return s.type === 'image'; });
+    if (!tieneImagenes) {
+      var ed = h('div', { class: 'nw-ta nw-rich', contenteditable: 'true', spellcheck: 'true' });
+      ed.innerHTML = nwRichHtml(b);
+      (function (c) {
+        var FAM = { serif: '"Fraunces", Georgia, "Times New Roman", serif',
+          sans: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+          mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          hand: '"Bradley Hand", "Segoe Script", "Comic Sans MS", cursive' };
+        if (c.font && FAM[c.font]) ed.style.fontFamily = FAM[c.font];
+        if (c.size) ed.style.fontSize = c.size + 'px';
+        if (c.align) ed.style.textAlign = c.align;
+        if (c.lh) ed.style.lineHeight = c.lh;
+        if (c.color) ed.style.color = c.color;
+      })(b.content || {});
+      var guardarRich = function () {
+        b.content.html = ed.innerHTML;
+        b.content.text = nwPlain(ed);
+        b.content.htmlFrom = b.content.text;
+        persist(function (fresh) {
+          var fb = fresh.blocks.find(function (x) { return x.id === id; });
+          if (fb) {
+            fb.content = fb.content || {};
+            fb.content.html = b.content.html;
+            fb.content.text = b.content.text;
+            fb.content.htmlFrom = b.content.htmlFrom;
+            fb.updatedAt = now();
+            var fn = fresh.notes.find(function (n) { return n.id === fb.noteId; });
+            if (fn) fn.updatedAt = now();
+          }
+        });
+      };
+      var edT;
+      ed.addEventListener('input', function () { clearTimeout(edT); edT = setTimeout(guardarRich, 250); });
+      ed.addEventListener('blur', guardarRich);
+      body.appendChild(ed);
+    } else {
+      segs.forEach(function (seg, idx) {
+        if (seg.type === 'text') {
+          (function (seg, idx) {
+            var ta = h('textarea', { class: 'nw-ta', placeholder: isIdea ? 'Desarrolla tu idea...' : 'Escribe tu nota...' });
+            // El tipo de letra, el tamaño, la alineación y el color se eligen desde la barra de
+            // texto del lienzo (js/24-formato.js) y se guardan en el bloque: aquí se respetan.
+            (function (c) {
+              var FAM = { serif: '"Fraunces", Georgia, "Times New Roman", serif',
+                sans: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+                mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                hand: '"Bradley Hand", "Segoe Script", "Comic Sans MS", cursive' };
+              if (c.font && FAM[c.font]) ta.style.fontFamily = FAM[c.font];
+              if (c.size) ta.style.fontSize = c.size + 'px';
+              if (c.align) ta.style.textAlign = c.align;
+              if (c.lh) ta.style.lineHeight = c.lh;
+              if (c.color) ta.style.color = c.color;
+            })(b.content || {});
+            ta.value = seg.text;
+            ta.addEventListener('input', function () {
+              seg.text = ta.value; rebuildText();
+              clearTimeout(taT);
+              taT = setTimeout(function () { syncSave(ta); }, 250);
             });
-          });
-          // Paste inline
-          ta.addEventListener('paste', function (e) {
-            var items = e.clipboardData && e.clipboardData.items;
-            if (!items) return;
-            var files = [];
-            for (var i = 0; i < items.length; i++) { if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { var f = items[i].getAsFile(); if (f) files.push(f); } }
-            if (files.length) {
-              e.preventDefault();
-              insertInlineAt(b, seg, idx, segs, ta.selectionStart, files, function () { render(); });
-            }
-          });
-          // Drag-and-drop inline
-          ta.addEventListener('dragover', function (e) {
-            if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) { e.preventDefault(); ta.classList.add('drag-over'); }
-          });
-          ta.addEventListener('dragleave', function () { ta.classList.remove('drag-over'); });
-          ta.addEventListener('drop', function (e) {
-            var files = [];
-            if (e.dataTransfer) { for (var i = 0; i < e.dataTransfer.files.length; i++) { if (/^image\//.test(e.dataTransfer.files[i].type)) files.push(e.dataTransfer.files[i]); } }
-            if (files.length) { e.preventDefault(); ta.classList.remove('drag-over'); insertInlineAt(b, seg, idx, segs, ta.selectionStart, files, function () { render(); }); }
-          });
-          if (!refs.ta) refs.ta = ta;
-          body.appendChild(ta);
-        })(seg, idx);
-      } else {
-        var imgData = b.content.inlineImages[seg.imgIndex];
-        if (imgData) body.appendChild(buildInlineFig(b, seg.imgIndex, imgData));
-      }
-    });
+            ta.addEventListener('change', function () {
+              seg.text = ta.value; rebuildText();
+              persist(function (fresh) {
+                var fb = fresh.blocks.find(function (x) { return x.id === id; });
+                if (fb) { fb.content = fb.content || {}; fb.content.text = b.content.text; fb.content.inlineImages = b.content.inlineImages; fb.updatedAt = now(); }
+                logTo(fresh, isIdea ? 'Idea editada (ventana)' : 'Nota editada (ventana)', snippet(ta.value));
+              });
+            });
+            // Paste inline
+            ta.addEventListener('paste', function (e) {
+              var items = e.clipboardData && e.clipboardData.items;
+              if (!items) return;
+              var files = [];
+              for (var i = 0; i < items.length; i++) { if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { var f = items[i].getAsFile(); if (f) files.push(f); } }
+              if (files.length) {
+                e.preventDefault();
+                insertInlineAt(b, seg, idx, segs, ta.selectionStart, files, function () { render(); });
+              }
+            });
+            // Drag-and-drop inline
+            ta.addEventListener('dragover', function (e) {
+              if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) { e.preventDefault(); ta.classList.add('drag-over'); }
+            });
+            ta.addEventListener('dragleave', function () { ta.classList.remove('drag-over'); });
+            ta.addEventListener('drop', function (e) {
+              var files = [];
+              if (e.dataTransfer) { for (var i = 0; i < e.dataTransfer.files.length; i++) { if (/^image\//.test(e.dataTransfer.files[i].type)) files.push(e.dataTransfer.files[i]); } }
+              if (files.length) { e.preventDefault(); ta.classList.remove('drag-over'); insertInlineAt(b, seg, idx, segs, ta.selectionStart, files, function () { render(); }); }
+            });
+            if (!refs.ta) refs.ta = ta;
+            body.appendChild(ta);
+          })(seg, idx);
+        } else {
+          var imgData = b.content.inlineImages[seg.imgIndex];
+          if (imgData) body.appendChild(buildInlineFig(b, seg.imgIndex, imgData));
+        }
+      });
+    }
 
     var grid = h('div', { class: 'nw-grid' });
     renderImages(grid, b);

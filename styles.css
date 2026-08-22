@@ -8163,3 +8163,53 @@ body.tareas-resizing .tareas-resize::after { background: var(--ocre); }
 .text-preview ul, .text-preview ol { margin: .25em 0; padding-left: 1.3em; }
 .text-preview blockquote { margin: .3em 0; padding-left: 10px; border-left: 3px solid var(--ocre); color: var(--muted); }
 .text-preview code { font-family: ui-monospace, Menlo, monospace; background: var(--secondary); padding: 0 4px; border-radius: 4px; font-size: .92em; }
+
+/* ---------- Editor de texto con formato inmediato ---------- */
+.rich-ed {
+  flex: 1; width: 100%; outline: none; font: inherit; font-size: 13.5px; line-height: 1.5;
+  color: var(--fg); padding: 0 12px 12px; overflow-wrap: anywhere; cursor: text;
+}
+.rich-ed:empty::before, .rich-ed[data-empty]::before {
+  content: attr(data-ph); color: var(--muted2); pointer-events: none;
+}
+.card.note-auto .rich-ed { flex: none; min-height: 22px; }
+.card.note-manual .rich-ed { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+.rich-ed.drag-over { outline: 2px dashed var(--ocre); outline-offset: -4px; border-radius: 8px; }
+.rich-ed p { margin: 0 0 .35em; }
+.rich-ed p:last-child { margin-bottom: 0; }
+.rich-ed h1, .rich-ed h2, .rich-ed h3 { margin: .35em 0 .25em; line-height: 1.25; }
+.rich-ed h1 { font-size: 1.5em; }
+.rich-ed h2 { font-size: 1.28em; }
+.rich-ed h3 { font-size: 1.12em; }
+.rich-ed ul, .rich-ed ol { margin: .25em 0; padding-left: 1.4em; }
+.rich-ed li { margin: .1em 0; }
+.rich-ed blockquote { margin: .35em 0; padding-left: 10px; border-left: 3px solid var(--ocre); color: var(--muted); }
+.rich-ed mark { background: rgba(217, 163, 90, .45); color: inherit; padding: 0 2px; border-radius: 3px; }
+.rich-ed code { font-family: ui-monospace, Menlo, monospace; background: var(--secondary); padding: 0 4px; border-radius: 4px; font-size: .92em; }
+.rich-ed hr { border: none; border-top: 1px solid var(--border); margin: .6em 0; }
+.rich-ed img { max-width: 100%; height: auto; border-radius: 8px; display: block; margin: .4em 0; }
+.rich-ed a { color: var(--primary); }
+/* Listas de casillas: el cuadrito se dibuja con CSS para que el texto plano siga siendo "- [ ]" */
+.rich-ed ul.task-list { list-style: none; padding-left: .3em; }
+.rich-ed li[data-task] { position: relative; padding-left: 1.5em; }
+.rich-ed li[data-task]::before {
+  content: '☐'; position: absolute; left: 0; top: 0; color: var(--muted); font-size: 1.05em;
+}
+.rich-ed li[data-task="done"]::before { content: '☑'; color: var(--sage); }
+.rich-ed li[data-task="done"] { text-decoration: line-through; color: var(--muted); }
+/* Texto libre: sin el relleno de la nota, lo pone applyFreeStyle */
+.rich-ed.free-rich { padding: 0; }
+
+/* ---------- La barra, ahora en dos filas ---------- */
+.fmt-bar { flex-direction: column; align-items: stretch; gap: 3px; padding: 5px 6px; max-width: min(96vw, 520px); }
+.fmt-row { display: flex; align-items: center; gap: 1px; flex-wrap: wrap; }
+.fmt-row2 { border-top: 1px solid var(--border); padding-top: 4px; }
+.fmt-btn.fmt-bg { border-bottom: 3px solid #fff3bf; border-radius: 7px 7px 3px 3px; height: 25px; }
+/* Editor con formato en la ventana emergente */
+.nw-ta.nw-rich { white-space: normal; overflow-y: auto; }
+.nw-rich p { margin: 0 0 .4em; }
+.nw-rich h1, .nw-rich h2, .nw-rich h3 { margin: .4em 0 .25em; line-height: 1.25; }
+.nw-rich ul, .nw-rich ol { margin: .3em 0; padding-left: 1.4em; }
+.nw-rich blockquote { margin: .35em 0; padding-left: 10px; border-left: 3px solid var(--ocre); color: var(--muted); }
+.nw-rich mark { background: rgba(217, 163, 90, .45); color: inherit; padding: 0 2px; border-radius: 3px; }
+.nw-rich code { font-family: ui-monospace, Menlo, monospace; background: var(--secondary); padding: 0 4px; border-radius: 4px; }

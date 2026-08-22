@@ -1024,7 +1024,13 @@ function insertAINote(text) {
   if (!b) { closeAI(); return; }
   b.content = b.content || {}; b.content.text = text;
   touchNote(b.noteId); logChange('Nota de IA insertada', snippet(text)); save();
-  var el = cardEl(b.id); if (el) { var ta = el.querySelector('.card-ta'); if (ta) ta.value = text; }
+  var el = cardEl(b.id);
+  if (el) {
+    var ta = el.querySelector('.card-ta'); if (ta) ta.value = text;
+    // La nota con formato se regenera desde el texto nuevo (ensureRichHtml lo detecta solo).
+    var edIA = el.querySelector('.rich-ed');
+    if (edIA && typeof ensureRichHtml === 'function') edIA.innerHTML = sanitizeRich(ensureRichHtml(b));
+  }
   closeAI();
 }
 // Genera un flujograma (Mermaid) a partir de toda la nota actual y lo pone en el lienzo.

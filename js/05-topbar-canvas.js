@@ -730,10 +730,10 @@ function card(b) {
   else if (isMd) appendChild(el, markdownBody(b));
   else if (isPdf) appendChild(el, pdfBody(b));
   else if (isMermaid) appendChild(el, mermaidBody(b));
-  else if (isFree) appendChild(el, freeTextBody(b));
+  else if (isFree) appendChild(el, richFreeBody(b));
   else if (isDraw) appendChild(el, drawBody(b));
   else if (b.type === 'canvas') appendChild(el, canvasBody(b));
-  else appendChild(el, textBody(b));
+  else appendChild(el, richNoteBody(b));   // notas e ideas: editor con formato inmediato (js/25-rich.js)
 
   attachDragHandler(isFreeImage ? el : head, el, b);
   var anchor = h('button', { class: 'card-link-anchor', title: 'Arrastra hasta otro bloque para conectarlos' });
