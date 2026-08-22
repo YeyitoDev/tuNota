@@ -79,7 +79,7 @@ function initState() {
 // para el público rige el valor por defecto de cada una.
 // CAMBIA este código antes de publicar (queda visible en el JS del cliente; solo
 // controla qué se MUESTRA en ese navegador, no da acceso a datos ajenos).
-var MASTER_CODE = 'tunota-maestro-2026';
+var MASTER_CODE = 'tunota-yvfeq2-1rozob-g5xsgj-2wie1i-q10b4k';
 var FEATURE_DEFS = [
   { key: 'ai', label: 'Asistente de IA (con clave propia)', def: true },
   { key: 'ideaReview', label: 'Revisar idea (validación con IA)', def: false },
