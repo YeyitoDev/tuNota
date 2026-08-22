@@ -17,6 +17,8 @@ function mdInline(text) {
   text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   text = text.replace(/(^|[^\w])_([^_]+)_(?=[^\w]|$)/g, '$1<em>$2</em>');
   text = text.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  text = text.replace(/==([^=]+)==/g, '<mark>$1</mark>');   // resaltado de la barra de texto
+  text = text.replace(/\+\+([^+]+)\+\+/g, '<u>$1</u>');     // subrayado de la barra de texto
   text = text.replace(/\u0000IC(\d+)\u0000/g, function (m, n) { return codes[+n]; });
   return text;
 }

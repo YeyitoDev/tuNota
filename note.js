@@ -916,6 +916,19 @@
       if (seg.type === 'text') {
         (function (seg, idx) {
           var ta = h('textarea', { class: 'nw-ta', placeholder: isIdea ? 'Desarrolla tu idea...' : 'Escribe tu nota...' });
+          // El tipo de letra, el tamaño, la alineación y el color se eligen desde la barra de
+          // texto del lienzo (js/24-formato.js) y se guardan en el bloque: aquí se respetan.
+          (function (c) {
+            var FAM = { serif: '"Fraunces", Georgia, "Times New Roman", serif',
+              sans: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+              mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+              hand: '"Bradley Hand", "Segoe Script", "Comic Sans MS", cursive' };
+            if (c.font && FAM[c.font]) ta.style.fontFamily = FAM[c.font];
+            if (c.size) ta.style.fontSize = c.size + 'px';
+            if (c.align) ta.style.textAlign = c.align;
+            if (c.lh) ta.style.lineHeight = c.lh;
+            if (c.color) ta.style.color = c.color;
+          })(b.content || {});
           ta.value = seg.text;
           ta.addEventListener('input', function () {
             seg.text = ta.value; rebuildText();

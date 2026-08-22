@@ -12,7 +12,7 @@ var SHELL = [
   './js/09-interactions.js', './js/10-sync-panels.js', './js/11-features.js', './js/12-boot.js',
   './js/13-templates.js', './js/14-search.js', './js/15-tour.js', './js/16-sync.js', './js/17-guia.js',
   './js/18-control.js', './js/19-tooltips.js', './js/20-planner.js', './js/21-movil.js',
-  './js/22-tareas.js', './js/23-pomodoro.js',
+  './js/22-tareas.js', './js/24-formato.js', './js/23-pomodoro.js',
 ];
 
 self.addEventListener('install', function (e) {

@@ -151,80 +151,9 @@ function openTextFormatMenu(b, el, anchor) {
   positionPop(pop, anchor, 210);
 }
 
-// ---------- Barra flotante de formato sobre la selección (aparece arriba del bloque) ----------
-// Resuelve el problema de los controles que se ocultan: al enfocar/seleccionar texto en una
-// nota o idea, aparece una barra encima del bloque y formatea SOLO las líneas seleccionadas.
-var SEL_FMT_ACTIONS = [
-  { label: '✨', title: 'Auto-formato', fn: function (t) { return formatTextContent(t); } },
-  { label: '1.', title: 'Enumerar', fn: function (t) { return transformLines(t, function (s, n) { return numMarker(n) + s; }); } },
-  { label: '•', title: 'Viñetas', fn: function (t) { return transformLines(t, function (s) { return bulletMarker() + s; }); } },
-  { label: '☐', title: 'Casillas de tarea', fn: function (t) { return transformLines(t, function (s) { return '- [ ] ' + s; }); } },
-  { label: '⌫', title: 'Quitar marcadores', fn: function (t) { return String(t || '').split('\n').map(stripListMarker).join('\n'); } },
-];
-var selFmtBarEl = null;
-var selFmtState = { ta: null, b: null };
-function ensureSelFmtBar() {
-  if (selFmtBarEl) return selFmtBarEl;
-  var bar = h('div', { class: 'sel-fmt-bar' });
-  bar.addEventListener('mousedown', function (e) { e.preventDefault(); e.stopPropagation(); }); // no robar el foco/selección
-  SEL_FMT_ACTIONS.forEach(function (a) {
-    bar.appendChild(h('button', { class: 'sel-fmt-btn', title: a.title, onclick: function (e) {
-      e.preventDefault(); e.stopPropagation();
-      if (selFmtState.ta && selFmtState.b) { applyLineTransform(selFmtState.b, selFmtState.ta, a.fn, a.title); positionSelFmtBar(); }
-    } }, a.label));
-  });
-  bar.appendChild(h('span', { class: 'sel-fmt-sep' }));
-  bar.appendChild(h('button', { class: 'sel-fmt-btn', title: 'Más opciones (estilo de numeración, viñeta, espaciado)', onclick: function (e) {
-    e.preventDefault(); e.stopPropagation();
-    if (selFmtState.ta && selFmtState.b) openTextFormatMenu(selFmtState.b, selFmtState.ta.closest('.card'), e.currentTarget);
-  } }, '⋯'));
-  bar.appendChild(h('button', { class: 'sel-fmt-btn', title: 'Vincular la selección a un bloque, nota, imagen o PDF', onclick: function (e) {
-    e.preventDefault(); e.stopPropagation();
-    if (!selFmtState.ta || !selFmtState.b) return;
-    var ta = selFmtState.ta, text = ta.value.slice(ta.selectionStart, ta.selectionEnd).trim();
-    if (!text) { toast('Selecciona primero el texto que quieres vincular.', 'warn'); return; }
-    openHlinkPicker(selFmtState.b, text, e.currentTarget);
-  } }, '🔗'));
-  document.body.appendChild(bar);
-  selFmtBarEl = bar;
-  return bar;
-}
-function positionSelFmtBar() {
-  var bar = selFmtBarEl, ta = selFmtState.ta;
-  if (!bar || !ta) return;
-  var card = ta.closest('.card');
-  if (!card) return;
-  var cr = card.getBoundingClientRect();
-  var bw = bar.offsetWidth || 240, bh = bar.offsetHeight || 34;
-  var left = Math.min(Math.max(8, cr.left + (cr.width - bw) / 2), window.innerWidth - bw - 8);
-  var top = Math.max(56, cr.top - bh - 8);                 // encima del bloque, sin taparse con el topbar
-  bar.style.left = Math.round(left) + 'px';
-  bar.style.top = Math.round(top) + 'px';
-}
-function showSelFmtBar(ta, b) {
-  var bar = ensureSelFmtBar();
-  selFmtState.ta = ta; selFmtState.b = b;
-  bar.classList.add('show');
-  positionSelFmtBar();
-  window.addEventListener('resize', positionSelFmtBar);
-  window.addEventListener('scroll', positionSelFmtBar, true);
-}
-function hideSelFmtBar() {
-  if (!selFmtBarEl) return;
-  selFmtBarEl.classList.remove('show');
-  selFmtState.ta = null; selFmtState.b = null;
-  window.removeEventListener('resize', positionSelFmtBar);
-  window.removeEventListener('scroll', positionSelFmtBar, true);
-}
-// Conecta una nota/idea (textarea) con la barra flotante de formato.
-function attachSelFmtBar(ta, b) {
-  ta.addEventListener('focus', function () { showSelFmtBar(ta, b); });
-  ta.addEventListener('blur', function () { setTimeout(function () { if (selFmtState.ta === ta && document.activeElement !== ta) hideSelFmtBar(); }, 120); });
-  ['select', 'keyup', 'mouseup', 'input', 'click', 'scroll'].forEach(function (ev) {
-    ta.addEventListener(ev, function () { if (selFmtState.ta === ta) positionSelFmtBar(); });
-  });
-  ta.addEventListener('keydown', function (e) { if (e.key === 'Escape') { hideSelFmtBar(); ta.blur(); } });
-}
+// La barra de herramientas de texto (aparece sobre la selección, con negrita, resaltado,
+// tipo de letra, listas…) vive en js/24-formato.js. Aquí quedan las transformaciones de
+// línea que esa barra reutiliza: TEXT_TRANSFORMS y applyLineTransform().
 
 // ---------- Color de texto en contraste automático con el fondo más próximo ----------
 function _rgbParse(col) {

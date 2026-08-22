@@ -980,7 +980,9 @@ function textBody(b) {
             });
           }
         });
-        attachSelFmtBar(ta, b);
+        // La barra de texto escribe en ESTE segmento: una nota con imágenes intercaladas
+        // tiene su contenido partido en varios textarea.
+        attachFmtBar(ta, b, function () { seg.text = ta.value; rebuildText(); });
         ta.addEventListener('click', function () { toggleTaskAtCaret(ta, b); });
         requestAnimationFrame(function () { refreshAutoText(ta); autoGrowNote(ta); });
         elements.push(ta);
