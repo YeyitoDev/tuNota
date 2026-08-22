@@ -405,29 +405,46 @@ function hideFmtBar() {
   window.removeEventListener('scroll', positionFmtBar, true);
 }
 // Conecta un editor (nota, idea o texto libre) con la barra.
-function attachFmtBar(ed, b) {
-  ed.addEventListener('focus', function () { showFmtBar(ed, b); });
-  ed.addEventListener('blur', function () {
-    setTimeout(function () {
-      // Pulsar la barra o uno de sus menús no cuenta como salir del texto.
-      var a = document.activeElement;
-      if (a && a.closest && (a.closest('.fmt-bar') || a.closest('.card-menu-pop'))) return;
-      if (document.getElementById('topbarMenuBackdrop')) return;
-      if (fmtBarState.ed === ed && document.activeElement !== ed) hideFmtBar();
-    }, 140);
-  });
-  ['keyup', 'mouseup', 'input', 'click', 'scroll'].forEach(function (ev) {
-    ed.addEventListener(ev, function () {
-      if (fmtBarState.ed !== ed) return;
-      positionFmtBar();
-      renderFmtBarState();
-    });
-  });
+// ¿Hay texto seleccionado dentro de algún editor? La barra solo tiene sentido entonces:
+// con el cursor puesto y nada marcado no hay a qué aplicarle formato.
+function fmtSelectionInfo() {
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount || sel.isCollapsed) return null;
+  if (!String(sel).trim()) return null;              // solo espacios: no cuenta
+  var n = sel.getRangeAt(0).commonAncestorContainer;
+  var el = n.nodeType === 1 ? n : n.parentNode;
+  var ed = el && el.closest ? el.closest('.rich-ed') : null;
+  if (!ed || !ed._blk) return null;
+  return { ed: ed, b: ed._blk };
+}
+function syncFmtBar() {
+  // Mientras usas la propia barra o uno de sus menús, no se toca.
+  if (document.getElementById('topbarMenuBackdrop')) return;
+  var a = document.activeElement;
+  if (a && a.closest && a.closest('.fmt-bar')) return;
+  var info = fmtSelectionInfo();
+  if (!info) { hideFmtBar(); return; }
+  if (fmtBarState.ed !== info.ed) showFmtBar(info.ed, info.b);
+  else { positionFmtBar(); renderFmtBarState(); }
+}
+// Un ÚNICO escuchador para toda la app. Antes se registraba uno por editor y no se quitaba
+// nunca, así que cada repintado del lienzo dejaba otro suelto.
+var fmtBarBound = false;
+function bindFmtBarOnce() {
+  if (fmtBarBound) return;
+  fmtBarBound = true;
   document.addEventListener('selectionchange', function () {
-    if (fmtBarState.ed !== ed) return;
-    positionFmtBar();
-    renderFmtBarState();
+    clearTimeout(bindFmtBarOnce._t);
+    bindFmtBarOnce._t = setTimeout(syncFmtBar, 40);  // evita repintar en cada movimiento del ratón
   });
+}
+// Conecta un editor (nota, idea o texto libre) con la barra.
+function attachFmtBar(ed, b) {
+  ed._blk = b;
+  bindFmtBarOnce();
+  // Respuesta inmediata al soltar el ratón o el teclado, sin esperar al selectionchange.
+  ['mouseup', 'keyup'].forEach(function (ev) { ed.addEventListener(ev, syncFmtBar); });
+  ed.addEventListener('scroll', function () { if (fmtBarState.ed === ed) positionFmtBar(); });
   ed.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { hideFmtBar(); ed.blur(); return; }
     if (!(e.metaKey || e.ctrlKey) || e.altKey) return;

@@ -196,3 +196,59 @@ describe('ida y vuelta: escribir, guardar y volver a abrir', () => {
     expect(app.richFromText({ content: { text: texto } })).toMatch(/<ol>/);
   });
 });
+
+describe('cuándo debe aparecer la barra', () => {
+  let app, ed;
+  beforeEach(() => {
+    const ctx = {
+      console, setTimeout, clearTimeout, document, window, navigator,
+      localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+      addEventListener() {}, removeEventListener() {},
+    };
+    ctx.window = window;
+    vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', '24-formato.js'), 'utf8'), ctx, { filename: 'js/24-formato.js' });
+    app = ctx;
+    document.body.innerHTML = '<div class="rich-ed" contenteditable="true">Primera linea de la nota</div>';
+    ed = document.querySelector('.rich-ed');
+    ed._blk = { id: 'b1', noteId: 'n1', content: {} };
+  });
+  const seleccionar = (ini, fin) => {
+    const n = ed.firstChild;
+    const r = document.createRange();
+    r.setStart(n, ini); r.setEnd(n, fin);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  };
+
+  it('con el cursor puesto pero nada marcado, no hay nada que formatear', () => {
+    seleccionar(3, 3);
+    expect(app.fmtSelectionInfo()).toBeNull();
+  });
+
+  it('con texto marcado, devuelve el editor y su bloque', () => {
+    seleccionar(0, 7);
+    const info = app.fmtSelectionInfo();
+    expect(info).not.toBeNull();
+    expect(info.ed).toBe(ed);
+    expect(info.b.id).toBe('b1');
+  });
+
+  it('marcar solo un espacio no cuenta', () => {
+    seleccionar(7, 8);   // el espacio entre "Primera" y "linea"
+    expect(app.fmtSelectionInfo()).toBeNull();
+  });
+
+  it('sin ninguna selección, tampoco', () => {
+    window.getSelection().removeAllRanges();
+    expect(app.fmtSelectionInfo()).toBeNull();
+  });
+
+  it('una selección fuera de un editor se ignora', () => {
+    document.body.insertAdjacentHTML('beforeend', '<p id="fuera">texto suelto</p>');
+    const n = document.getElementById('fuera').firstChild;
+    const r = document.createRange();
+    r.setStart(n, 0); r.setEnd(n, 5);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    expect(app.fmtSelectionInfo()).toBeNull();
+  });
+});
