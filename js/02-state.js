@@ -41,6 +41,7 @@ function initState() {
   if (ui.tasksSort !== 'manual' && ui.tasksSort !== 'prio') ui.tasksSort = 'manual';
   if (ui.tasksDock !== 'dock' && ui.tasksDock !== 'modal') ui.tasksDock = 'dock'; // acoplado por defecto
   if (typeof ui.tasksWidth !== 'number') ui.tasksWidth = 0; // 0 = ancho por defecto de la vista
+  if (!ui.recentColors || typeof ui.recentColors !== 'object') ui.recentColors = {}; // últimos colores de texto/fondo
   if (!Array.isArray(data.plan)) data.plan = []; // tareas del día (el tablero las comparte)
   if (typeof ui.tablet !== 'boolean') ui.tablet = false;
   if (!ui.pen || typeof ui.pen !== 'object') ui.pen = { tool: 'pen', color: '#33302b', size: 3 };

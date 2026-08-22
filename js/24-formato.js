@@ -244,29 +244,107 @@ function openFmtMenu(anchor, titulo, items) {
   document.body.appendChild(bd);
   positionPop(pop, anchor, 210);
 }
-var TEXT_COLORS = ['#33302b', '#c14b3f', '#d9a35a', '#6f9257', '#3f6f9a', '#7a5ba6', '#8a7f70', '#ffffff'];
-var BG_COLORS = ['#fff3bf', '#ffd8cc', '#d8f0d0', '#d3e6f7', '#e8dcf7', '#eeeae2'];
+// ---------- Paleta ----------
+// En rejilla y por familias: neutros arriba (con negro de verdad, que es lo que se pide en una
+// nota clara), tonos medios en medio y oscuros abajo. Y un selector para cualquier otro color.
+var TEXT_COLOR_ROWS = [
+  ['#000000', '#33302b', '#5a5349', '#8a7f70', '#b8b0a2', '#d9d4ca', '#f2efe8', '#ffffff'],
+  ['#c14b3f', '#e0873c', '#d9a35a', '#6f9257', '#3f8f8a', '#3f6f9a', '#7a5ba6', '#c76a86'],
+  ['#8f2f26', '#a35a1e', '#8a6a45', '#41603a', '#2c6663', '#27506f', '#533a75', '#8f3f5c'],
+];
+var BG_COLOR_ROWS = [
+  ['#fff3bf', '#ffe0b3', '#ffd8cc', '#d8f0d0', '#cfeae8', '#d3e6f7', '#e8dcf7', '#f7d9e6'],
+  ['#ffe066', '#ffb454', '#ff8f6b', '#8fd97e', '#6bd0c8', '#7ab8ea', '#b79ae0', '#f095b8'],
+  ['#33302b', '#c14b3f', '#6f9257', '#3f6f9a', '#7a5ba6', '#8a7f70', '#d9d4ca', '#ffffff'],
+];
+var COLOR_NAMES = {
+  '#000000': 'Negro', '#33302b': 'Tinta', '#5a5349': 'Grafito', '#8a7f70': 'Gris',
+  '#b8b0a2': 'Gris claro', '#d9d4ca': 'Piedra', '#f2efe8': 'Hueso', '#ffffff': 'Blanco',
+  '#c14b3f': 'Rojo', '#e0873c': 'Naranja', '#d9a35a': 'Ocre', '#6f9257': 'Verde',
+  '#3f8f8a': 'Turquesa', '#3f6f9a': 'Azul', '#7a5ba6': 'Violeta', '#c76a86': 'Rosa',
+  '#8f2f26': 'Rojo oscuro', '#a35a1e': 'Naranja oscuro', '#8a6a45': 'Marrón',
+  '#41603a': 'Verde oscuro', '#2c6663': 'Turquesa oscuro', '#27506f': 'Azul oscuro',
+  '#533a75': 'Violeta oscuro', '#8f3f5c': 'Vino',
+  '#fff3bf': 'Amarillo suave', '#ffe0b3': 'Melocotón', '#ffd8cc': 'Salmón suave',
+  '#d8f0d0': 'Verde suave', '#cfeae8': 'Agua', '#d3e6f7': 'Azul suave',
+  '#e8dcf7': 'Lila', '#f7d9e6': 'Rosa suave', '#ffe066': 'Amarillo', '#ffb454': 'Ámbar',
+  '#ff8f6b': 'Coral', '#8fd97e': 'Lima', '#6bd0c8': 'Menta', '#7ab8ea': 'Cielo',
+  '#b79ae0': 'Lavanda', '#f095b8': 'Fucsia',
+};
+function colorName(c) { return COLOR_NAMES[String(c).toLowerCase()] || c; }
+// Los últimos colores usados, para no volver a buscarlos en la rejilla cada vez.
+function recentColors(clave) {
+  if (!ui.recentColors || typeof ui.recentColors !== 'object') ui.recentColors = {};
+  if (!Array.isArray(ui.recentColors[clave])) ui.recentColors[clave] = [];
+  return ui.recentColors[clave];
+}
+function pushRecentColor(clave, c) {
+  var lista = recentColors(clave).filter(function (x) { return x !== c; });
+  lista.unshift(c);
+  ui.recentColors[clave] = lista.slice(0, 8);
+  save();
+}
+// El selector nativo de color se lleva el foco, y con él la selección del editor. Se guarda
+// antes de abrirlo y se repone justo antes de aplicar el color.
+function saveSelRange(ed) {
+  var s = window.getSelection();
+  if (!s || !s.rangeCount) return null;
+  var r = s.getRangeAt(0);
+  return ed.contains(r.commonAncestorContainer) ? r.cloneRange() : null;
+}
+function restoreSelRange(ed, r) {
+  if (!r) { ed.focus(); return; }
+  ed.focus();
+  var s = window.getSelection();
+  s.removeAllRanges();
+  s.addRange(r);
+}
 function openFmtColor(anchor, b, ed, cmd) {
   closeTopbarMenu();
   var esFondo = cmd === 'hiliteColor';
+  var clave = esFondo ? 'bg' : 'fg';
+  var rango = saveSelRange(ed);
+  var aplicar = function (c) {
+    restoreSelRange(ed, rango);
+    richExec(b, ed, cmd, c);
+    if (c && c !== 'inherit') pushRecentColor(clave, c);
+  };
   var bd = h('div', { class: 'pop-backdrop', id: 'topbarMenuBackdrop', onmousedown: function (e) { if (e.target === bd) closeTopbarMenu(); } });
-  var pop = h('div', { class: 'card-menu-pop fmt-pop', onmousedown: function (e) { e.stopPropagation(); } });
+  var pop = h('div', { class: 'card-menu-pop fmt-pop fmt-color-pop', onmousedown: function (e) { e.stopPropagation(); } });
   pop.appendChild(h('div', { class: 'cm-label' }, esFondo ? 'Color de fondo' : 'Color del texto'));
-  var row = h('div', { class: 'fmt-colors' });
-  (esFondo ? BG_COLORS : TEXT_COLORS).forEach(function (c) {
-    row.appendChild(h('button', {
-      class: 'fmt-color-dot', title: c, style: { background: c },
-      onclick: function (e) { e.stopPropagation(); closeTopbarMenu(); richExec(b, ed, cmd, c); },
-    }));
+
+  var recientes = recentColors(clave);
+  if (recientes.length) {
+    pop.appendChild(h('div', { class: 'fmt-color-sub' }, 'Recientes'));
+    var filaR = h('div', { class: 'fmt-colors' });
+    recientes.forEach(function (c) {
+      filaR.appendChild(h('button', { class: 'fmt-color-dot', title: colorName(c), style: { background: c },
+        onclick: function (e) { e.stopPropagation(); closeTopbarMenu(); aplicar(c); } }));
+    });
+    pop.appendChild(filaR);
+  }
+
+  (esFondo ? BG_COLOR_ROWS : TEXT_COLOR_ROWS).forEach(function (fila) {
+    var row = h('div', { class: 'fmt-colors' });
+    fila.forEach(function (c) {
+      row.appendChild(h('button', { class: 'fmt-color-dot', title: colorName(c), style: { background: c },
+        onclick: function (e) { e.stopPropagation(); closeTopbarMenu(); aplicar(c); } }));
+    });
+    pop.appendChild(row);
   });
-  row.appendChild(h('button', {
-    class: 'fmt-color-dot none', title: 'Quitar el color',
-    onclick: function (e) { e.stopPropagation(); closeTopbarMenu(); richExec(b, ed, esFondo ? 'hiliteColor' : 'foreColor', 'inherit'); },
-  }));
-  pop.appendChild(row);
+
+  var libre = h('input', { class: 'fmt-color-input', type: 'color', value: esFondo ? '#ffe066' : '#000000', title: 'Elegir cualquier otro color' });
+  libre.addEventListener('change', function (e) { e.stopPropagation(); closeTopbarMenu(); aplicar(libre.value); });
+  libre.addEventListener('click', function (e) { e.stopPropagation(); });
+  var quitar = h('button', { class: 'cm-item', onclick: function (e) {
+    e.stopPropagation(); closeTopbarMenu(); aplicar('inherit');
+  } }, h('span', { class: 'fmt-color-dot none' }), h('span', {}, esFondo ? 'Sin fondo' : 'Color por defecto'));
+  pop.appendChild(h('div', { class: 'fmt-color-foot' },
+    h('label', { class: 'fmt-color-more' }, libre, h('span', {}, 'Otro color…')), quitar));
+
   bd.appendChild(pop);
   document.body.appendChild(bd);
-  positionPop(pop, anchor, 210);
+  positionPop(pop, anchor, 250);
 }
 
 // ---------- Colocación y ciclo de vida ----------

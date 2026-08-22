@@ -8131,11 +8131,21 @@ body.tareas-resizing .tareas-resize::after { background: var(--ocre); }
 /* Debajo de la línea cuando arriba no cabe: la flecha cambia de lado */
 .fmt-bar.below { box-shadow: 0 -8px 26px -8px rgba(58, 51, 44, .45); }
 .fmt-pop .cm-item.active { background: var(--secondary); font-weight: 700; }
-.fmt-colors { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 8px 8px; }
+.fmt-colors { display: flex; flex-wrap: wrap; gap: 5px; padding: 3px 8px; }
+.fmt-color-pop { min-width: 252px; }
+.fmt-color-sub { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 5px 9px 1px; }
+.fmt-color-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 4px; margin-top: 4px; border-top: 1px solid var(--border); }
+.fmt-color-more { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; cursor: pointer; color: var(--fg); }
+.fmt-color-input { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 7px; background: none; cursor: pointer; }
+.fmt-color-input::-webkit-color-swatch-wrapper { padding: 2px; }
+.fmt-color-input::-webkit-color-swatch { border: none; border-radius: 5px; }
+.fmt-color-foot .cm-item { width: auto; gap: 7px; padding: 5px 8px; font-size: 12px; }
 .fmt-color-dot {
-  width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent;
-  cursor: pointer; padding: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12);
+  width: 21px; height: 21px; border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; padding: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18);
+  transition: transform .1s;
 }
+.fmt-color-dot:hover { transform: scale(1.15); border-color: var(--primary); }
 .fmt-color-dot.none { background: repeating-linear-gradient(45deg, var(--secondary), var(--secondary) 4px, var(--border) 4px, var(--border) 8px); }
 .fmt-color-dot.on { border-color: var(--primary); }
 /* Espejo invisible que mide dónde está la selección dentro del textarea */
