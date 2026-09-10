@@ -188,9 +188,17 @@ Gotchas aprendidos:
   `st.pad`) y tamaño/interlineado/espaciado. `defaultFreeStyle` incluye font, strike, lineHeight,
   letterSpacing, bg, pad, minH; `applyFreeStyle` los aplica al `.free-ta`.
 - Redimensionar el cuadro de texto libre: asa `.free-resize` (esquina inferior derecha, `startFreeResize`)
-  arrastra ancho y alto mínimo (`st.minH`); `autoGrowFree` fija el alto a `max(contenido, minH)`, así el
-  texto que excede dinamiza la caja sin recortarse. Margen semi-visible: contorno punteado
-  (`outline`+`outline-offset`) en `:hover`/`:focus-within`/`.selected` de `.card.freetext`.
+  arrastra ancho y alto (`b.height` y `st.minH`); la caja NO crece al escribir: mantiene el alto elegido y,
+  cuando el texto llega al borde, el editor `.free-rich` (contenteditable, js/25) hace scroll interno
+  (`overflow-y:auto`) y `richScrollCaretIntoView` mantiene el cursor a la vista corrigiendo el zoom. Antes
+  `autoGrowRich` ponía la tarjeta en `height:auto` y la fijaba al contenido: una línea más por cada Enter.
+  `freeEditorEl(el)`/`growFreeBox(ed)` (js/05) sirven tanto para `.free-rich` como para el `.free-ta` antiguo;
+  úsalos en vez de `querySelector('.free-ta')`, que ya devuelve null. Probar: teclear 9 líneas y comprobar
+  que `offsetHeight` de la tarjeta no cambia, que `scrollTop` del editor sube y que el cursor queda visible;
+  arrastrar `.free-resize` debe cambiar ancho Y alto y persistir tras recargar; la rueda sobre el editor
+  enfocado con desborde desplaza el texto, no el lienzo (js/09).
+  Margen semi-visible: contorno punteado (`outline`+`outline-offset`) en `:hover`/`:focus-within`/`.selected`
+  de `.card.freetext`.
 - Doble clic en el lienzo: crea `ui.dblType` (por defecto `'freetext'` = texto translúcido);
   selector de tipo en el menú `⋯` (`.topbar-pop .cm-chip` con DBL_TYPES). El hint del topbar
   (`.hint`) refleja el tipo. Casillas de tarea clicables: `toggleTaskAtCaret` togglea `- [ ]`↔`- [x]`
