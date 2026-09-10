@@ -245,16 +245,42 @@ function richHasStyle(ed, cmd) {
 
 // ---------- Alto automático ----------
 // El contenteditable ya crece solo; esto solo mantiene al día la tarjeta que lo envuelve.
+// Texto libre: la caja NO crece al escribir. Mide lo que eligió el usuario (b.height, o
+// st.minH mientras arrastra el asa) y, cuando el texto llega al borde inferior, el editor
+// hace scroll interno (overflow-y: auto en .free-rich) y se desplaza para que el cursor
+// siga a la vista. Solo el asa de redimensión cambia el tamaño de la caja.
 function autoGrowRich(ed) {
   if (!ed) return;
   var card = ed.closest('.card');
   if (!card) return;
   if (ed.classList.contains('free-rich')) {
     var b = getBlockById(card.getAttribute('data-id'));
-    var minH = (b && b.content && b.content.style && b.content.style.minH) || 0;
-    card.style.height = Math.max(ed.scrollHeight + 8, minH) + 'px';
-    if (typeof drawLinks === 'function') drawLinks();
+    var st = (b && b.content && b.content.style) || {};
+    var fixed = st.minH || (b && b.height) || 70;
+    var prev = card.style.height;
+    card.style.height = Math.max(fixed, 24) + 'px';
+    richScrollCaretIntoView(ed);
+    if (prev !== card.style.height && typeof drawLinks === 'function') drawLinks();
   }
+}
+// Desplaza el editor (no el lienzo) para que el cursor quede dentro de la caja. Las medidas de
+// getClientRects van en píxeles de pantalla y scrollTop en píxeles del elemento: se corrige el zoom.
+function richScrollCaretIntoView(ed) {
+  if (!ed || ed.scrollHeight <= ed.clientHeight + 1) return;
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return;
+  var r = sel.getRangeAt(0);
+  if (!ed.contains(r.startContainer)) return;
+  var rect = r.getClientRects()[0];
+  if (!rect && r.startContainer.nodeType === 1) {
+    var n = r.startContainer.childNodes[r.startOffset] || r.startContainer;
+    if (n.nodeType === 1) rect = n.getBoundingClientRect();
+  }
+  if (!rect) return;
+  var er = ed.getBoundingClientRect();
+  var z = (typeof getView === 'function' && getView().zoom) || 1;
+  if (rect.bottom > er.bottom) ed.scrollTop += (rect.bottom - er.bottom) / z + 4;
+  else if (rect.top < er.top) ed.scrollTop -= (er.top - rect.top) / z + 4;
 }
 
 // ---------- Cuerpo de nota / idea ----------

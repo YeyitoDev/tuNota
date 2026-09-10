@@ -1041,21 +1041,29 @@ function autoGrowFree(ta) {
     card.style.height = Math.max(hh, minH) + 'px'; // crece con el texto; nunca por debajo del alto elegido
   }
 }
-// Redimensiona el cuadro de texto libre: ancho y alto mínimo. El alto siempre crece con el
-// contenido (si el texto supera el alto elegido, la caja se dinamiza y no recorta).
+// El cuadro de texto libre puede llevar el editor con formato (.free-rich, js/25-rich.js) o el
+// textarea antiguo (.free-ta). Estas dos ayudas evitan que cada sitio tenga que distinguirlos.
+function freeEditorEl(el) { return el ? el.querySelector('.free-rich, .free-ta') : null; }
+function growFreeBox(ed) {
+  if (!ed) return;
+  if (ed.classList.contains('free-rich')) { if (typeof autoGrowRich === 'function') autoGrowRich(ed); }
+  else autoGrowFree(ed);
+}
+// Redimensiona el cuadro de texto libre: ancho y alto. La caja se queda en el alto elegido;
+// si el texto no cabe, el editor hace scroll interno (ver autoGrowRich en js/25-rich.js).
 function startFreeResize(e, b, el) {
   e.preventDefault(); e.stopPropagation();
   b.content = b.content || {}; b.content.style = b.content.style || defaultFreeStyle();
-  var ta = el.querySelector('.free-ta');
+  var ta = freeEditorEl(el);
   var sx = e.clientX, sy = e.clientY, sw = el.offsetWidth, sh = el.offsetHeight, z = getView().zoom || 1;
   document.body.classList.add('resizing-free');
   function mv(ev) {
-    var nw = Math.max(80, Math.round(sw + (ev.clientX - sx) / z));
+    var nw = Math.max(100, Math.round(sw + (ev.clientX - sx) / z));
     var nh = Math.max(24, Math.round(sh + (ev.clientY - sy) / z));
     el.style.width = nw + 'px';
-    b.width = nw;
+    b.width = nw; b.height = nh;
     b.content.style.minH = nh;
-    if (ta) autoGrowFree(ta);
+    growFreeBox(ta);
     drawLinks();
   }
   function up() {
@@ -1086,11 +1094,11 @@ function openFreeFormat(b, el) {
   closeCardMenu();
   closeFreeFormat();
   el = el || cardEl(b.id);
-  var ta = el && el.querySelector('.free-ta');
+  var ta = freeEditorEl(el);
   if (!ta) return;
   b.content.style = b.content.style || defaultFreeStyle();
   var st = b.content.style;
-  function persist(logMsg) { applyFreeStyle(ta, st); autoGrowFree(ta); touchNote(b.noteId); if (logMsg) logChange(logMsg, ''); save(); drawLinks(); }
+  function persist(logMsg) { applyFreeStyle(ta, st); growFreeBox(ta); touchNote(b.noteId); if (logMsg) logChange(logMsg, ''); save(); drawLinks(); }
 
   var bd = h('div', { class: 'pop-backdrop', id: 'freeFmtBackdrop', onmousedown: function (e) { if (e.target === bd) closeFreeFormat(); } });
   var pop = h('div', { class: 'free-fmt-pop', onmousedown: function (e) { e.stopPropagation(); } });
@@ -1141,7 +1149,7 @@ function openFreeFormat(b, el) {
 
   // Caja: ancho, fondo (callout) y relleno interno. El alto se ajusta solo al texto.
   body.appendChild(h('div', { class: 'free-sec' }, 'Caja'));
-  slider('Ancho', 80, 800, 10, b.width || 260, ' px', function (v) { b.width = v; if (el) el.style.width = v + 'px'; if (ta) autoGrowFree(ta); touchNote(b.noteId); save(); drawLinks(); });
+  slider('Ancho', 100, 800, 10, b.width || 260, ' px', function (v) { b.width = v; if (el) el.style.width = v + 'px'; growFreeBox(ta); touchNote(b.noteId); save(); drawLinks(); });
   var bg = h('input', { type: 'color', value: st.bg ? toHex(st.bg) : '#fff3d6', class: 'free-color' });
   bg.addEventListener('input', function () { st.bg = bg.value; persist(); });
   var noBg = h('button', { class: 'free-chip', title: 'Sin fondo (transparente)', onclick: function () { st.bg = ''; persist('Fondo de caja'); } }, 'Ninguno');

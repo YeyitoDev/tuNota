@@ -4676,6 +4676,17 @@ body.tbl-selecting .cell {
   box-shadow: none !important;
   overflow: visible;
   min-height: 0;
+  min-width: 100px;    /* el asa permite estrechar hasta 100 px (el mínimo genérico de .card es 160) */
+  resize: none;        /* el tamaño lo lleva el asa .free-resize, no el redimensionador nativo */
+}
+/* La caja no crece al escribir: el editor llena el alto elegido y, cuando el texto llega al
+   borde inferior, hace scroll interno (el cursor se mantiene a la vista desde autoGrowRich). */
+.card.freetext .free-rich {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--primary) 35%, transparent) transparent;
 }
 .card.freetext .card-head {
   position: absolute;

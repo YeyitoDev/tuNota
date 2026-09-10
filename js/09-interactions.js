@@ -894,8 +894,8 @@ function initCanvasNav() {
     // En modo tablet no paneamos con la rueda; el lápiz/dedo debe escribir.
     if (ui.tablet && !(e.ctrlKey || e.metaKey)) { e.preventDefault(); return; }
     if (!(e.ctrlKey || e.metaKey)) {
-      var ta = e.target && e.target.closest ? e.target.closest('textarea, input') : null;
-      if (ta && document.activeElement === ta) return; // deja desplazar el campo mientras se edita
+      var ta = e.target && e.target.closest ? e.target.closest('textarea, input, .rich-ed') : null;
+      if (ta && document.activeElement === ta && ta.scrollHeight > ta.clientHeight + 1) return; // deja desplazar el campo mientras se edita
     }
     e.preventDefault();
     var v = getView();
