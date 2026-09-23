@@ -73,7 +73,24 @@ function richFromText(b) {
   });
   var html = texto.trim() ? renderMarkdown(texto) : '';
   html = html.replace(/@@IMG(\d+)@@/g, function (m, n) { return fichas[+n] || ''; });
-  return html;
+  return richTasksFromMd(html);
+}
+// renderMarkdown pinta las casillas «- [ ]» con <input> y un botón de campana, que el editor
+// no admite: la limpieza tiraba la casilla (y al guardar la tarea pasaba a ser una viñeta
+// normal) y dejaba el icono de la campana a tamaño gigante. Aquí se traducen al formato del
+// editor, <li data-task="todo|done">, que richToText vuelve a escribir como «- [ ]» / «- [x]».
+function richTasksFromMd(html) {
+  if (html.indexOf('md-task') < 0) return html;
+  var tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  Array.prototype.slice.call(tmp.querySelectorAll('li.md-task')).forEach(function (li) {
+    var cb = li.querySelector('.md-task-cb');
+    var txt = li.querySelector('.md-task-txt');
+    li.setAttribute('data-task', cb && cb.checked ? 'done' : 'todo');
+    li.removeAttribute('class');
+    li.innerHTML = txt ? txt.innerHTML : li.textContent;
+  });
+  return tmp.innerHTML;
 }
 // Devuelve el HTML con el que hay que pintar el bloque, generándolo si hace falta.
 // `htmlFrom` guarda de qué texto salió: si algo escribe content.text por fuera (la IA, una
@@ -108,9 +125,11 @@ function sanitizeRich(html) {
       if (n.nodeType === 8) { n.remove(); return; }              // comentarios
       if (n.nodeType !== 1) return;
       if (RICH_DROP[n.nodeName]) { n.remove(); return; }         // fuera con todo su contenido
+      if (n.nodeName.toLowerCase() === 'svg') { n.remove(); return; } // iconos: no son contenido
       if (!RICH_TAGS[n.nodeName]) {                              // etiqueta no permitida: se
-        while (n.firstChild) node.insertBefore(n.firstChild, n); // conserva lo que contenía
-        n.remove();
+        limpia(n);                                               // limpia lo que contenía (antes
+        while (n.firstChild) node.insertBefore(n.firstChild, n); // se colaba sin revisar) y se
+        n.remove();                                              // conserva
         return;
       }
       Array.prototype.slice.call(n.attributes).forEach(function (at) {
