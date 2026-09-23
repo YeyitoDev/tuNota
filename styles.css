@@ -8234,3 +8234,97 @@ body.tareas-resizing .tareas-resize::after { background: var(--ocre); }
 .nw-rich blockquote { margin: .35em 0; padding-left: 10px; border-left: 3px solid var(--ocre); color: var(--muted); }
 .nw-rich mark { background: rgba(217, 163, 90, .45); color: inherit; padding: 0 2px; border-radius: 3px; }
 .nw-rich code { font-family: ui-monospace, Menlo, monospace; background: var(--secondary); padding: 0 4px; border-radius: 4px; }
+
+/* ---------- Tareas: seguimiento (vencimiento, en espera, detalle, historial) ---------- */
+.planner-due { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 800; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.planner-due svg { width: 11px; height: 11px; }
+.planner-due.is-today { color: #fff; background: var(--ocre); border-color: var(--ocre); }
+.planner-due.is-late { color: #fff; background: var(--danger); border-color: var(--danger); }
+.planner-wait { font-size: 10.5px; font-weight: 800; color: #6b5a8e; background: rgba(138, 107, 194, .14); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.planner-task.is-wait { border-left: 3px solid #8a6bc2; }
+.planner-book-chip { font-size: 10.5px; font-weight: 700; color: var(--muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planner-desc-mark { display: inline-flex; color: var(--muted); }
+.planner-desc-mark svg { width: 12px; height: 12px; }
+.planner-due-inp { flex: none; width: 128px; }
+.detalle-btn { flex: none; }
+.kc-top .detalle-btn { margin-left: auto; padding: 1px 3px; }
+.kc-sub .planner-due { margin-right: 5px; }
+.tareas-alert { white-space: nowrap; border: none; cursor: pointer; font: inherit; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 9px; margin-left: 6px; }
+.tareas-alert.is-late { color: #fff; background: var(--danger); }
+.tareas-alert.is-wait { color: #fff; background: #8a6bc2; }
+.tareas-dayhead { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 6px 2px; }
+.tareas-md { margin: 4px 16px 18px; border-top: 1px dashed var(--border); padding-top: 8px; }
+.tareas-md-head { display: flex; align-items: center; gap: 6px; width: 100%; border: none; background: none; color: var(--fg); font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; padding: 4px 0; }
+.tareas-md-note { display: flex; align-items: baseline; gap: 8px; width: 100%; border: none; background: none; color: var(--fg); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; padding: 6px 0 2px; text-align: left; }
+.tareas-md-note:hover { color: var(--primary); }
+.tareas-md-path { font-size: 10.5px; font-weight: 600; color: var(--muted); }
+.tareas-md-item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; padding: 3px 0 3px 14px; cursor: pointer; }
+.tareas-md-item input { accent-color: var(--sage); }
+.rot-up, .rot-down { transform: rotate(90deg); }
+.planner-sub .act[disabled] { opacity: .25; pointer-events: none; }
+.planner-sub .act.on { color: var(--primary); opacity: 1; }
+.planner-sub-wrap { display: flex; flex-direction: column; }
+.planner-sub-note { margin: 2px 0 6px 21px; font: inherit; font-size: 12px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); resize: vertical; }
+.tareas-body.is-detalle { overflow-y: auto; min-height: 0; flex: 1; }
+.tarea-det { padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+.det-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.det-title { font: inherit; font-size: 17px; font-weight: 800; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; background: transparent; color: var(--fg); resize: none; field-sizing: content; }
+.det-title:hover, .det-title:focus { border-color: var(--border); background: var(--card); outline: none; }
+.det-grid { display: grid; grid-template-columns: 110px 1fr; gap: 7px 10px; align-items: center; }
+.det-field { display: contents; }
+.det-label { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.det-ctl { min-width: 0; }
+.det-inline { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.det-check { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; cursor: pointer; }
+.det-why { flex: 1; min-width: 160px; font-size: 12.5px; padding: 5px 9px; }
+.det-sec { display: flex; flex-direction: column; gap: 6px; }
+.det-sec-title { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.det-sec .planner-subs { margin-left: 0; }
+.det-sec .planner-bar { margin-left: 0; }
+.det-desc { font: inherit; font-size: 13px; line-height: 1.45; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--fg); resize: vertical; }
+.det-stats { display: flex; gap: 14px; font-size: 12px; font-weight: 700; }
+.det-hist { display: flex; flex-direction: column; gap: 3px; border-left: 2px solid var(--border); padding-left: 10px; max-height: 220px; overflow-y: auto; }
+.det-ev { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.det-ev-at { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; min-width: 78px; }
+.det-actions { display: flex; flex-wrap: wrap; gap: 6px; border-top: 1px solid var(--border); padding-top: 10px; }
+.cm-chip.danger { color: var(--danger); }
+.value-dot.k-wait { background: #8a6bc2; }
+/* .act nace invisible (se ve al pasar por la fila del árbol): aquí tiene que verse siempre. */
+.detalle-btn, .tarea-det .act { opacity: .75; }
+.tarea-det .cm-chip { flex: none; width: auto; }
+.det-inline > * { flex: none; }
+.tareas-filters { flex-wrap: wrap; }
+.detalle-btn:hover, .tarea-det .act:hover { opacity: 1; }
+
+/* ---------- Árbol: buscador, orden, fijadas, contadores, reordenar arrastrando ---------- */
+.tree-tools { display: flex; align-items: center; gap: 6px; margin: 2px 12px 4px; padding: 0 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--muted); }
+.tree-tools > .icon { width: 14px; height: 14px; flex: none; }
+.tree-search { flex: 1; min-width: 0; border: none; background: none; color: var(--fg); font: inherit; font-size: 12.5px; padding: 7px 0; outline: none; }
+.tree-tools .act { opacity: .7; }
+.tree-tools .act.on { color: var(--primary); opacity: 1; }
+.tree-count { font-size: 10.5px; font-weight: 700; color: var(--muted2); font-variant-numeric: tabular-nums; flex: none; }
+.row:hover .tree-count { display: none; }
+.act.pin-btn.on { opacity: 1; color: var(--ocre); }
+.tree-pinned { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed var(--border); }
+.tree-path { display: block; font-size: 10.5px; color: var(--muted); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.search-row .item-name { white-space: normal; }
+.nb-row.is-inbox .item-name { color: var(--primary); }
+.row.drop-before { box-shadow: inset 0 2px 0 var(--primary); }
+.row.drop-after { box-shadow: inset 0 -2px 0 var(--primary); }
+
+/* ---------- Móvil: seguimiento de tareas ---------- */
+.m-tfilters { display: flex; gap: 6px; overflow-x: auto; margin-top: 8px; scrollbar-width: none; }
+.m-tfilters .m-col-btn { flex: none; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); background: var(--card); color: var(--fg); font: inherit; font-size: 13px; font-weight: 700; border-radius: 999px; padding: 6px 12px; }
+.m-tfilters .m-col-btn.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.m-tfilters .m-col-btn.is-late:not(.on) { border-color: var(--danger); color: var(--danger); }
+.m-col-n { font-size: 11px; font-weight: 900; background: rgba(0, 0, 0, .12); border-radius: 999px; padding: 0 6px; }
+.m-tag.late { background: var(--danger); color: #fff; }
+.m-tag.wait { background: rgba(138, 107, 194, .16); color: #6b5a8e; }
+.m-task.is-wait { border-left: 3px solid #8a6bc2; }
+.m-item-desc { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.m-sub-note { display: block; font-size: 11.5px; color: var(--muted); font-style: normal; }
+.m-dayhead { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 4px 4px; }
+.m-hist { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; padding: 0 4px 8px; }
+.m-hist-stats { font-size: 13px; font-weight: 700; }
+.m-hist-ev { display: flex; gap: 8px; font-size: 13.5px; }
+.m-hist-at { color: var(--muted); font-size: 12px; min-width: 90px; font-variant-numeric: tabular-nums; }

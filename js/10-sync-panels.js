@@ -23,6 +23,16 @@ function normalizeData() {
     if (typeof t.order !== 'number') t.order = t.createdAt || 0;
     delete t._open; // era una bandera de interfaz que se estaba persistiendo por error
   });
+  // Migración: las notas ganan orden manual. Se congela el orden que veías (última edición
+  // primero) para que nada salte de sitio al estrenar el orden manual.
+  var sinOrden = data.notes.filter(function (n) { return n && typeof n.order !== 'number'; });
+  if (sinOrden.length && sinOrden.length === data.notes.length) {
+    var porSec = {};
+    data.notes.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); }).forEach(function (n) {
+      porSec[n.sectionId] = (porSec[n.sectionId] || 0);
+      n.order = porSec[n.sectionId]++;
+    });
+  }
   // Las tarjetas del lienzo también pueden desglosarse en pasos.
   (data.blocks || []).forEach(function (b) { if (b && b.kanban && !Array.isArray(b.subs)) b.subs = []; });
   // Migración: el tipo 'idea' pasa a ser una nota clasificada como idea (sin perder datos).

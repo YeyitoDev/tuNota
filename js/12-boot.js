@@ -82,6 +82,7 @@ function boot() {
       // carga de datos ya vaya autenticada; luego sincroniza y pinta.
       loadBackendConfig(function () {
         serverLoad(function () {
+          normalizeData(); // también sin servidor: las migraciones de datos no dependen de él
           migrateInlineBlobs();
           if (typeof pushRecentNote === 'function') pushRecentNote(ui.currentNoteId); // el lienzo inicial es una pestaña
           renderAll();

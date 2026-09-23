@@ -18,6 +18,8 @@ function planVisibleTasks() {
   var today = planTodayStr();
   return (data.plan || []).filter(function (t) { return t.day === today || !t.done; });
 }
+// Todas, incluidas las terminadas otros días: el historial ("Completadas", "Semana", rangos).
+function planAllTasks() { return (data.plan || []).slice(); }
 function planTasks() { if (!Array.isArray(data.plan)) data.plan = []; return data.plan; }
 function planTaskById(id) {
   var all = planTasks();
@@ -30,8 +32,8 @@ function planStatusOf(t) {
 }
 function planOrderOf(t) { return (typeof t.order === 'number') ? t.order : (t.createdAt || 0); }
 // Tareas del día en una columna del tablero, ya ordenadas.
-function planTasksIn(status) {
-  return planVisibleTasks()
+function planTasksIn(status, all) {
+  return (all ? planAllTasks() : planVisibleTasks())
     .filter(function (t) { return planStatusOf(t) === status; })
     .sort(function (a, b) { return planOrderOf(a) - planOrderOf(b); });
 }
@@ -82,6 +84,97 @@ function planWeekStartStr() {
   return planDayOfMs(d.getTime());
 }
 
+// ---------- Seguimiento: vencimiento, libro, bloqueo, descripción e historial ----------
+// Valen igual para una tarea del día (x = t) que para una tarjeta del lienzo (x = b).
+function planDueOf(x) {
+  return (x && typeof x.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x.due)) ? x.due : '';
+}
+// Vencida = tiene fecha límite, ya pasó y sigue abierta. (Antes "atrasada" era solo "creada
+// antes de hoy", que no dice nada de si llegas tarde.)
+function planIsOverdue(x, closed) {
+  var d = planDueOf(x);
+  return !!d && !closed && d < planTodayStr();
+}
+function planDueLabel(due) {
+  if (!due) return '';
+  var hoy = planTodayStr();
+  var dt = new Date(due + 'T12:00:00');
+  var diff = Math.round((dt.getTime() - new Date(hoy + 'T12:00:00').getTime()) / 86400000);
+  if (diff === 0) return 'Hoy';
+  if (diff === 1) return 'Mañana';
+  if (diff === -1) return 'Ayer';
+  if (diff > 1 && diff < 7) return dt.toLocaleDateString('es-PE', { weekday: 'short' });
+  return dt.toLocaleDateString('es-PE', { day: 'numeric', month: 'short' });
+}
+function planTouch(x) {
+  if (x && x.noteId && !x.day && typeof touchNote === 'function') touchNote(x.noteId); // tarjeta del lienzo
+}
+// Historial propio de cada tarea: cambios de estado y hechos relevantes, con su hora.
+// { ts, s: 'doing' } para un cambio de estado; { ts, m: 'texto' } para lo demás.
+function planHist(x, ev) {
+  if (!Array.isArray(x.hist)) x.hist = [];
+  ev.ts = now();
+  x.hist.push(ev);
+  if (x.hist.length > 80) x.hist.splice(0, x.hist.length - 80);
+}
+function planSetDue(x, due) {
+  var v = /^\d{4}-\d{2}-\d{2}$/.test(due || '') ? due : '';
+  if (v === planDueOf(x)) return;
+  if (v) x.due = v; else delete x.due;
+  planHist(x, { m: v ? 'Vence el ' + v : 'Sin fecha límite' });
+  planTouch(x);
+  logChange(v ? 'Fecha límite: ' + v : 'Fecha límite quitada', x.title || reminderText(x));
+  save();
+}
+function planSetBlocked(x, on, why) {
+  x.blocked = !!on;
+  if (x.blocked) x.blockedWhy = (why || '').trim(); else delete x.blockedWhy;
+  planHist(x, { m: x.blocked ? 'En espera' + (x.blockedWhy ? ': ' + x.blockedWhy : '') : 'Desbloqueada' });
+  planTouch(x);
+  logChange(x.blocked ? 'Bloqueado' : 'Desbloqueado', x.title || reminderText(x));
+  save();
+}
+function planSetDesc(x, text) {
+  var v = (text || '').replace(/\s+$/, '');
+  if (v === (x.desc || '')) return;
+  if (v) x.desc = v; else delete x.desc;
+  planTouch(x);
+  save();
+}
+// El libro de una tarea: el que le asignaste o, si no, el de la hoja a la que está anidada.
+// Sin ninguno, la tarea está en la Bandeja.
+function planBookOf(t) {
+  if (t.bookId && getNotebook(t.bookId)) return t.bookId;
+  var n = t.noteId && getNote(t.noteId);
+  var s = n && getSection(n.sectionId);
+  return s ? s.notebookId : '';
+}
+function planSetBook(t, nbId) {
+  if (nbId && getNotebook(nbId)) t.bookId = nbId; else delete t.bookId;
+  var nb = nbId && getNotebook(nbId);
+  planHist(t, { m: 'Libro: ' + (nb ? nb.name : 'Bandeja') });
+  save();
+}
+// Minutos que estuvo "En progreso", sumando cada tramo (el abierto cuenta hasta ahora).
+function planDoingMs(x) {
+  var total = 0, since = null;
+  (x.hist || []).forEach(function (e) {
+    if (!e.s) return;
+    if (e.s === 'doing' && since === null) since = e.ts;
+    else if (e.s !== 'doing' && since !== null) { total += e.ts - since; since = null; }
+  });
+  if (since !== null) total += now() - since;
+  return total;
+}
+function planFmtDur(ms) {
+  var m = Math.round(ms / 60000);
+  if (m < 60) return m + ' min';
+  var hh = Math.floor(m / 60), mm = m % 60;
+  if (hh < 24) return hh + ' h' + (mm ? ' ' + mm + ' min' : '');
+  var d = Math.floor(hh / 24);
+  return d + ' d ' + (hh % 24) + ' h';
+}
+
 // ---------- Operaciones sobre una tarea ----------
 // Crear. Nace en "Por hacer" y al final de esa columna.
 function planAddTask(title, opts) {
@@ -93,7 +186,10 @@ function planAddTask(title, opts) {
     status: opts.status || 'todo', done: opts.status === 'done',
     doneAt: null, createdAt: now(), order: now(), subs: [],
     noteId: opts.noteId || null,
+    hist: [{ ts: now(), s: opts.status || 'todo' }],
   };
+  if (opts.bookId && getNotebook(opts.bookId)) t.bookId = opts.bookId;
+  if (planDueOf(opts)) t.due = opts.due;
   planTasks().push(t);
   logChange('Tarea del día añadida', v);
   save();
@@ -107,7 +203,8 @@ function planApplyStatus(t, status, ord) {
   t.done = status === 'done';
   t.doneAt = t.done ? now() : null;
   if (t.done) t.day = planTodayStr(); // se completó HOY (aunque viniera arrastrada de otro día)
-  if (was !== status) logChange('Tarea a ' + kanbanLabel(status), t.title);
+  if (t.done && t.blocked) { t.blocked = false; delete t.blockedWhy; } // terminada ya no espera nada
+  if (was !== status) { planHist(t, { s: status }); logChange('Tarea a ' + kanbanLabel(status), t.title); }
   save();
   return t;
 }
@@ -155,11 +252,30 @@ function planSubRemove(owner, s) {
   owner.subs = (owner.subs || []).filter(function (x) { return x.id !== s.id; });
   save();
 }
+// Detalle de un paso: qué se hizo, un enlace, lo que falta… (texto libre, opcional).
+function planSubSetNote(owner, s, text) {
+  var v = (text || '').replace(/\s+$/, '');
+  if (v === (s.note || '')) return;
+  if (v) s.note = v; else delete s.note;
+  planTouch(owner);
+  save();
+}
+// Subir (-1) o bajar (+1) un paso en la lista.
+function planSubMove(owner, s, dir) {
+  var subs = owner.subs || [];
+  var i = subs.indexOf(s), j = i + dir;
+  if (i < 0 || j < 0 || j >= subs.length) return;
+  subs.splice(i, 1);
+  subs.splice(j, 0, s);
+  planTouch(owner);
+  save();
+}
 // Marcar el primer paso arranca la tarea; marcar el último ofrece cerrarla.
 // Es el único automatismo, y es el que de verdad ahorra clics.
 function planSubToggle(owner, s, checked) {
   s.done = !!checked;
   s.at = s.done ? now() : null;
+  planHist(owner, { m: (s.done ? 'Paso hecho: ' : 'Paso reabierto: ') + s.text });
   var subs = owner.subs || [];
   var doneN = subs.filter(function (x) { return x.done; }).length;
   var isTask = !owner.type; // las tareas del día no tienen `type`; los bloques del lienzo sí
@@ -176,6 +292,45 @@ function planSubToggle(owner, s, checked) {
       if (typeof refreshTareas === 'function') refreshTareas(true);
     });
   }
+}
+
+// ---------- Bandeja y hoja de tareas ----------
+// La Bandeja es un libro normal marcado con `inbox`: ahí cae lo que aún no tiene sitio.
+// Se crea la primera vez que hace falta, nunca por adelantado.
+function inboxBook() {
+  for (var i = 0; i < data.notebooks.length; i++) { if (data.notebooks[i].inbox) return data.notebooks[i]; }
+  return null;
+}
+function ensureInbox() {
+  var nb = inboxBook();
+  if (!nb) {
+    nb = { id: uid(), name: 'Bandeja', emoji: '📥', inbox: true, order: -1, createdAt: now() };
+    data.notebooks.push(nb);
+    logChange('Libro creado', 'Bandeja');
+  }
+  if (!sectionsOf(nb.id).length) data.sections.push({ id: uid(), notebookId: nb.id, name: 'Entrada', order: 0 });
+  return nb;
+}
+// Hoja donde caen las tarjetas creadas desde el tablero: UNA por libro («✅ Tareas»), no una
+// hoja nueva por tarjeta (eso llenaba el árbol de notas sueltas).
+function tasksHostNote(bookId) {
+  var nb = (bookId && getNotebook(bookId)) || ensureInbox();
+  var secs = sectionsOf(nb.id);
+  var found = null;
+  secs.forEach(function (s) { notesOf(s.id).forEach(function (n) { if (!found && n.tasksHost) found = n; }); });
+  if (found) return found.id;
+  var sec = secs[0];
+  if (!sec) { sec = { id: uid(), notebookId: nb.id, name: 'General', order: 0 }; data.sections.push(sec); }
+  var ts = now();
+  var note = { id: uid(), sectionId: sec.id, title: '✅ Tareas', tasksHost: true, createdAt: ts, updatedAt: ts };
+  data.notes.push(note);
+  return note.id;
+}
+// Siguiente hueco libre en una hoja: debajo de lo que ya hay, en la columna izquierda.
+function nextFreeSpot(noteId) {
+  var y = 36;
+  blocksOf(noteId).forEach(function (b) { if (b.x < 400) y = Math.max(y, (b.y || 0) + (b.height || 120) + 24); });
+  return { x: 36, y: y };
 }
 
 // ---------- Pickers: anidar a una hoja y recordatorio en X minutos ----------

@@ -14,7 +14,10 @@ function tareasView() { return ui.tasksView === 'tablero' ? 'tablero' : 'lista';
 function tareasSrcFilter() {
   return (ui.tasksSrc === 'task' || ui.tasksSrc === 'block') ? ui.tasksSrc : 'all';
 }
-var DATE_FILTERS = [['all', 'Todas'], ['today', 'Hoy'], ['week', 'Semana'], ['late', 'Atrasadas'], ['range', 'Rango…']];
+var DATE_FILTERS = [['all', 'Todas'],['today', 'Hoy'], ['week', 'Semana'], ['late', 'Vencidas'], ['done', 'Completadas'], ['range', 'Rango…']];
+// Estos filtros miran también lo terminado en días anteriores (el historial).
+function tareasWantsHistory() { var f = tareasDateFilter(); return f === 'week' || f === 'range' || f === 'done'; }
+var tareaDet = null;   // { src, id } de la tarea abierta en la vista de detalle (no se persiste)
 function tareasDateFilter() {
   for (var i = 0; i < DATE_FILTERS.length; i++) { if (DATE_FILTERS[i][0] === ui.tasksDate) return ui.tasksDate; }
   return 'all';
@@ -65,6 +68,9 @@ function closeTareas() {
     // Se va deslizando por donde entró. Pierde el id al instante: para la app ya está
     // cerrado, y lo que queda es un fantasma que acaba la animación y se borra solo.
     o.removeAttribute('id');
+    // Sus hijos también sueltan los id: si no, al reabrir (cambiar Lista ↔ Tablero) el
+    // repintado encontraba #tareasBody del panel que se está yendo y el nuevo quedaba vacío.
+    Array.prototype.forEach.call(o.querySelectorAll('[id]'), function (x) { x.removeAttribute('id'); });
     o.classList.add('is-closing');
     o.classList.add('is-pre');     // se va por donde vino
     setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 260);
@@ -76,17 +82,25 @@ function tareasIsOpen() { return !!document.getElementById('tareasOverlay'); }
 // ---------- Adaptador: una sola lista de tarjetas venga de donde venga ----------
 // El filtro por libro se aplica a las tarjetas del lienzo por su nota, y a las tareas del día
 // por la hoja a la que estén anidadas (una tarea suelta no pertenece a ningún libro).
+// '__inbox' = la Bandeja: tareas sin libro y tarjetas que viven en el libro Bandeja.
 function tareaInBook(t) {
   if (!ui.kanbanBook) return true;
-  if (!t.noteId) return false;
-  var n = getNote(t.noteId); if (!n) return false;
-  var s = getSection(n.sectionId);
-  return !!(s && s.notebookId === ui.kanbanBook);
+  var book = planBookOf(t);
+  if (ui.kanbanBook === '__inbox') return !book || !!(getNotebook(book) || {}).inbox;
+  return book === ui.kanbanBook;
 }
+function blockInBook(b) {
+  if (!ui.kanbanBook) return true;
+  var book = notebookIdOfBlock(b);
+  if (ui.kanbanBook === '__inbox') return !!(getNotebook(book) || {}).inbox;
+  return book === ui.kanbanBook;
+}
+// Libro al que va lo que se crea con el filtro puesto (lo creado en "Bandeja" queda sin libro).
+function tareasNewBook() { return ui.kanbanBook && ui.kanbanBook !== '__inbox' ? ui.kanbanBook : ''; }
 // Todas las tarjetas de una columna, sin los filtros del panel (la usa también el móvil).
-function boardAll(status) {
+function boardAll(status, all) {
   var out = [];
-  planTasksIn(status).forEach(function (t) { out.push({ src: 'task', id: t.id, ref: t, order: planOrderOf(t) }); });
+  planTasksIn(status, all).forEach(function (t) { out.push({ src: 'task', id: t.id, ref: t, order: planOrderOf(t) }); });
   (data.blocks || []).forEach(function (b) {
     if (b.kanban === status) out.push({ src: 'block', id: b.id, ref: b, order: kanbanOrderOf(b) });
   });
@@ -94,18 +108,30 @@ function boardAll(status) {
 }
 // La fecha de una tarjeta: el día al que pertenece la tarea, o el día en que la tarjeta del
 // lienzo entró al tablero (y si nunca entró, cuándo se creó).
+// Lo terminado cuenta el día en que se terminó; lo abierto, su fecha límite o, sin ella, el
+// día en que se apuntó.
+function itemDoneAt(it) { return it.src === 'task' ? it.ref.doneAt : it.ref.kanbanDoneAt; }
 function itemDay(it) {
+  if (itemIsDone(it) && itemDoneAt(it)) return planDayOfMs(itemDoneAt(it));
+  if (planDueOf(it.ref)) return planDueOf(it.ref);
   if (it.src === 'task') return it.ref.day || planDayOfMs(it.ref.createdAt);
   return planDayOfMs(it.ref.kanbanAt || it.ref.createdAt);
 }
 function itemIsDone(it) { return it.src === 'task' ? !!it.ref.done : it.ref.kanban === 'done'; }
+function itemStatus(it) { return it.src === 'task' ? planStatusOf(it.ref) : it.ref.kanban; }
 function itemPassesDate(it) {
   var f = tareasDateFilter();
+  var done = itemIsDone(it), hoy = planTodayStr();
   if (f === 'all') return true;
-  var day = itemDay(it), hoy = planTodayStr();
-  if (f === 'today') return day === hoy;
-  if (f === 'week') return day >= planWeekStartStr() && day <= hoy;
-  if (f === 'late') return day < hoy && !itemIsDone(it); // pendiente y de un día pasado
+  if (f === 'done') return done;
+  if (f === 'late') return planIsOverdue(it.ref, done);
+  var day = itemDay(it);
+  if (f === 'today') {
+    if (done) return day === hoy;
+    return planDueOf(it.ref) ? day <= hoy : day === hoy; // lo que vence hoy o ya venció, y lo apuntado hoy
+  }
+  // Semana: lo de esta semana, más lo que arrastras vencido de antes (sigue siendo tu semana).
+  if (f === 'week') return (day >= planWeekStartStr() && day <= hoy) || (!done && !!planDueOf(it.ref) && day < planWeekStartStr());
   var desde = ui.tasksFrom || '', hasta = ui.tasksTo || '';
   if (desde && day < desde) return false;
   if (hasta && day > hasta) return false;
@@ -114,18 +140,16 @@ function itemPassesDate(it) {
 function boardItems(status) {
   var src = tareasSrcFilter();
   var prio = tareasPrioFilter();
-  var out = boardAll(status).filter(function (it) {
+  var out = boardAll(status, tareasWantsHistory()).filter(function (it) {
     if (prio !== 'all' && planPriorityOf(it.ref) !== prio) return false;
     if (!itemPassesDate(it)) return false;
+    if (ui.kanbanBlockedOnly && !it.ref.blocked) return false; // en espera: tareas y tarjetas
     if (it.src === 'task') {
       if (src === 'block') return false;
-      if (ui.kanbanBlockedOnly) return false; // "bloqueada" es un estado de las tarjetas del lienzo
       return tareaInBook(it.ref);
     }
     if (src === 'task') return false;
-    if (ui.kanbanBook && notebookIdOfBlock(it.ref) !== ui.kanbanBook) return false;
-    if (ui.kanbanBlockedOnly && !it.ref.blocked) return false;
-    return true;
+    return blockInBook(it.ref);
   });
   // El orden manual (arrastre) manda salvo que pidas ver primero lo más prioritario.
   if (tareasSort() === 'prio') {
@@ -158,6 +182,11 @@ function boardPlace(src, id, status, beforeId) {
     b.kanban = status;
     if (!b.kanbanAt) b.kanbanAt = now();
     b.kanbanOrder = ord;
+    if (was !== status) {
+      planHist(b, { s: status });
+      b.kanbanDoneAt = status === 'done' ? now() : null;
+      if (status === 'done' && b.blocked) { b.blocked = false; delete b.blockedWhy; }
+    }
     touchNote(b.noteId);
     save();
     renderCanvas();
@@ -240,15 +269,17 @@ function openTareas(view) {
     }, icon(v[1]), v[2]));
   });
 
-  var sel = h('select', { class: 'kanban-filter', title: 'Filtrar por libro' });
+  var sel = h('select', { class: 'kanban-filter', title: 'Filtrar por libro (lo que crees con el filtro puesto va a ese libro)' });
   sel.appendChild(h('option', { value: '' }, 'Todos los libros'));
+  sel.appendChild(h('option', { value: '__inbox' }, '📥 Bandeja (sin libro)'));
   notebooksAll().forEach(function (nb) {
+    if (nb.inbox) return; // ya está arriba como «Bandeja»
     sel.appendChild(h('option', { value: nb.id }, (nb.emoji ? nb.emoji + ' ' : '') + nb.name));
   });
   sel.value = ui.kanbanBook || '';
   sel.addEventListener('change', function () { ui.kanbanBook = sel.value; save(); renderTareas(); });
 
-  var blockedBtn = h('button', { class: 'icon-btn kanban-blocked-btn' + (ui.kanbanBlockedOnly ? ' on' : ''), title: 'Mostrar solo las tarjetas bloqueadas' }, icon('bellRing'));
+  var blockedBtn = h('button', { class: 'icon-btn kanban-blocked-btn' + (ui.kanbanBlockedOnly ? ' on' : ''), title: 'Mostrar solo lo que está en espera (bloqueado)' }, icon('bellRing'));
   blockedBtn.addEventListener('click', function () {
     ui.kanbanBlockedOnly = !ui.kanbanBlockedOnly;
     save();
@@ -258,8 +289,7 @@ function openTareas(view) {
 
   var dateLbl = new Date().toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
   dateLbl = dateLbl.charAt(0).toUpperCase() + dateLbl.slice(1);
-  // Los filtros por libro y por bloqueo son del tablero: en la lista del día solo estorban.
-  var esTablero = tareasView() === 'tablero';
+  // El libro y "en espera" filtran las dos vistas: seguir un proyecto es lo mismo en lista o tablero.
   var dockBtn = h('button', {
     class: 'icon-btn' + (dock ? ' on' : ''),
     title: dock ? 'Está acoplado al lado: puedes seguir usando el lienzo. Clic para verlo como ventana centrada.'
@@ -272,8 +302,8 @@ function openTareas(view) {
       dock ? null : h('span', { class: 'planner-date' }, dateLbl)),
     views,
     h('div', { class: 'tareas-head-right' },
-      esTablero ? blockedBtn : null,
-      esTablero ? h('span', { class: 'kanban-filter-wrap' }, icon('book'), sel) : null,
+      blockedBtn,
+      h('span', { class: 'kanban-filter-wrap' }, icon('book'), sel),
       dockBtn,
       h('button', { class: 'icon-btn', title: 'Cerrar (Esc)', onclick: closeTareas }, icon('x')))));
 
@@ -376,7 +406,9 @@ function renderTareasFilters() {
 function fechaHint(k) {
   if (k === 'today') return 'Solo lo de hoy';
   if (k === 'week') return 'Desde el lunes de esta semana';
-  if (k === 'late') return 'Pendientes de días anteriores';
+  if (k === 'today') return 'Lo apuntado hoy y lo que vence hoy o ya venció';
+  if (k === 'late') return 'Abiertas con la fecha límite ya pasada';
+  if (k === 'done') return 'Historial de lo terminado, por día';
   if (k === 'range') return 'Elegir un rango de fechas';
   return 'Sin filtro de fecha';
 }
@@ -389,9 +421,13 @@ function renderTareas() {
   }
   var body = document.getElementById('tareasBody');
   if (!body) return;
+  var det = tareaDet && tareaDetItem();
+  if (!det) tareaDet = null;
   renderTareasSummary();
-  renderTareasFilters();
+  if (det) { var fl = document.getElementById('tareasFilters'); if (fl) fl.innerHTML = ''; }
+  else renderTareasFilters();
   body.innerHTML = '';
+  if (det) { body.className = 'tareas-body is-detalle'; renderTareaDetalle(body, det); return; }
   body.className = 'tareas-body ' + (tareasView() === 'tablero' ? 'is-tablero' : 'is-lista');
   if (tareasView() === 'tablero') renderTareasTablero(body);
   else renderTareasLista(body);
@@ -417,6 +453,11 @@ function renderTareasSummary() {
   el.appendChild(h('span', { class: 'planner-count' }, items.length
     ? (closedN + ' de ' + items.length + ' completadas · ' + (total ? Math.round(done / total * 100) : 0) + '% del trabajo')
     : 'Escribe lo primero que tengas que hacer hoy'));
+  // Lo que pide atención, a la vista y a un clic de su filtro.
+  var vencidas = items.filter(function (it) { return planIsOverdue(it.ref, itemIsDone(it)); }).length;
+  var espera = items.filter(function (it) { return it.ref.blocked && !itemIsDone(it); }).length;
+  if (vencidas) el.appendChild(h('button', { class: 'tareas-alert is-late', title: 'Ver solo las vencidas', onclick: function () { tareaDet = null; ui.tasksDate = 'late'; save(); renderTareas(); } }, '⚠ ' + vencidas + (vencidas === 1 ? ' vencida' : ' vencidas')));
+  if (espera) el.appendChild(h('button', { class: 'tareas-alert is-wait', title: 'Ver solo lo que está en espera', onclick: function () { tareaDet = null; ui.kanbanBlockedOnly = true; save(); openTareas(); } }, '⏸ ' + espera + ' en espera'));
 }
 
 // ---------- Vista Lista ----------
@@ -434,26 +475,106 @@ function tareasListCmp(a, b) {
   return (TAREAS_RANK[sa] - TAREAS_RANK[sb]) || (a.order - b.order);
 }
 function renderTareasLista(body) {
-  var inp = h('input', { class: 'planner-inp', placeholder: '¿Qué tienes que hacer hoy? (Enter para añadir)' });
-  var addTask = function () {
-    var t = planAddTask(inp.value);
-    if (!t) return;
-    inp.value = '';
-    tareasOpen[t.id] = true; // nace desplegada: descomponerla en pasos sin un clic extra
-    renderTareas();
-    var sub = body.querySelector('.planner-task .planner-sub-inp');
-    if (sub) sub.focus(); else inp.focus();
-  };
-  inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addTask(); } });
-  body.appendChild(h('div', { class: 'planner-add' }, inp, h('button', { class: 'tour-btn', onclick: addTask }, 'Añadir')));
+  var historial = tareasDateFilter() === 'done';
+  if (!historial) {
+    var inp = h('input', { class: 'planner-inp', placeholder: '¿Qué tienes que hacer? (Enter para añadir)' });
+    // Fecha límite opcional al crearla: sin esto había que abrir la tarea para ponérsela.
+    var due = h('input', { class: 'tareas-date-inp planner-due-inp', type: 'date', title: 'Fecha límite (opcional)' });
+    var addTask = function () {
+      var t = planAddTask(inp.value, { bookId: tareasNewBook(), due: due.value });
+      if (!t) return;
+      inp.value = '';
+      tareasOpen[t.id] = true; // nace desplegada: descomponerla en pasos sin un clic extra
+      renderTareas();
+      var sub = body.querySelector('[data-id="' + t.id + '"] .planner-sub-inp');
+      if (sub) sub.focus(); else inp.focus();
+    };
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addTask(); } });
+    body.appendChild(h('div', { class: 'planner-add' }, inp, due, h('button', { class: 'tour-btn', onclick: addTask }, 'Añadir')));
+  }
 
   var list = h('div', { class: 'log-body planner-body' });
   var tasks = [];
   KAN.forEach(function (k) { boardItems(k[0]).forEach(function (it) { tasks.push(it); }); });
-  tasks.sort(tareasListCmp);
-  tasks.forEach(function (it) { list.appendChild(it.src === 'task' ? taskRow(it.ref) : blockRow(it.ref)); });
-  if (!tasks.length) list.appendChild(h('p', { class: 'tree-empty' }, 'Sin tareas para hoy. ¡Día despejado! 🌿'));
+  if (historial) {
+    // Historial: lo más reciente arriba, con un separador por día.
+    tasks.sort(function (a, b) { return (itemDoneAt(b) || 0) - (itemDoneAt(a) || 0); });
+    var lastDay = null;
+    tasks.forEach(function (it) {
+      var d = itemDay(it);
+      if (d !== lastDay) { lastDay = d; list.appendChild(h('div', { class: 'tareas-dayhead' }, tareasDayTitle(d))); }
+      list.appendChild(it.src === 'task' ? taskRow(it.ref) : blockRow(it.ref));
+    });
+    if (!tasks.length) list.appendChild(h('p', { class: 'tree-empty' }, 'Aún no hay nada terminado con estos filtros.'));
+  } else {
+    tasks.sort(tareasListCmp);
+    tasks.forEach(function (it) { list.appendChild(it.src === 'task' ? taskRow(it.ref) : blockRow(it.ref)); });
+    if (!tasks.length) list.appendChild(h('p', { class: 'tree-empty' }, 'Nada pendiente con estos filtros. 🌿'));
+  }
   body.appendChild(list);
+  if (!historial) renderMdTasks(body);
+}
+function tareasDayTitle(d) {
+  var lbl = planDueLabel(d);
+  var largo = new Date(d + 'T12:00:00').toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
+  return (lbl === 'Hoy' || lbl === 'Ayer') ? lbl + ' · ' + largo : largo.charAt(0).toUpperCase() + largo.slice(1);
+}
+
+// ---------- Casillas «- [ ]» escritas dentro de las notas ----------
+// Antes no aparecían en ningún panel: lo que apuntabas como casilla en una nota se perdía
+// para el seguimiento. Se leen de los bloques de texto y marcarlas aquí edita la nota.
+var MD_TASK_RE = /^(\s*[-*+]\s+)\[( |x|X)\](\s+.*)$/;
+function mdTasksOf(b) {
+  var txt = b && b.content && typeof b.content.text === 'string' ? b.content.text : '';
+  if (txt.indexOf('[') < 0) return [];
+  var out = [];
+  txt.replace(/\r\n?/g, '\n').split('\n').forEach(function (line, ln) {
+    var m = line.match(MD_TASK_RE);
+    if (m) out.push({ ln: ln, text: m[3].trim(), done: m[2] !== ' ' });
+  });
+  return out;
+}
+function mdTaskToggle(b, ln) {
+  var lines = String(b.content.text || '').replace(/\r\n?/g, '\n').split('\n');
+  var m = lines[ln] && lines[ln].match(MD_TASK_RE);
+  if (!m) return;
+  lines[ln] = m[1] + (m[2] === ' ' ? '[x]' : '[ ]') + m[3];
+  b.content.text = lines.join('\n');
+  touchNote(b.noteId);
+  logChange(m[2] === ' ' ? 'Tarea completada' : 'Tarea reabierta', snippet(m[3]));
+  save();
+  renderCanvas();
+}
+function renderMdTasks(body) {
+  if (tareasSrcFilter() === 'task') return;
+  var f = tareasDateFilter();
+  if (f !== 'all' && f !== 'today') return; // no tienen fecha: solo cuadran en la vista general
+  var grupos = [], pendientes = 0;
+  (data.blocks || []).forEach(function (b) {
+    if (!blockInBook(b)) return;
+    var abiertas = mdTasksOf(b).filter(function (x) { return !x.done; });
+    if (!abiertas.length) return;
+    pendientes += abiertas.length;
+    grupos.push({ b: b, items: abiertas });
+  });
+  if (!grupos.length) return;
+  var abierto = ui.tasksMdOpen !== false;
+  var wrap = h('div', { class: 'tareas-md' });
+  wrap.appendChild(h('button', { class: 'tareas-md-head', onclick: function () { ui.tasksMdOpen = !abierto; save(); renderTareas(); } },
+    icon(abierto ? 'chevronDown' : 'chevron'), 'Casillas en tus notas', h('span', { class: 'kc-count' }, String(pendientes))));
+  if (abierto) {
+    grupos.forEach(function (g) {
+      var note = getNote(g.b.noteId);
+      wrap.appendChild(h('button', { class: 'tareas-md-note', title: 'Abrir la hoja', onclick: function () { closeTareas(); selectNote(g.b.noteId); } },
+        '📄 ' + ((note && note.title) || 'Nota'), h('span', { class: 'tareas-md-path' }, bookLineOf(g.b))));
+      g.items.forEach(function (x) {
+        var chk = h('input', { type: 'checkbox' });
+        chk.addEventListener('change', function () { mdTaskToggle(g.b, x.ln); renderTareas(); });
+        wrap.appendChild(h('label', { class: 'tareas-md-item' }, chk, h('span', {}, x.text)));
+      });
+    });
+  }
+  body.appendChild(wrap);
 }
 
 // Desplegable de opciones anclado a un chip. Se elige el valor de una lista en vez de ir
@@ -539,41 +660,28 @@ function taskRow(t) {
   chk.addEventListener('change', function () { planToggleDone(t, chk.checked); renderTareas(); });
   var title = editable(h('span', { class: 'planner-title' + (t.done ? ' done' : '') }, t.title), t.title,
     function (v) { t.title = v; logChange('Tarea renombrada', v); save(); renderTareas(); });
-  var carried = !t.done && t.day !== planTodayStr();
-  var row = h('div', { class: 'planner-task' + (t.done ? ' done' : '') + (planPriorityOf(t) ? ' p-' + planPriorityOf(t) : ''), 'data-id': t.id },
+  var carried = !t.done && t.day !== planTodayStr() && !planDueOf(t);
+  var row = h('div', { class: 'planner-task' + (t.done ? ' done' : '') + (t.blocked ? ' is-wait' : '') + (planPriorityOf(t) ? ' p-' + planPriorityOf(t) : ''), 'data-id': t.id },
     h('div', { class: 'planner-task-row' },
       chk, title,
-      carried ? h('span', { class: 'planner-carried', title: 'Pendiente desde ' + t.day }, t.day.slice(5)) : null,
+      carried ? h('span', { class: 'planner-carried', title: 'Abierta desde ' + t.day + ' (sin fecha límite)' }, t.day.slice(5)) : null,
       stepsBtn(t, open, renderTareas),
-      h('button', { class: 'act danger', title: 'Eliminar tarea', onclick: function () { planDeleteTask(t); renderTareas(); } }, icon('trash'))));
+      detalleBtn('task', t.id)));
 
+  // Fila de estado: solo lo que se consulta de un vistazo. Tipo, hoja, recordatorio, lienzo y
+  // borrar viven en el detalle (antes eran ~10 controles por fila).
   var meta = h('div', { class: 'planner-meta' });
   meta.appendChild(statusChip(status, function (next) { planSetStatus(t, next); renderTareas(); }));
   meta.appendChild(prioChip(t, renderTareas));
-  meta.appendChild(h('span', { class: 'planner-meta-at', title: 'Insertada el ' + fmtWhen(t.createdAt) }, '⏱ ' + fmtDate(t.createdAt) + ' · ' + fmtTime(t.createdAt)));
-  var kind = t.kind || 'relevant', rk = rankMeta(kind);
-  meta.appendChild(h('button', { class: 'planner-kind rank-' + kind, title: 'Tipo: ' + rk.label + ' — clic para cambiarlo', onclick: function () {
-    var order = NOTE_RANKS.map(function (r) { return r.key; });
-    t.kind = order[(order.indexOf(kind) + 1) % order.length];
-    save(); renderTareas();
-  } }, rk.label));
-  var linked = t.noteId && getNote(t.noteId);
-  if (linked) {
-    meta.appendChild(h('button', { class: 'planner-note-chip', title: 'Anidada a esta hoja — clic para abrirla', onclick: function () { closeTareas(); selectNote(t.noteId); } }, '📄 ' + (linked.title || 'Hoja')));
-  }
-  var linkBtn = h('button', { class: 'act', title: linked ? 'Cambiar o quitar la hoja anidada' : 'Anidar la tarea a una hoja o nota' }, icon('link'));
-  linkBtn.addEventListener('click', function (e) { e.stopPropagation(); openPlanNotePicker(t, linkBtn, renderTareas); });
-  meta.appendChild(linkBtn);
+  var dc = dueChip(t, t.done); if (dc) meta.appendChild(dc);
+  if (t.blocked) meta.appendChild(waitChip(t));
+  var bk = planBookOf(t), bnb = bk && getNotebook(bk);
+  if (bnb && ui.kanbanBook !== bk) meta.appendChild(h('span', { class: 'planner-book-chip', title: 'Libro' }, (bnb.emoji || '📓') + ' ' + bnb.name));
   if (t.remindAt && t.remindAt > now()) {
     meta.appendChild(h('span', { class: 'planner-remind-chip', title: 'Sonará a las ' + planFmtTime(t.remindAt) }, '⏰ ' + planFmtTime(t.remindAt)));
   }
-  var bellBtn = h('button', { class: 'act', title: 'Recordatorio en X minutos (suena y avisa)' }, icon('bell'));
-  bellBtn.addEventListener('click', function (e) { e.stopPropagation(); openPlanRemindPicker(t, bellBtn, renderTareas); });
-  meta.appendChild(bellBtn);
+  if (t.desc) meta.appendChild(h('span', { class: 'planner-desc-mark', title: t.desc }, icon('format')));
   if (typeof pomoRowBtn === 'function') meta.appendChild(pomoRowBtn('task', t.id));
-  var toCanvas = h('button', { class: 'act', title: 'Llevarla al lienzo como tarjeta' }, icon('popout'));
-  toCanvas.addEventListener('click', function (e) { e.stopPropagation(); taskToCanvas(t); });
-  meta.appendChild(toCanvas);
   row.appendChild(meta);
 
   if (t.subs.length) {
@@ -596,23 +704,22 @@ function blockRow(b) {
   var text = (b.content && b.content.text) ? b.content.text : typeMeta(b.type).label;
   var title = editable(h('span', { class: 'planner-title' + (b.kanban === 'done' ? ' done' : '') }, snippet(text)), text,
     function (v) { blockSetText(b, v); renderTareas(); });
-  var row = h('div', { class: 'planner-task from-canvas' + (b.kanban === 'done' ? ' done' : '') + (planPriorityOf(b) ? ' p-' + planPriorityOf(b) : ''), 'data-id': b.id },
+  var closed = b.kanban === 'done';
+  var row = h('div', { class: 'planner-task from-canvas' + (closed ? ' done' : '') + (b.blocked ? ' is-wait' : '') + (planPriorityOf(b) ? ' p-' + planPriorityOf(b) : ''), 'data-id': b.id },
     h('div', { class: 'planner-task-row' },
       chk, title,
       stepsBtn(b, open, renderTareas),
-      h('button', { class: 'act danger', title: 'Quitar del tablero (la tarjeta sigue en el lienzo)', onclick: function () { removeFromKanban(b); } }, icon('x'))));
+      detalleBtn('block', b.id)));
   var meta = h('div', { class: 'planner-meta' });
   meta.appendChild(statusChip(b.kanban, function (next) { setKanban(b, next); }));
   meta.appendChild(prioChip(b, renderTareas));
-  meta.appendChild(h('span', { class: 'planner-src-chip', title: 'Esta tarjeta vive en el lienzo' }, icon(typeMeta(b.type).icon), 'Lienzo'));
+  var dc = dueChip(b, closed); if (dc) meta.appendChild(dc);
+  if (b.blocked) meta.appendChild(waitChip(b));
   if (note) {
-    meta.appendChild(h('button', { class: 'planner-note-chip', title: 'Abrir la hoja', onclick: function () { closeTareas(); selectNote(b.noteId); } }, '📄 ' + (note.title || 'Hoja')));
+    meta.appendChild(h('button', { class: 'planner-note-chip', title: 'Vive en el lienzo de esta hoja — clic para abrirla', onclick: function () { closeTareas(); selectNote(b.noteId); } }, icon(typeMeta(b.type).icon), ' ' + (note.title || 'Hoja')));
   }
   if (b.reminder && !b.reminder.done) meta.appendChild(h('span', { class: 'planner-remind-chip' }, '⏰ ' + fmtShort(b.reminder.at)));
   if (typeof pomoRowBtn === 'function') meta.appendChild(pomoRowBtn('block', b.id));
-  var toPlan = h('button', { class: 'act', title: 'Copiarla al plan de hoy' }, icon('todo'));
-  toPlan.addEventListener('click', function (e) { e.stopPropagation(); blockToTask(b); });
-  meta.appendChild(toPlan);
   row.appendChild(meta);
   if (b.subs.length) {
     row.appendChild(h('div', { class: 'planner-bar' },
@@ -623,9 +730,13 @@ function blockRow(b) {
 }
 
 // ---------- Editor de pasos (subtareas), común a tareas del día y tarjetas del lienzo ----------
-function subsEditor(owner) {
-  var wrap = h('div', { class: 'planner-subs' });
-  (owner.subs || []).forEach(function (s) {
+// full = vista de detalle: cada paso puede llevar una nota y reordenarse.
+var subNoteOpen = {};  // qué pasos tienen la nota desplegada (interfaz)
+function subsEditor(owner, full) {
+  var wrap = h('div', { class: 'planner-subs' + (full ? ' is-full' : '') });
+  var subsN = (owner.subs || []).length;
+  (owner.subs || []).forEach(function (s, i) {
+    if (full) { wrap.appendChild(subFullRow(owner, s, i, subsN)); return; }
     var sChk = h('input', { type: 'checkbox' });
     sChk.checked = !!s.done;
     sChk.addEventListener('change', function () { planSubToggle(owner, s, sChk.checked); renderTareas(); });
@@ -636,6 +747,7 @@ function subsEditor(owner) {
       function (v) { planSubSetText(owner, s, v); renderTareas(); });
     wrap.appendChild(h('div', { class: 'planner-sub' + (s.done ? ' done' : '') },
       sChk, txt,
+      s.note ? h('span', { class: 'planner-desc-mark', title: s.note }, icon('format')) : null,
       s.done && s.at ? h('span', { class: 'planner-sub-at', title: 'Hecho a las ' + planFmtTime(s.at) }, planFmtTime(s.at)) : null,
       h('button', { class: 'act danger', title: 'Quitar el paso', onclick: function (e) { e.preventDefault(); planSubRemove(owner, s); renderTareas(); } }, icon('x'))));
   });
@@ -651,6 +763,167 @@ function subsEditor(owner) {
   wrap.appendChild(h('div', { class: 'planner-sub-add' }, inp));
   return wrap;
 }
+function subFullRow(owner, s, i, n) {
+  var sChk = h('input', { type: 'checkbox' });
+  sChk.checked = !!s.done;
+  sChk.addEventListener('change', function () { planSubToggle(owner, s, sChk.checked); renderTareas(); });
+  var txt = editable(h('span', { class: 'planner-sub-text' }, s.text), s.text,
+    function (v) { planSubSetText(owner, s, v); renderTareas(); });
+  var abierta = !!subNoteOpen[s.id] || !!s.note;
+  var row = h('div', { class: 'planner-sub' + (s.done ? ' done' : '') },
+    sChk, txt,
+    s.done && s.at ? h('span', { class: 'planner-sub-at', title: 'Hecho el ' + fmtWhen(s.at) }, fmtDate(s.at) + ' ' + planFmtTime(s.at)) : null,
+    h('button', { class: 'act' + (s.note ? ' on' : ''), title: 'Añadir detalle a este paso', onclick: function () { subNoteOpen[s.id] = !subNoteOpen[s.id]; renderTareas(); } }, icon('format')),
+    h('button', { class: 'act', title: 'Subir', disabled: i === 0 ? '' : null, onclick: function () { planSubMove(owner, s, -1); renderTareas(); } }, icon('chevronL', 'rot-up')),
+    h('button', { class: 'act', title: 'Bajar', disabled: i === n - 1 ? '' : null, onclick: function () { planSubMove(owner, s, 1); renderTareas(); } }, icon('chevron', 'rot-down')),
+    h('button', { class: 'act danger', title: 'Quitar el paso', onclick: function () { planSubRemove(owner, s); renderTareas(); } }, icon('x')));
+  if (!abierta) return row;
+  var ta = h('textarea', { class: 'planner-sub-note', rows: '2', placeholder: 'Detalle del paso: qué hiciste, qué falta, un enlace…' });
+  ta.value = s.note || '';
+  ta.addEventListener('change', function () { planSubSetNote(owner, s, ta.value); });
+  return h('div', { class: 'planner-sub-wrap' }, row, ta);
+}
+
+// ---------- Vista de detalle: todo lo de una tarea en un sitio ----------
+function detalleBtn(src, id) {
+  return h('button', { class: 'act detalle-btn', title: 'Abrir el detalle (descripción, fecha, pasos, historial)', onclick: function (e) {
+    e.stopPropagation(); tareaDet = { src: src, id: id }; renderTareas();
+  } }, icon('more'));
+}
+function tareaDetItem() {
+  if (!tareaDet) return null;
+  var ref = tareaDet.src === 'task' ? planTaskById(tareaDet.id) : getBlockById(tareaDet.id);
+  if (!ref || (tareaDet.src === 'block' && !ref.kanban)) return null;
+  return { src: tareaDet.src, id: tareaDet.id, ref: ref };
+}
+function dueChip(x, closed) {
+  var d = planDueOf(x);
+  if (!d) return null;
+  var late = planIsOverdue(x, closed);
+  var hoy = !closed && d === planTodayStr();
+  return h('span', { class: 'planner-due' + (late ? ' is-late' : hoy ? ' is-today' : ''), title: 'Fecha límite: ' + d },
+    icon('clock'), (late ? 'Venció ' : '') + planDueLabel(d));
+}
+function waitChip(x) {
+  return h('span', { class: 'planner-wait', title: x.blockedWhy ? 'En espera: ' + x.blockedWhy : 'En espera' },
+    '⏸ ' + (x.blockedWhy ? snippet(x.blockedWhy).slice(0, 28) : 'En espera'));
+}
+function detField(label, control) {
+  return h('div', { class: 'det-field' }, h('span', { class: 'det-label' }, label), h('div', { class: 'det-ctl' }, control));
+}
+function renderTareaDetalle(body, it) {
+  var isTask = it.src === 'task', x = it.ref;
+  x.subs = x.subs || [];
+  var closed = itemIsDone(it);
+  var back = function () { tareaDet = null; renderTareas(); };
+  var wrap = h('div', { class: 'tarea-det', 'data-id': it.id });
+  wrap.appendChild(h('div', { class: 'det-top' },
+    h('button', { class: 'cm-chip', onclick: back }, icon('chevronL'), 'Volver'),
+    h('span', { class: 'planner-src-chip' }, icon(isTask ? 'todo' : typeMeta(x.type).icon), isTask ? 'Tarea' : 'Tarjeta del lienzo')));
+
+  // Título
+  var tt = h('textarea', { class: 'det-title', rows: '1' });
+  tt.value = itemTitle(it);
+  tt.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); tt.blur(); } });
+  tt.addEventListener('change', function () {
+    var v = tt.value.trim(); if (!v || v === itemTitle(it)) return;
+    if (isTask) { x.title = v; logChange('Tarea renombrada', v); save(); } else blockSetText(x, v);
+  });
+  wrap.appendChild(tt);
+
+  // Campos
+  var grid = h('div', { class: 'det-grid' });
+  grid.appendChild(detField('Estado', statusChip(itemStatus(it), function (next) {
+    if (isTask) planSetStatus(x, next); else setKanban(x, next);
+    renderTareas();
+  })));
+  grid.appendChild(detField('Prioridad', prioChip(x, renderTareas)));
+  var dueInp = h('input', { class: 'tareas-date-inp', type: 'date', value: planDueOf(x) });
+  dueInp.addEventListener('change', function () { planSetDue(x, dueInp.value); renderTareas(); });
+  grid.appendChild(detField('Vence', h('span', { class: 'det-inline' }, dueInp,
+    planDueOf(x) ? h('button', { class: 'cm-chip', title: 'Quitar la fecha', onclick: function () { planSetDue(x, ''); renderTareas(); } }, icon('x')) : null,
+    dueChip(x, closed))));
+  if (isTask) {
+    var bsel = h('select', { class: 'kanban-filter' });
+    bsel.appendChild(h('option', { value: '' }, '📥 Bandeja (sin libro)'));
+    notebooksAll().forEach(function (nb) { if (!nb.inbox) bsel.appendChild(h('option', { value: nb.id }, (nb.emoji ? nb.emoji + ' ' : '') + nb.name)); });
+    bsel.value = x.bookId && getNotebook(x.bookId) ? x.bookId : '';
+    bsel.addEventListener('change', function () { planSetBook(x, bsel.value); renderTareas(); });
+    grid.appendChild(detField('Libro', bsel));
+    var linked = x.noteId && getNote(x.noteId);
+    var linkBtn = h('button', { class: 'cm-chip' }, icon('link'), linked ? (linked.title || 'Hoja') : 'Anidar a una hoja');
+    linkBtn.addEventListener('click', function (e) { e.stopPropagation(); openPlanNotePicker(x, linkBtn, renderTareas); });
+    grid.appendChild(detField('Hoja', h('span', { class: 'det-inline' }, linkBtn,
+      linked ? h('button', { class: 'cm-chip', title: 'Abrir la hoja', onclick: function () { closeTareas(); selectNote(x.noteId); } }, icon('popout')) : null)));
+    var bell = h('button', { class: 'cm-chip' }, icon('bell'), x.remindAt && x.remindAt > now() ? 'A las ' + planFmtTime(x.remindAt) : 'Avisarme en…');
+    bell.addEventListener('click', function (e) { e.stopPropagation(); openPlanRemindPicker(x, bell, renderTareas); });
+    grid.appendChild(detField('Recordatorio', bell));
+    var kind = x.kind || 'relevant';
+    var kindSel = h('select', { class: 'kanban-filter' });
+    NOTE_RANKS.forEach(function (r) { kindSel.appendChild(h('option', { value: r.key }, r.label)); });
+    kindSel.value = kind;
+    kindSel.addEventListener('change', function () { x.kind = kindSel.value; save(); });
+    grid.appendChild(detField('Tipo', kindSel));
+  } else {
+    grid.appendChild(detField('Dónde', h('button', { class: 'cm-chip', onclick: function () { closeTareas(); selectNote(x.noteId); } }, icon('popout'), bookLineOf(x) || 'Ver en el lienzo')));
+  }
+  // En espera: el estado que faltaba para "no depende de mí" (antes solo en tarjetas del lienzo).
+  var wChk = h('input', { type: 'checkbox' });
+  wChk.checked = !!x.blocked;
+  var why = h('input', { class: 'planner-inp det-why', placeholder: '¿Qué o a quién esperas?', value: x.blockedWhy || '' });
+  wChk.addEventListener('change', function () { planSetBlocked(x, wChk.checked, why.value); if (!isTask) renderCanvas(); renderTareas(); });
+  why.addEventListener('change', function () { if (x.blocked) { x.blockedWhy = why.value.trim(); planTouch(x); save(); } });
+  grid.appendChild(detField('En espera', h('span', { class: 'det-inline' }, h('label', { class: 'det-check' }, wChk, 'Bloqueada'), x.blocked ? why : null)));
+  wrap.appendChild(grid);
+
+  // Descripción
+  var desc = h('textarea', { class: 'det-desc', rows: '4', placeholder: 'Descripción, contexto, criterios de «hecho», enlaces…' });
+  desc.value = x.desc || '';
+  desc.addEventListener('change', function () { planSetDesc(x, desc.value); });
+  wrap.appendChild(h('div', { class: 'det-sec' }, h('div', { class: 'det-sec-title' }, icon('format'), 'Descripción'), desc));
+
+  // Pasos
+  var hechos = x.subs.filter(function (s) { return s.done; }).length;
+  var pasos = h('div', { class: 'det-sec' }, h('div', { class: 'det-sec-title' }, icon('todo'), 'Pasos',
+    x.subs.length ? h('span', { class: 'kc-count' }, hechos + '/' + x.subs.length) : null));
+  if (x.subs.length) pasos.appendChild(h('div', { class: 'planner-bar' }, h('div', { class: 'planner-bar-fill', style: { width: Math.round(hechos / x.subs.length * 100) + '%' } })));
+  pasos.appendChild(subsEditor(x, true));
+  wrap.appendChild(pasos);
+
+  // Historial
+  var hist = h('div', { class: 'det-sec' }, h('div', { class: 'det-sec-title' }, icon('clock'), 'Historial'));
+  var doing = planDoingMs(x);
+  var abierta = (closed ? (itemDoneAt(it) || now()) : now()) - (isTask ? x.createdAt : (x.kanbanAt || x.createdAt));
+  hist.appendChild(h('div', { class: 'det-stats' },
+    h('span', {}, (closed ? 'Tardó ' : 'Abierta hace ') + planFmtDur(abierta)),
+    doing ? h('span', {}, 'En progreso: ' + planFmtDur(doing)) : null));
+  var evs = (x.hist || []).slice().reverse();
+  var ul = h('div', { class: 'det-hist' });
+  evs.forEach(function (e) {
+    ul.appendChild(h('div', { class: 'det-ev' + (e.s ? ' k-' + e.s : '') },
+      h('span', { class: 'det-ev-at' }, fmtDate(e.ts) + ' ' + planFmtTime(e.ts)),
+      e.s ? h('span', { class: 'value-dot k-' + e.s }) : null,
+      h('span', {}, e.s ? '→ ' + kanbanLabel(e.s) : e.m)));
+  });
+  if (!evs.length) ul.appendChild(h('div', { class: 'det-ev' }, h('span', { class: 'det-ev-at' }, fmtDate(x.createdAt)), h('span', {}, 'Creada (sin cambios registrados aún)')));
+  hist.appendChild(ul);
+  wrap.appendChild(hist);
+
+  // Acciones
+  var acts = h('div', { class: 'det-actions' });
+  if (typeof pomoRowBtn === 'function') acts.appendChild(pomoRowBtn(it.src, it.id));
+  if (isTask) {
+    acts.appendChild(h('button', { class: 'cm-chip', onclick: function () { tareaDet = null; taskToCanvas(x); } }, icon('popout'), 'Llevar al lienzo'));
+    acts.appendChild(h('button', { class: 'cm-chip danger', onclick: function () {
+      if (!window.confirm('¿Eliminar la tarea «' + x.title + '»?')) return;
+      tareaDet = null; planDeleteTask(x); renderTareas();
+    } }, icon('trash'), 'Eliminar'));
+  } else {
+    acts.appendChild(h('button', { class: 'cm-chip', onclick: function () { tareaDet = null; removeFromKanban(x); renderTareas(); } }, icon('x'), 'Quitar del tablero'));
+  }
+  wrap.appendChild(acts);
+  body.appendChild(wrap);
+}
 
 // ---------- Vista Tablero ----------
 function renderTareasTablero(body) {
@@ -664,7 +937,7 @@ function renderTareasTablero(body) {
     // Cada columna captura: apuntar algo que ya está en marcha no obliga a crearlo y luego moverlo.
     var inp = h('input', { class: 'kanban-add-inp', placeholder: 'Añadir en «' + k[1] + '»…' });
     var addIt = function () {
-      var t = planAddTask(inp.value, { status: status });
+      var t = planAddTask(inp.value, { status: status, bookId: tareasNewBook() });
       if (!t) return;
       if (status !== 'todo') planSetStatus(t, status);
       inp.value = '';
@@ -728,7 +1001,8 @@ function boardCard(it, status) {
   top.appendChild(prioChip(ref, renderTareas));
   if (isTask && ref.kind && ref.kind !== 'relevant') top.appendChild(h('span', { class: 'kc-rank rank-' + ref.kind }, rankMeta(ref.kind).label));
   if (!isTask && ref.important) top.appendChild(h('span', { class: 'kc-star', title: 'Importante' }, icon('star')));
-  if (!isTask && ref.blocked) top.appendChild(h('span', { class: 'kc-blocked-badge', title: 'Bloqueado' }, icon('bellRing')));
+  if (ref.blocked) top.appendChild(h('span', { class: 'kc-blocked-badge', title: ref.blockedWhy ? 'En espera: ' + ref.blockedWhy : 'En espera' }, icon('bellRing')));
+  top.appendChild(detalleBtn(it.src, it.id));
   card.appendChild(top);
 
   // Doble clic sobre el texto para editarlo sin salir del tablero.
@@ -762,9 +1036,10 @@ function boardCard(it, status) {
       h('div', { class: 'kc-steps-fill', style: { width: Math.round(subsDone / subs.length * 100) + '%' } })));
   }
   var sub = isTask
-    ? ('⏱ ' + fmtDate(ref.createdAt) + (ref.day !== planTodayStr() && !ref.done ? ' · pendiente desde ' + ref.day.slice(5) : ''))
+    ? ('⏱ ' + fmtDate(ref.createdAt) + (ref.day !== planTodayStr() && !ref.done && !planDueOf(ref) ? ' · abierta desde ' + ref.day.slice(5) : ''))
     : bookLineOf(ref);
-  if (sub) card.appendChild(h('div', { class: 'kc-sub' }, sub));
+  var dc = dueChip(ref, itemIsDone(it));
+  if (sub || dc) card.appendChild(h('div', { class: 'kc-sub' }, dc, sub));
   var rem = isTask ? (ref.remindAt && ref.remindAt > now() ? planFmtTime(ref.remindAt) : null)
                    : (ref.reminder && !ref.reminder.done ? fmtShort(ref.reminder.at) : null);
   if (rem) card.appendChild(h('div', { class: 'kc-rem' }, icon('clock'), rem));
@@ -797,7 +1072,9 @@ function blockSetText(b, v) {
   b.content = b.content || {};
   b.content.text = v;
   var note = getNote(b.noteId);
-  if (note) note.title = v.length > 40 ? v.slice(0, 40) + '…' : v;
+  // La hoja toma el nombre de la tarjeta solo si es SU hoja (una tarjeta sola, no la hoja
+  // compartida «✅ Tareas» ni una hoja con más contenido).
+  if (note && !note.tasksHost && blocksOf(note.id).length === 1) note.title = v.length > 40 ? v.slice(0, 40) + '…' : v;
   touchNote(b.noteId);
   logChange('Tarjeta editada', v);
   save();
@@ -805,18 +1082,22 @@ function blockSetText(b, v) {
 }
 
 // ---------- Puentes entre el día y el lienzo ----------
-// Una tarea del día se convierte en tarjeta del lienzo conservando sus pasos.
+// Una tarea del día se convierte en tarjeta del lienzo conservando pasos, fecha, descripción
+// e historial. Va a la hoja a la que estaba anidada o, si no, a la hoja «✅ Tareas» de su
+// libro (o de la Bandeja): ya no se crea una hoja nueva por cada tarea.
 function taskToCanvas(t) {
-  var secId = ensureKanbanDefaultSection();
   var ts = now();
-  var note = { id: uid(), sectionId: secId, title: t.title.length > 40 ? t.title.slice(0, 40) + '…' : t.title, createdAt: ts, updatedAt: ts };
-  data.notes.push(note);
-  var blk = addBlock(note.id, 'text', 36 + Math.round(Math.random() * 140), 36 + Math.round(Math.random() * 120));
+  var noteId = (t.noteId && getNote(t.noteId)) ? t.noteId : tasksHostNote(planBookOf(t));
+  var spot = nextFreeSpot(noteId);
+  var blk = addBlock(noteId, 'text', spot.x, spot.y);
   blk.content = blk.content || {};
   blk.content.text = t.title;
   blk.content.rank = t.kind || 'idea';
-  blk.subs = (t.subs || []).map(function (s) { return { id: uid(), text: s.text, done: s.done, at: s.at }; });
-  blk.kanban = planStatusOf(t); blk.kanbanAt = ts; blk.kanbanOrder = ts;
+  blk.subs = (t.subs || []).map(function (s) { var c = { id: uid(), text: s.text, done: s.done, at: s.at }; if (s.note) c.note = s.note; return c; });
+  ['due', 'desc', 'priority', 'blocked', 'blockedWhy'].forEach(function (k) { if (t[k]) blk[k] = t[k]; });
+  blk.hist = (t.hist || []).slice();
+  blk.kanban = planStatusOf(t); blk.kanbanAt = t.createdAt || ts; blk.kanbanOrder = ts;
+  if (t.done) blk.kanbanDoneAt = t.doneAt || ts;
   data.plan = planTasks().filter(function (x) { return x.id !== t.id; });
   logChange('Tarea llevada al lienzo', t.title);
   save();
@@ -825,16 +1106,4 @@ function taskToCanvas(t) {
   renderTareas();
   if (typeof mobileRefresh === 'function') mobileRefresh();
   toast('Ahora es una tarjeta del lienzo, con sus pasos.', 'ok');
-}
-// Una tarjeta del lienzo se copia al plan de hoy (la tarjeta se queda donde está).
-function blockToTask(b) {
-  var text = (b.content && b.content.text) ? b.content.text : typeMeta(b.type).label;
-  var t = planAddTask(text, { noteId: b.noteId, status: b.kanban || 'todo' });
-  if (!t) return;
-  t.subs = (b.subs || []).map(function (s) { return { id: uid(), text: s.text, done: s.done, at: s.at }; });
-  if (b.kanban && b.kanban !== 'todo') planSetStatus(t, b.kanban);
-  save();
-  renderTareas();
-  if (typeof mobileRefresh === 'function') mobileRefresh();
-  toast('Añadida al plan de hoy.', 'ok');
 }

@@ -42,6 +42,7 @@ function initState() {
   if (ui.tasksDock !== 'dock' && ui.tasksDock !== 'modal') ui.tasksDock = 'dock'; // acoplado por defecto
   if (typeof ui.tasksWidth !== 'number') ui.tasksWidth = 0; // 0 = ancho por defecto de la vista
   if (!ui.recentColors || typeof ui.recentColors !== 'object') ui.recentColors = {}; // últimos colores de texto/fondo
+  if (ui.notesSort !== 'manual' && ui.notesSort !== 'recent') ui.notesSort = 'manual'; // orden de notas en el árbol
   if (!Array.isArray(data.plan)) data.plan = []; // tareas del día (el tablero las comparte)
   if (typeof ui.tablet !== 'boolean') ui.tablet = false;
   if (!ui.pen || typeof ui.pen !== 'object') ui.pen = { tool: 'pen', color: '#33302b', size: 3 };
@@ -230,10 +231,28 @@ function notebooksAll() {
 function sectionsOf(id) {
   return data.sections.filter(function (s) { return s.notebookId === id; }).sort(byOrder);
 }
+// Orden de las notas: el tuyo (arrastrando en el árbol) o por última edición. Antes solo
+// existía el segundo y cada nota saltaba de sitio al editarla. Las notas nuevas, que aún no
+// tienen `order`, salen arriba.
+function noteCmp(a, b) {
+  if (ui && ui.notesSort === 'recent') return (b.updatedAt || 0) - (a.updatedAt || 0);
+  var ao = typeof a.order === 'number', bo = typeof b.order === 'number';
+  if (ao && bo && a.order !== b.order) return a.order - b.order;
+  if (ao !== bo) return ao ? 1 : -1;
+  return (b.createdAt || 0) - (a.createdAt || 0);
+}
 function notesOf(id) {
   return data.notes
     .filter(function (n) { return n.sectionId === id; })
-    .sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+    .sort(noteCmp);
+}
+// Hermanas de una nota en el árbol: mismo padre (o nivel superior) dentro de su sección.
+function noteSiblings(n) {
+  var parent = n.parentId && getNote(n.parentId) ? n.parentId : null;
+  return data.notes.filter(function (x) {
+    var xp = x.parentId && getNote(x.parentId) ? x.parentId : null;
+    return x.sectionId === n.sectionId && xp === parent;
+  }).sort(noteCmp);
 }
 function blocksOf(id) {
   return data.blocks.filter(function (b) { return b.noteId === id; });
@@ -345,9 +364,21 @@ function deleteSection(id) {
   save();
   renderAll();
 }
+function noteDescendants(id) {
+  var out = [];
+  (data.notes || []).forEach(function (x) { if (x.parentId === id) out = out.concat([x], noteDescendants(x.id)); });
+  return out;
+}
 function deleteNote(id) {
   var n = getNote(id);
-  if (!window.confirm('\u00bfEliminar la nota "' + n.title + '"?')) return;
+  var hijas = noteDescendants(id);
+  if (!window.confirm('\u00bfEliminar la nota "' + n.title + '"?' + (hijas.length ? ' Tiene ' + hijas.length + ' sub-nota(s).' : ''))) return;
+  // Antes las sub-notas quedaban hu\u00e9rfanas y sub\u00edan de nivel sin avisar: ahora se decide.
+  if (hijas.length && window.confirm('\u00bfEliminar tambi\u00e9n sus ' + hijas.length + ' sub-nota(s)?\n\nAceptar = eliminarlas \u00b7 Cancelar = conservarlas en la secci\u00f3n')) {
+    hijas.forEach(function (x) { removeNoteData(x.id); });
+  } else {
+    hijas.forEach(function (x) { if (x.parentId === id) x.parentId = null; });
+  }
   removeNoteData(id);
   logChange('Nota eliminada', n.title);
   save();

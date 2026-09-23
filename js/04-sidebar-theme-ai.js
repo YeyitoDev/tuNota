@@ -15,13 +15,70 @@ function renderSidebar() {
     h('button', { class: 'sidebar-collapse-btn', title: 'Ocultar panel', onclick: toggleSidebar }, icon('chevronL'))
   );
   var tree = h('div', { class: 'tree' });
+  // Buscador del árbol: filtra por título sin salir del panel. Solo se repinta el árbol, no
+  // el panel entero, para no perder el foco mientras escribes.
+  var q = h('input', { class: 'tree-search', placeholder: 'Filtrar notas…', value: treeQuery });
+  q.addEventListener('input', function () { treeQuery = q.value; fillTree(tree); });
+  q.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); treeQuery = ''; q.value = ''; fillTree(tree); q.blur(); } });
+  var manual = ui.notesSort !== 'recent';
+  var sortBtn = h('button', {
+    class: 'act tree-sort' + (manual ? '' : ' on'),
+    title: manual ? 'Orden manual (arrastra para ordenar). Clic: ordenar por última edición'
+                  : 'Ordenadas por última edición. Clic: volver a tu orden manual',
+    onclick: function () { ui.notesSort = manual ? 'recent' : 'manual'; save(); renderSidebar(); },
+  }, icon(manual ? 'grip' : 'clock'));
+  var tools = h('div', { class: 'tree-tools' }, icon('search'), q, sortBtn);
+  fillTree(tree);
+  var addBtn = h('button', { class: 'add-nb', onclick: addNotebook }, icon('plus'), 'Nuevo libro');
+  aside.appendChild(brand);
+  aside.appendChild(tools);
+  aside.appendChild(tree);
+  aside.appendChild(addBtn);
+}
+var treeQuery = '';
+function fillTree(tree) {
+  tree.innerHTML = '';
+  if (treeQuery.trim()) { fillTreeSearch(tree, treeQuery); return; }
+  // Fijadas: las notas a las que vuelves a menudo, siempre arriba.
+  var fijadas = (data.notes || []).filter(function (n) { return n.pinned; });
+  if (fijadas.length) {
+    var pin = h('div', { class: 'tree-pinned' }, h('div', { class: 'sidebar-sec-title' }, icon('star'), 'Fijadas'));
+    fijadas.forEach(function (n) {
+      pin.appendChild(h('div', { class: 'row note-row pinned-row' + (ui.currentNoteId === n.id ? ' active' : ''), 'data-note-id': n.id, title: notePath(n), onclick: function () { selectNote(n.id); } },
+        icon('file'), h('span', { class: 'item-name' }, n.title || 'Nota'),
+        h('button', { class: 'act', title: 'Quitar de fijadas', onclick: function (e) { e.stopPropagation(); togglePinNote(n.id); } }, icon('x'))));
+    });
+    tree.appendChild(pin);
+  }
   var nbs = notebooksAll();
   nbs.forEach(function (nb) { tree.appendChild(notebookNode(nb)); });
   if (nbs.length === 0) tree.appendChild(h('p', { class: 'tree-empty' }, 'Crea tu primer libro.'));
-  var addBtn = h('button', { class: 'add-nb', onclick: addNotebook }, icon('plus'), 'Nuevo libro');
-  aside.appendChild(brand);
-  aside.appendChild(tree);
-  aside.appendChild(addBtn);
+}
+function notePath(n) {
+  var s = getSection(n.sectionId), nb = s && getNotebook(s.notebookId);
+  return (nb ? nb.name + ' › ' : '') + (s ? s.name : '');
+}
+function fillTreeSearch(tree, query) {
+  var f = searchFold(query.trim());
+  var hits = (data.notes || []).filter(function (n) { return searchFold(n.title || '').indexOf(f) >= 0; })
+    .sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+  hits.forEach(function (n) {
+    tree.appendChild(h('div', { class: 'row note-row search-row' + (ui.currentNoteId === n.id ? ' active' : ''), 'data-note-id': n.id, onclick: function () { selectNote(n.id); } },
+      icon('file'), h('span', { class: 'item-name' }, n.title || 'Nota', h('span', { class: 'tree-path' }, notePath(n)))));
+  });
+  if (!hits.length) tree.appendChild(h('p', { class: 'tree-empty' }, 'Ninguna nota se llama así. (Ctrl+K busca también dentro del contenido.)'));
+}
+function togglePinNote(id) {
+  var n = getNote(id); if (!n) return;
+  n.pinned = !n.pinned;
+  if (!n.pinned) delete n.pinned;
+  logChange(n.pinned ? 'Nota fijada' : 'Nota desfijada', n.title || 'Nota');
+  save(); renderSidebar();
+}
+// Nº de notas de una sección (incluidas las anidadas) y de un libro.
+function sectionNoteCount(secId) { return data.notes.filter(function (n) { return n.sectionId === secId; }).length; }
+function bookNoteCount(nbId) {
+  var n = 0; sectionsOf(nbId).forEach(function (s) { n += sectionNoteCount(s.id); }); return n;
 }
 // Actualiza solo la marca de fila activa en el árbol sin reconstruirlo.
 // Así el doble clic para renombrar una hoja no se rompe (selectNote ya no llama a
@@ -111,18 +168,24 @@ function notebookNode(nb) {
   emojiBtn.addEventListener('click', function (e) { e.stopPropagation(); openEmojiPicker(nb, emojiBtn); });
   var row = h(
     'div',
-    { class: 'row nb-row' },
+    { class: 'row nb-row' + (nb.inbox ? ' is-inbox' : '') },
     h('button', { class: 'chev', onclick: function () { ui.expN[nb.id] = !open; save(); renderSidebar(); } }, icon(open ? 'chevronDown' : 'chevron')),
     emojiBtn,
     name,
+    h('span', { class: 'tree-count', title: 'Notas en este libro' }, String(bookNoteCount(nb.id))),
     h('button', { class: 'act', title: 'A\u00f1adir secci\u00f3n', onclick: function (e) { e.stopPropagation(); addSection(nb.id); } }, icon('folderPlus')),
     editBtn,
     h('button', { class: 'act danger', title: 'Eliminar libro', onclick: function (e) { e.stopPropagation(); deleteNotebook(nb.id); } }, icon('trash'))
   );
-  // Suelta aqu\u00ED una nota (va a su primera secci\u00f3n) o una secci\u00f3n entera (con sus notas).
-  treeDropWire(row, ['note', 'sec'], function (drag) {
+  // El libro se arrastra para reordenarlo. Recibe una nota (va a su primera secci\u00f3n) o una
+  // secci\u00f3n entera (con sus notas); otro libro se coloca antes o despu\u00e9s.
+  row.setAttribute('draggable', 'true');
+  row.addEventListener('dragstart', function (e) { _treeDrag = { kind: 'nb', id: nb.id }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', nb.name); } catch (err) {} });
+  row.addEventListener('dragend', function () { _treeDrag = null; });
+  treeDropWire(row, { note: 'inside', sec: 'inside', nb: 'edges' }, function (drag, zone) {
     if (drag.kind === 'note') moveNoteToNotebook(drag.id, nb.id);
-    else moveSectionToNotebook(drag.id, nb.id);
+    else if (drag.kind === 'sec') moveSectionToNotebook(drag.id, nb.id);
+    else moveBookBeside(drag.id, nb.id, zone);
   });
   var wrap = h('div', {}, row);
   if (open) {
@@ -144,6 +207,7 @@ function sectionNode(s) {
     { class: 'row sec-row' },
     h('button', { class: 'chev', onclick: function () { ui.expS[s.id] = !open; save(); renderSidebar(); } }, icon(open ? 'chevronDown' : 'chevron')),
     name,
+    h('span', { class: 'tree-count', title: 'Notas en esta sección' }, String(sectionNoteCount(s.id))),
     h('button', { class: 'act', title: 'Nueva nota', onclick: function (e) { e.stopPropagation(); addNote(s.id); } }, icon('plus')),
     editBtn,
     h('button', { class: 'act danger', title: 'Eliminar secci\u00f3n', onclick: function (e) { e.stopPropagation(); deleteSection(s.id); } }, icon('trash'))
@@ -152,7 +216,10 @@ function sectionNode(s) {
   row.setAttribute('draggable', 'true');
   row.addEventListener('dragstart', function (e) { _treeDrag = { kind: 'sec', id: s.id }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', s.name); } catch (err) {} });
   row.addEventListener('dragend', function () { _treeDrag = null; });
-  treeDropWire(row, ['note'], function (drag) { moveNoteToSection(drag.id, s.id); });
+  treeDropWire(row, { note: 'inside', sec: 'edges' }, function (drag, zone) {
+    if (drag.kind === 'note') moveNoteToSection(drag.id, s.id);
+    else moveSectionBeside(drag.id, s.id, zone);
+  });
   var wrap = h('div', {}, row);
   if (open) {
     var kids = h('div', { class: 'children' });
@@ -188,6 +255,7 @@ function moveNoteToSection(noteId, sectionId) {
   if (n.sectionId === sectionId && !n.parentId) { toast('La nota ya está en esa sección.', 'info'); return; }
   n.parentId = null;                       // pasa al nivel superior de la sección destino
   setNoteSectionDeep(noteId, sectionId);
+  n.order = notesOf(sectionId).reduce(function (m, x) { return x !== n && typeof x.order === 'number' ? Math.min(m, x.order) : m; }, 0) - 1; // arriba del todo
   var nb = getNotebook(s.notebookId);
   ui.expS[sectionId] = true; if (nb) ui.expN[nb.id] = true;   // que se vea dónde quedó
   logChange('Nota movida', (n.title || 'Nota') + ' → ' + s.name);
@@ -229,20 +297,71 @@ function moveSectionToNotebook(secId, nbId) {
   save(); renderSidebar();
   toast('Sección «' + s.name + '» movida al libro «' + nb.name + '».', 'ok');
 }
-// Cablea una fila del árbol como destino de soltado (con marca visual).
-function treeDropWire(row, accepts, onDrop) {
+// ---------- Reordenar arrastrando ----------
+// Coloca `moved` antes o después de `target` en la lista de hermanos y renumera `order`.
+function placeAmong(list, moved, target, zone) {
+  var arr = list.filter(function (x) { return x !== moved; });
+  var i = arr.indexOf(target);
+  if (i < 0) i = arr.length - 1;
+  arr.splice(zone === 'after' ? i + 1 : i, 0, moved);
+  arr.forEach(function (x, k) { x.order = k; });
+}
+function moveNoteBeside(noteId, targetId, zone) {
+  var n = getNote(noteId), t = getNote(targetId);
+  if (!n || !t || n === t) return;
+  if (noteIsOrHasAncestor(targetId, noteId)) { toast('No puedes colocar una nota junto a una de sus propias sub-notas.', 'warn'); return; }
+  n.parentId = t.parentId && getNote(t.parentId) ? t.parentId : null;
+  setNoteSectionDeep(noteId, t.sectionId);
+  placeAmong(noteSiblings(t), n, t, zone);
+  if (ui.notesSort === 'recent') { ui.notesSort = 'manual'; toast('Pasado a orden manual para respetar dónde la sueltas.', 'info'); }
+  logChange('Nota reordenada', n.title || 'Nota');
+  save(); renderSidebar();
+}
+function moveBookBeside(id, targetId, zone) {
+  var nb = getNotebook(id), t = getNotebook(targetId);
+  if (!nb || !t || nb === t) return;
+  placeAmong(notebooksAll(), nb, t, zone);
+  logChange('Libro reordenado', nb.name);
+  save(); renderSidebar();
+  if (typeof renderTopbar === 'function') renderTopbar();
+}
+function moveSectionBeside(secId, targetId, zone) {
+  var s = getSection(secId), t = getSection(targetId);
+  if (!s || !t || s === t) return;
+  s.notebookId = t.notebookId;
+  placeAmong(sectionsOf(t.notebookId), s, t, zone);
+  ui.expN[t.notebookId] = true;
+  logChange('Sección reordenada', s.name);
+  save(); renderSidebar();
+}
+// Dónde cae lo que sueltas sobre una fila: 'inside' = dentro; 'edges' = antes/después (mitad
+// superior/inferior); 'zones' = las tres (bordes para colocar, centro para meter dentro).
+function treeDropZone(row, e, mode) {
+  if (mode === 'inside') return 'inside';
+  var r = row.getBoundingClientRect(), y = (e.clientY - r.top) / (r.height || 1);
+  if (mode === 'edges') return y < 0.5 ? 'before' : 'after';
+  return y < 0.3 ? 'before' : y > 0.7 ? 'after' : 'inside';
+}
+// Cablea una fila del árbol como destino de soltado (con marca visual de la zona).
+// rules: { tipoArrastrado: 'inside' | 'edges' | 'zones' }; onDrop(drag, zone).
+function treeDropWire(row, rules, onDrop) {
+  var clear = function () { row.classList.remove('drop-ok', 'drop-before', 'drop-after'); };
   row.addEventListener('dragover', function (e) {
-    if (!_treeDrag || accepts.indexOf(_treeDrag.kind) < 0) return;
+    var mode = _treeDrag && rules[_treeDrag.kind];
+    if (!mode) return;
     e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-    row.classList.add('drop-ok');
+    var z = treeDropZone(row, e, mode);
+    clear();
+    row.classList.add(z === 'inside' ? 'drop-ok' : 'drop-' + z);
   });
-  row.addEventListener('dragleave', function () { row.classList.remove('drop-ok'); });
+  row.addEventListener('dragleave', clear);
   row.addEventListener('drop', function (e) {
-    row.classList.remove('drop-ok');
-    if (!_treeDrag || accepts.indexOf(_treeDrag.kind) < 0) return;
+    clear();
+    var mode = _treeDrag && rules[_treeDrag.kind];
+    if (!mode) return;
     e.preventDefault(); e.stopPropagation();
     var d = _treeDrag; _treeDrag = null;
-    onDrop(d);
+    onDrop(d, treeDropZone(row, e, mode));
   });
 }
 // Menú «Mover a…»: todas las secciones (por libro), sacar al nivel superior y anidar en otra nota.
@@ -289,8 +408,9 @@ function noteRow(n) {
   var row = h(
     'div',
     { class: 'row note-row' + (active ? ' active' : ''), 'data-note-id': n.id, onclick: function () { selectNote(n.id); } },
-    icon('file'),
+    icon(n.tasksHost ? 'todo' : 'file'),
     name,
+    h('button', { class: 'act pin-btn' + (n.pinned ? ' on' : ''), title: n.pinned ? 'Quitar de fijadas' : 'Fijar arriba del árbol', onclick: function (e) { e.stopPropagation(); togglePinNote(n.id); } }, icon('star')),
     moveBtn,
     editBtn,
     h('button', { class: 'act danger', title: 'Eliminar nota', onclick: function (e) { e.stopPropagation(); deleteNote(n.id); } }, icon('trash'))
@@ -299,10 +419,15 @@ function noteRow(n) {
   row.setAttribute('draggable', 'true');
   row.addEventListener('dragstart', function (e) { _treeDrag = { kind: 'note', id: n.id }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', n.title || 'Nota'); } catch (err) {} });
   row.addEventListener('dragend', function () { _treeDrag = null; });
-  treeDropWire(row, ['note'], function (drag) { if (drag.id !== n.id) nestNoteInto(drag.id, n.id); });
+  // Bordes de la fila: colocarla antes/después (reordenar). Centro: guardarla dentro.
+  treeDropWire(row, { note: 'zones' }, function (drag, zone) {
+    if (drag.id === n.id) return;
+    if (zone === 'inside') nestNoteInto(drag.id, n.id);
+    else moveNoteBeside(drag.id, n.id, zone);
+  });
   // Sub-lienzos (notas hijas, "lienzo sobre lienzo") y grupos del lienzo, anidados bajo la nota.
   var gs = groupsOf(n.id);
-  var children = (data.notes || []).filter(function (x) { return x.parentId === n.id && getNote(n.id); });
+  var children = (data.notes || []).filter(function (x) { return x.parentId === n.id && getNote(n.id); }).sort(noteCmp);
   if (!gs.length && !children.length) return row;
   var wrap = h('div', {}, row);
   if (children.length) {

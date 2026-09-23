@@ -670,11 +670,9 @@ function toggleBlocked(b) {
 }
 function ensureKanbanDefaultSection() {
   if (ui.kanbanDefaultSec && getSection(ui.kanbanDefaultSec)) return ui.kanbanDefaultSec;
-  var nb = data.notebooks[0];
-  if (!nb) { nb = { id: uid(), name: 'Mi primer libro', emoji: '\uD83C\uDF3F', order: 0, createdAt: now() }; data.notebooks.push(nb); }
-  var sec = null;
-  sectionsOf(nb.id).forEach(function (s) { if (!sec) sec = s; });
-  if (!sec) { sec = { id: uid(), notebookId: nb.id, name: 'Kanban', order: sectionsOf(nb.id).length }; data.sections.push(sec); }
+  // Lo que no tiene sitio va a la Bandeja (js/20-planner.js), no al primer libro que haya.
+  var nb = ensureInbox();
+  var sec = sectionsOf(nb.id)[0];
   ui.kanbanDefaultSec = sec.id;
   ui.expN[nb.id] = true; ui.expS[sec.id] = true;
   save();
@@ -685,6 +683,7 @@ function addToKanban(b) {
   var t = now();
   b.kanban = 'todo'; b.kanbanAt = t; b.kanbanOrder = t;
   if (!Array.isArray(b.subs)) b.subs = []; // desde el tablero puede desglosarse en pasos
+  planHist(b, { s: 'todo' });
   touchNote(b.noteId);
   logChange('Enviado a Kanban', reminderText(b));
   save();

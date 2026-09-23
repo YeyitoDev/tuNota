@@ -298,16 +298,25 @@ describe('filtros de fecha', () => {
     expect(app.boardItems('todo').map((i) => i.ref.title)).toEqual([hoy.title]);
   });
 
-  it('«Atrasadas» muestra lo pendiente de días pasados y nunca lo completado', () => {
-    const atrasada = app.planAddTask('pendiente de ayer');
-    atrasada.day = dias(-1);
-    const hechaAyer = app.planAddTask('hecha ayer');
-    app.planSetStatus(hechaAyer, 'done');
-    hechaAyer.day = dias(-1);
-    app.planAddTask('de hoy');
+  it('«Vencidas» muestra lo abierto con la fecha límite pasada, no lo solo arrastrado', () => {
+    app.planAddTask('vencida ayer', { due: dias(-1) });
+    const arrastrada = app.planAddTask('arrastrada sin fecha');
+    arrastrada.day = dias(-3);
+    const hecha = app.planAddTask('hecha y vencida', { due: dias(-2) });
+    app.planSetStatus(hecha, 'done');
+    app.planAddTask('vence mañana', { due: dias(1) });
     app.ui.tasksDate = 'late';
     const vistos = ['todo', 'doing', 'done'].flatMap((s) => app.boardItems(s).map((i) => i.ref.title));
-    expect(vistos).toEqual(['pendiente de ayer']);
+    expect(vistos).toEqual(['vencida ayer']);
+  });
+
+  it('«Completadas» incluye lo terminado otros días (historial)', () => {
+    const vieja = app.planAddTask('hecha la semana pasada');
+    app.planSetStatus(vieja, 'done');
+    vieja.day = dias(-7); vieja.doneAt = Date.now() - 7 * 86400000;
+    app.planAddTask('abierta');
+    app.ui.tasksDate = 'done';
+    expect(app.boardItems('done').map((i) => i.ref.title)).toEqual(['hecha la semana pasada']);
   });
 
   it('«Semana» incluye lo del lunes en curso y descarta lo del mes pasado', () => {
